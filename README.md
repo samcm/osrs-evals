@@ -207,6 +207,30 @@ Which model, and which provider account pays for it, is not in this repo: it is 
 Inspect's usual provider settings (such as `ANTHROPIC_BASE_URL` and `ANTHROPIC_API_KEY`) in the
 environment where you run `inspect`.
 
+## Comparing agents and models
+
+A set of runs is a file of tasks, one per variant, and Inspect's `eval-set`.
+`evals/cooks_assistant_agents.py` is Cook's Assistant with three agents (a model with a shell,
+Claude Code, Codex), 3 attempts each. The models are given at run time, so the same file compares
+models too (`--model a,b`):
+
+```sh
+PYTHONPATH=. inspect eval-set evals/cooks_assistant_agents.py --model anthropic/claude-haiku-5-5 --log-dir logs/cooks-haiku
+```
+
+Run it again on the same log dir and it runs only what is missing or failed.
+
+## Where runs are stored
+
+Each run is one Inspect log (`.eval`) in the log dir: the task and its arguments, the agent and its
+arguments, the model, the repo commit, the scores, the score over time, how the game ended and every
+model call. Next to it is a folder per sample with the game recording (`world.jsonl.gz`), the
+server's and clients' logs and `sample.json`. Inspect View lists and compares runs across all of these.
+
+The log dir is a deployment setting: a local folder (the default, `logs/`, not committed) or any
+fsspec location such as `--log-dir s3://bucket/path`, which Inspect and the run folders both write
+to. The viewer in `viewer/` reads a local folder only.
+
 ## More with the same pieces
 
 **More accounts.** `evals/gold.py` gives 4 accounts (`-T accounts=N`) 36,000 ticks (30 minutes at 8×)
@@ -279,6 +303,8 @@ Not verified:
 
 - **Codex, OpenCode and `command()` with an agent CLI.** They use the same path as Claude Code
   (`--solver`, the prompt, the bridge), but have not been run here.
+- **Viewer on remote logs.** Runs write to S3 (checked against a local S3 server), but the
+  viewer reads only a local log folder.
 - **Other places to run.** Only the local Docker sandbox has run. The harness uses only Inspect's
   sandbox calls (exec, file copy and, for the live view, published ports), so k8s or EC2 should need
   only the world image in a registry and a sandbox config, but that is untested.

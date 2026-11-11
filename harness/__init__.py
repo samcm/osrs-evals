@@ -15,6 +15,8 @@ import io
 import json
 import tarfile
 import time
+
+import fsspec
 from pathlib import Path
 from typing import Any, Callable
 
@@ -92,7 +94,7 @@ def game(track: Callable[[Accounts], float] | None = None, done: Callable[[Accou
             await sb.write_file(f"/opt/bots/{a['username']}/bot.env", f"BOT_USERNAME={a['username']}\nPASSWORD=pw\nSERVER=localhost:8888\nGATEWAY_URL=ws://localhost:7780\n")
         await check(sb.exec(["/harness/start-world.sh"], env={**world, "SAVE_EVERY_TICKS": str(sample_ticks)}, timeout=600))
         await sb.exec(["sh", "-c", f"nohup bun /harness/record.ts {OUT}/world.jsonl {' '.join(names)} > {OUT}/record.log 2>&1 & echo $! > /run/record.pid"])
-        g = GAMES[state.uuid] = Game(names, track, done, sample_ticks, tick_ms, budget, local_run_dir(state))
+        g = GAMES[state.uuid] = Game(names, track, done, sample_ticks, tick_ms, budget, run_dir(state))
         await announce_live(sb, g.run_dir, names)
 
         # Each account in the game through rs-sdk's headless client.
@@ -173,7 +175,7 @@ async def end_game(sb, state, reason: str, now: int | None = None) -> dict:
         if g.track:
             state.metadata["timeline"] = [{k: v for k, v in p.items() if k != "state"} for p in g.timeline]
         await save_run(sb, g.run_dir, state)
-        (g.run_dir / "live.json").unlink(missing_ok=True)
+        remove(f"{g.run_dir}/live.json")
         return g.ended
 
 
@@ -239,14 +241,29 @@ async def g_sample(sb, g: Game, saved_every: int | None = None) -> int:
     return tick
 
 
-def local_run_dir(state) -> Path:
-    """Where this sample's game recording goes: next to its Inspect log."""
+def run_dir(state) -> str:
+    """Where this sample's run folder goes: next to its Inspect log, wherever the log dir is (a
+    local path, s3://, or any other filesystem fsspec knows)."""
     active = sample_active()
-    log = active.log_location if active and active.log_location and "://" not in active.log_location else "logs/run.eval"
-    return Path(log).with_suffix("") / f"{state.sample_id}-{state.epoch}"
+    log = active.log_location if active and active.log_location else "logs/run.eval"
+    return f"{log.removesuffix('.eval')}/{state.sample_id}-{state.epoch}"
 
 
-async def announce_live(sb, run_dir: Path, names: list[str]) -> None:
+def put(url: str, data: bytes | str) -> None:
+    """Write one file of the run folder."""
+    fs, path = fsspec.core.url_to_fs(url)
+    fs.makedirs(path.rsplit("/", 1)[0], exist_ok=True)
+    with fs.open(path, "wb") as f:
+        f.write(data.encode() if isinstance(data, str) else data)
+
+
+def remove(url: str) -> None:
+    fs, path = fsspec.core.url_to_fs(url)
+    if fs.exists(path):
+        fs.rm(path)
+
+
+async def announce_live(sb, run_dir: str, names: list[str]) -> None:
     """Tell people where the live world feed is, when the sandbox publishes the engine's port."""
     try:
         ports = (await sb.connection()).ports or []
@@ -254,20 +271,20 @@ async def announce_live(sb, run_dir: Path, names: list[str]) -> None:
         return
     for p in ports:
         if p.container_port == 8888 and p.mappings:
-            run_dir.mkdir(parents=True, exist_ok=True)
-            (run_dir / "live.json").write_text(json.dumps({"port": p.mappings[0].host_port, "accounts": names}))
+            put(f"{run_dir}/live.json", json.dumps({"port": p.mappings[0].host_port, "accounts": names}))
             transcript().info({"world_feed_port": p.mappings[0].host_port, "accounts": names}, source="live view")
 
 
-async def save_run(sb, run_dir: Path, state) -> None:
+async def save_run(sb, run_dir: str, state) -> None:
     """Copy the sample's game recording, logs and timeline out of the sandbox, next to the log."""
     await sb.exec(["sh", "-c", f"kill $(cat /run/record.pid); sleep 1; gzip -f {OUT}/world.jsonl; tar czf /tmp/out.tgz -C {OUT} ."])
     data = await sb.read_file("/tmp/out.tgz", text=False)
-    run_dir.mkdir(parents=True, exist_ok=True)
     with tarfile.open(fileobj=io.BytesIO(data)) as tar:
-        tar.extractall(run_dir, filter="data")
-    (run_dir / "sample.json").write_text(json.dumps({k: state.metadata.get(k) for k in ["accounts", "world", "budget_ticks", "game", "timeline"]}))
-    state.metadata["run_dir"] = str(run_dir)
+        for member in tar.getmembers():
+            if member.isfile():
+                put(f"{run_dir}/{member.name.removeprefix('./')}", tar.extractfile(member).read())
+    put(f"{run_dir}/sample.json", json.dumps({k: state.metadata.get(k) for k in ["accounts", "world", "budget_ticks", "game", "timeline"]}))
+    state.metadata["run_dir"] = run_dir
 
 
 async def upload(sb, folders: dict[str, str]) -> None:
