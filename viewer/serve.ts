@@ -55,7 +55,7 @@ function index(): Response {
         const s = r.sample ?? {}, accounts = r.live?.accounts ?? (s.accounts ?? []).map((a: any) => a.username);
         const last = s.timeline?.at(-1);
         const watch = (name: string) => `<a href="#" onclick="watch('${esc(r.path)}','${esc(name)}');return false">${esc(name)}</a>`;
-        return `<tr><td>${r.live ? '<b class=live>LIVE</b>' : 'recorded'}</td><td><code>${esc(r.path)}</code><br><small>${esc(s.program?.command)}</small></td>` +
+        return `<tr><td>${r.live ? '<b class=live>LIVE</b>' : 'recorded'}</td><td><code>${esc(r.path)}</code><br><small>${esc(s.game ? `ended by ${s.game.ended_by} after ${s.game.ticks} ticks` : "")}</small></td>` +
             `<td>${last ? `<b>${last.value.toLocaleString()}</b> at tick ${last.tick}` : ''}<br>${chart(s.timeline)}</td><td>watch ${accounts.map(watch).join(' · ')}</td></tr>`;
     });
     return new Response(`<!doctype html><meta charset=utf-8><title>Eval runs</title>
