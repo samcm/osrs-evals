@@ -29,4 +29,6 @@ def cooks_claude_code():
 
 @task
 def cooks_codex():
-    return task_with(cooks_assistant(), solver=codex_cli(), epochs=EPOCHS)
+    # Codex 0.167 sends its tools in a "namespace" with a grammar-based shell, which reached the model
+    # through an OpenAI-compatible proxy as no usable tool; 0.130.0 sends plain function tools.
+    return task_with(cooks_assistant(), solver=codex_cli(version="0.130.0"), epochs=EPOCHS)

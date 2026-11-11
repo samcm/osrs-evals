@@ -189,7 +189,7 @@ the `bash` tool):
 ```sh
 PYTHONPATH=. inspect eval evals/cooks_assistant.py --model anthropic/claude-haiku-5-5
 PYTHONPATH=. inspect eval evals/cooks_assistant.py --model anthropic/claude-haiku-5-5 --solver inspect_swe/claude_code
-PYTHONPATH=. inspect eval evals/cooks_assistant.py --model openai/<model> --solver inspect_swe/codex_cli
+PYTHONPATH=. inspect eval evals/cooks_assistant.py --model openai/<model> --solver inspect_swe/codex_cli -S version=0.130.0
 ```
 
 Any other agent or program goes through `command()`, which runs it with `$EVAL` (below) and, when
@@ -292,7 +292,8 @@ Verified by running, in a 2-CPU, 4 GB Linux VM with Docker, Inspect 0.3.289 and 
 | The simple example | Above. The score is read from the server's save after logout. |
 | `command()` through `--solver` | `--solver harness/__init__.py@command -S cmd="bun /programs/pickpocket.ts"` on the coins eval. |
 | A model with a shell | Cook's Assistant, `--model anthropic/claude-haiku-5-5`: completed at tick 5,683 (4 min 48 s), 44 shell calls writing and rerunning scripts in `/work`, every model call in the Inspect log. |
-| Claude Code | Cook's Assistant, `--solver inspect_swe/claude_code --model anthropic/claude-haiku-5-5`: Claude Code ran in the sandbox through the agent bridge, 52 model calls in 10 minutes, all logged. It got the milk, egg and pot, could not get flour from the mill, and gave up at tick 10,400 of 12,000 (score 0). | |
+| The agent matrix | `evals/cooks_assistant_agents.py` with `eval-set`, 3 attempts per agent, on Claude Haiku 5.5 and GPT-5.6 Luna. Every run ended at the budget, on done, or when the agent stopped, and was scored from the server. |
+| Claude Code | Cook's Assistant, `--solver inspect_swe/claude_code --model anthropic/claude-haiku-5-5`: Claude Code ran in the sandbox through the agent bridge, 52 model calls in 10 minutes, all logged. It got the milk, egg and pot, could not get flour from the mill, and gave up at tick 10,400 of 12,000 (score 0). |
 | Score over time | Every sample: the eval's measure per account every 100 ticks, in the transcript and the sample's metadata, and drawn in the viewer. |
 | Recording and replay | The world feed around the accounts is saved with each sample and replayed into rs-world at the recorded pace, 4× faster, or from a later tick. A 6,000-tick, 4-account run was recorded unbroken (700 KB). A 36,000-tick run lost its recording after about 2,000 ticks while the VM was swapping; the recorder now reconnects, which was tested only against a fake feed. |
 | Live 3D view | rs-world, served by the viewer, followed `acct1` live during a run. |
@@ -301,8 +302,12 @@ Verified by running, in a 2-CPU, 4 GB Linux VM with Docker, Inspect 0.3.289 and 
 
 Not verified:
 
-- **Codex, OpenCode and `command()` with an agent CLI.** They use the same path as Claude Code
-  (`--solver`, the prompt, the bridge), but have not been run here.
+- **Codex needs an OpenAI-family model and a pinned version.** With Claude models the Anthropic
+  API rejects Codex's free-form tools (no input schema). Codex 0.167 sends its tools in a
+  "namespace" with a grammar-based shell, which reached the model through an OpenAI-compatible
+  proxy as no usable tool, so it stopped after one message; 0.130.0 sends plain function tools and
+  plays. Which versions work depends on the provider behind `--model`.
+- **OpenCode and `command()` with an agent CLI** use the same path but have not been run here.
 - **Viewer on remote logs.** Runs write to S3 (checked against a local S3 server), but the
   viewer reads only a local log folder.
 - **Other places to run.** Only the local Docker sandbox has run. The harness uses only Inspect's
