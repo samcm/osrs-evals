@@ -124,7 +124,7 @@ Bun.serve<{ run: string; speed: number; from: number } & Feed>({
 // Send the recorded messages at the pace the engine sent them: one tick every tickMs / speed.
 function replay(ws: any, file: string) {
     if (!existsSync(file)) return ws.close(1011, 'no recording');
-    const lines = Bun.gunzipSync(readFileSync(file)).toString().split('\n').filter(Boolean);
+    const lines = new TextDecoder().decode(Bun.gunzipSync(readFileSync(file))).split('\n').filter(Boolean);
     let i = 0, tickMs = 400, firstTick = -1, started = performance.now();
     const step = () => {
         while (i < lines.length && !ws.data.closed) {

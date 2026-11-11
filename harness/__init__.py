@@ -48,61 +48,64 @@ def run_program(command: str, track: Callable[[Accounts], float] | None = None, 
         run_dir = local_run_dir(state)
         await announce_live(sb, run_dir, names)
 
-        # 2. one headless client per account, then the program
-        for name in names:
-            await check(sb.exec(["/harness/client.sh", name], timeout=120))
-        contract = {
-            "goal": state.input_text,
-            "accounts": [{"username": n, "password": "pw"} for n in names],
-            "gateway": "ws://localhost:7780",
-            "budget_ticks": budget,
-            "tick_ms": tick_ms,
-            "out": f"{OUT}/program",
-        }
-        await sb.write_file("/run/eval.json", json.dumps(contract))
-        timeline: list[dict] = []
-        async with contextlib.AsyncExitStack() as stack:
-            env = {"EVAL": "/run/eval.json"}
-            if str(get_model()) != "none/none":
-                # The eval has a model (--model): programs may call it through Inspect's agent
-                # bridge with any OpenAI or Anthropic client, and Inspect logs every call.
-                await stack.enter_async_context(sandbox_agent_bridge())
-                env |= {"OPENAI_BASE_URL": "http://localhost:13131/v1", "ANTHROPIC_BASE_URL": "http://localhost:13131", "OPENAI_API_KEY": "inspect", "ANTHROPIC_API_KEY": "inspect"}
-            start = await sample(sb, names, track, timeline)
-            await check(sb.exec(["/harness/run.sh", command], env=env))
+        try:
+            # 2. one headless client per account, then the program
+            for name in names:
+                await check(sb.exec(["/harness/client.sh", name], timeout=120))
+            contract = {
+                "goal": state.input_text,
+                "accounts": [{"username": n, "password": "pw"} for n in names],
+                "gateway": "ws://localhost:7780",
+                "budget_ticks": budget,
+                "tick_ms": tick_ms,
+                "out": f"{OUT}/program",
+            }
+            await sb.write_file("/run/eval.json", json.dumps(contract))
+            timeline: list[dict] = []
+            async with contextlib.AsyncExitStack() as stack:
+                env = {"EVAL": "/run/eval.json"}
+                if str(get_model()) != "none/none":
+                    # The eval has a model (--model): programs may call it through Inspect's agent
+                    # bridge with any OpenAI or Anthropic client, and Inspect logs every call.
+                    await stack.enter_async_context(sandbox_agent_bridge())
+                    env |= {"OPENAI_BASE_URL": "http://localhost:13131/v1", "ANTHROPIC_BASE_URL": "http://localhost:13131", "OPENAI_API_KEY": "inspect", "ANTHROPIC_API_KEY": "inspect"}
+                start = await sample(sb, names, track, timeline)
+                await check(sb.exec(["/harness/run.sh", command], env=env))
 
-            # Sample the accounts until the budget runs out or the program ends; then stop it.
-            end_tick, deadline = start + budget, time.monotonic() + 2 * budget * tick_ms / 1000 + 120
-            stopped_by, now = "budget", start
-            while True:
-                await asyncio.sleep(min(sample_ticks, end_tick - now) * tick_ms / 1000)
-                now = await sample(sb, names, track, timeline)
-                if now >= end_tick:
-                    break
-                if time.monotonic() > deadline:
-                    stopped_by = "wall clock (the engine ran slower than its tick rate)"
-                    break
-                if (await sb.exec(["sh", "-c", "kill -0 $(cat /run/program.pid)"])).returncode != 0:
-                    stopped_by = "program exited"
-                    break
-            await sb.exec(["/harness/stop.sh"], timeout=60)
+                # Sample the accounts until the budget runs out or the program ends; then stop it.
+                end_tick, deadline = start + budget, time.monotonic() + 2 * budget * tick_ms / 1000 + 120
+                stopped_by, now = "budget", start
+                while True:
+                    await asyncio.sleep(min(sample_ticks, end_tick - now) * tick_ms / 1000)
+                    now = await sample(sb, names, track, timeline)
+                    if now >= end_tick:
+                        break
+                    if time.monotonic() > deadline:
+                        stopped_by = "wall clock (the engine ran slower than its tick rate)"
+                        break
+                    if (await sb.exec(["sh", "-c", "kill -0 $(cat /run/program.pid)"])).returncode != 0:
+                        stopped_by = "program exited"
+                        break
+                await sb.exec(["/harness/stop.sh"], timeout=60)
 
-        # 3. log every account out at once, so the server writes the final save
-        logout = await sb.exec(["bun", "/harness/logout.ts", *names], timeout=180)
-        final = await sample(sb, names, track, timeline)
-        exit_code = (await sb.exec(["cat", "/run/program.exit"])).stdout.strip()
-        state.metadata["program"] = {
-            "command": command,
-            "stopped_by": stopped_by,
-            "exit": exit_code,
-            "ticks": final - start,
-            "logout": json.loads((logout.stdout.strip().splitlines() or ["{}"])[-1]),
-            "output": (await sb.exec(["tail", "-c", "6000", f"{OUT}/program.log"])).stdout,
-        }
-        if track:
-            state.metadata["timeline"] = [{**p, "tick": p["tick"] - start} for p in timeline]
-        await save_run(sb, run_dir, state)
-        return state
+            # 3. log every account out at once, so the server writes the final save
+            logout = await sb.exec(["bun", "/harness/logout.ts", *names], timeout=180)
+            final = await sample(sb, names, track, timeline)
+            exit_code = (await sb.exec(["cat", "/run/program.exit"])).stdout.strip()
+            state.metadata["program"] = {
+                "command": command,
+                "stopped_by": stopped_by,
+                "exit": exit_code,
+                "ticks": final - start,
+                "logout": json.loads((logout.stdout.strip().splitlines() or ["{}"])[-1]),
+                "output": (await sb.exec(["tail", "-c", "6000", f"{OUT}/program.log"])).stdout,
+            }
+            if track:
+                state.metadata["timeline"] = [{**p, "tick": p["tick"] - start} for p in timeline]
+            await save_run(sb, run_dir, state)
+            return state
+        finally:
+            (run_dir / "live.json").unlink(missing_ok=True)
 
     return solve
 
@@ -153,7 +156,6 @@ async def save_run(sb, run_dir: Path, state) -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
     with tarfile.open(fileobj=io.BytesIO(data)) as tar:
         tar.extractall(run_dir, filter="data")
-    (run_dir / "live.json").unlink(missing_ok=True)
     (run_dir / "sample.json").write_text(json.dumps({k: state.metadata.get(k) for k in ["accounts", "world", "budget_ticks", "program", "timeline"]}))
     state.metadata["run_dir"] = str(run_dir)
 
