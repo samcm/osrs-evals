@@ -1,0 +1,10 @@
+services:
+  default:
+    image: rs-evals-world:71d949d
+    init: true
+    volumes:
+      - ../harness:/harness:ro
+      - ../saves:/evals/saves:ro
+      - ../programs:/programs:ro
+    ports:
+      - "8888:8888"   # engine web port: world feed for rs-world, /mapview
