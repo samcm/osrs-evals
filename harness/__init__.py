@@ -18,6 +18,7 @@ from inspect_ai.model import get_model
 from inspect_ai.solver import solver
 from inspect_ai.util import sandbox
 
+REPO = Path(__file__).resolve().parent.parent
 PLAYERS = "/opt/server/data/players/main"
 OUT = "/run/out"
 
@@ -39,6 +40,7 @@ def run_program(command: str, track: Callable[[Accounts], float] | None = None, 
         tick_ms = int(world["NODE_TICKRATE"])
 
         # 1. a fresh world with this eval's settings and start saves
+        await upload(sb, {"harness": "/harness", "saves": "/evals/saves", "programs": "/programs"})
         await sb.exec(["mkdir", "-p", PLAYERS, OUT])
         for a in accounts:
             await sb.exec(["cp", f"/evals/saves/{a['save']}", f"{PLAYERS}/{a['username']}.sav"])
@@ -96,7 +98,7 @@ def run_program(command: str, track: Callable[[Accounts], float] | None = None, 
                 "command": command,
                 "stopped_by": stopped_by,
                 "exit": exit_code,
-                "ticks": final - start,
+                "ticks": now - start,
                 "logout": json.loads((logout.stdout.strip().splitlines() or ["{}"])[-1]),
                 "output": (await sb.exec(["tail", "-c", "6000", f"{OUT}/program.log"])).stdout,
             }
@@ -120,10 +122,15 @@ async def read_saves(state) -> Accounts:
 async def sample(sb, names, track, timeline, saved_every: int | None = None) -> int:
     """Read the engine's tick and the accounts' latest saves; record the eval's measure.
     With saved_every, the saves are the engine's autosaves, made at multiples of that tick."""
-    result = json.loads((await check(sb.exec(["bun", "/harness/sample.ts", *names]))).stdout)
-    tick = result["tick"] or (timeline[-1]["tick"] if timeline else 0)
+    last = timeline[-1]["tick"] if timeline else 0
+    try:
+        result = json.loads((await check(sb.exec(["bun", "/harness/sample.ts", *names], timeout=60))).stdout)
+    except TimeoutError:
+        transcript().info("reading the saves timed out", source="score over time")
+        return last
+    tick = result["tick"] or last
     if track and result["accounts"]:
-        point = {"tick": tick - tick % saved_every if saved_every else tick, "value": track(result["accounts"]), "accounts": {n: track({n: a}) for n, a in result["accounts"].items()}}
+        point = {"tick": max(last, tick - tick % saved_every) if saved_every else tick, "value": track(result["accounts"]), "accounts": {n: track({n: a}) for n, a in result["accounts"].items()}}
         if not timeline or point["value"] != timeline[-1]["value"] or point["accounts"] != timeline[-1]["accounts"]:
             transcript().info(point, source="score over time")
         timeline.append(point)
@@ -159,6 +166,16 @@ async def save_run(sb, run_dir: Path, state) -> None:
         tar.extractall(run_dir, filter="data")
     (run_dir / "sample.json").write_text(json.dumps({k: state.metadata.get(k) for k in ["accounts", "world", "budget_ticks", "program", "timeline"]}))
     state.metadata["run_dir"] = str(run_dir)
+
+
+async def upload(sb, folders: dict[str, str]) -> None:
+    """Copy repo folders into the sandbox, so any sandbox (Docker, k8s, ...) needs only the world image."""
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for local, remote in folders.items():
+            tar.add(REPO / local, arcname=remote.lstrip("/"), filter=lambda t: None if "__pycache__" in t.name else t)
+    await sb.write_file("/tmp/repo.tgz", buf.getvalue())
+    await check(sb.exec(["tar", "xzf", "/tmp/repo.tgz", "-C", "/"]))
 
 
 async def check(result_awaitable):
