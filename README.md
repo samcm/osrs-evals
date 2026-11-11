@@ -15,7 +15,7 @@ things and knows nothing about how a program organises itself:
 
 ## The whole simple example
 
-**The eval:** one account in Lumbridge, 2,000 ticks (100 s at 8× speed), scored by the coins it
+**The eval:** one account in Lumbridge, 2,000 engine ticks (100 s at 20 ticks a second, 8× normal speed), scored by the coins it
 holds at the end. **The program:** pickpocket men forever.
 
 ### The files
@@ -103,11 +103,51 @@ services:
 PYTHONPATH=. inspect eval evals/coins.py --model none
 ```
 
-RUN_OUTPUT
+It took 2 minutes on a 2-CPU VM. Inspect prints:
+
+```text
+╭──────────────────────────────────────────────────────────────────────────────╮
+│coins (1 sample): none/none                                                   │
+╰──────────────────────────────────────────────────────────────────────────────╯
+total time:                                   0:02:00
+coins_total
+mean         129.000
+Log: logs/2026-11-11T09-28-07-00-00_coins_iwgoZkN5LZCaHZKFomFfpc.eval
+```
+
+In those 2 minutes Inspect starts a fresh container from `compose.yaml`, and `run_program`:
+
+1. copies in `harness/`, `saves/` and `programs/`, puts `lumbridge.sav` in the engine's players folder as `acct1`,
+   and starts rs-sdk's engine and gateway with the eval's `world` settings (about 8 s)
+2. logs `acct1` in with rs-sdk's headless client (about 4 s), writes `$EVAL`, and starts the program
+3. every 100 ticks reads the account from the server's own save and records the eval's measure (`track=coins_held`)
+4. at 2,000 engine ticks stops the program, clicks each account's logout button so the server saves it, and
+   scores from that save. Here the score, 129, is what the program itself last saw in its inventory.
+
+`--model none` means there is no model; see below for a program that uses one.
 
 ### What comes out
 
-WHAT_COMES_OUT
+**The Inspect log** (`inspect view`): the score and config, then the sample. Its transcript has every
+step, where the live world feed is while it runs, and the coins every 100 ticks ("score over time").
+The scoring tab has the score per account. The sample metadata has the program's exit, how it was
+stopped, its last output, and the whole timeline.
+
+![Inspect View, transcript](docs/inspect-transcript.jpg)
+
+![Inspect View, scoring](docs/inspect-scoring.jpg)
+
+**The run folder** next to the log, `logs/<log name>/<sample>-<epoch>/`: `world.jsonl.gz` (the
+recorded world feed, 225 KB here), `sample.json` (settings, program result, timeline),
+`program.log`, and the engine's and clients' logs.
+
+**The game view** (`viewer/`, below): every run with its score over time, and rs-world following an
+account, live or replayed. In this run the coins climb, then fall back now and then; the men hit back
+and the account's HP runs low, so it most likely dies and drops them (not checked).
+
+![Runs in the viewer](docs/viewer-runs.jpg)
+
+![Replay in rs-world, following acct1](docs/replay.jpg)
 
 ## Setup, once per machine
 
@@ -187,4 +227,25 @@ pinned commits, not copied in. Nothing comes from RuneBench, which has no licenc
 
 ## Status
 
-STATUS
+Verified by running, in a 2-CPU, 4 GB Linux VM with Docker, Inspect 0.3.289 and rs-sdk 71d949d:
+
+| What | How it was checked |
+| --- | --- |
+| The simple example | `inspect eval evals/coins.py --model none`, above. The final score matches the program's own last report: logout now follows the stop at once, and the save is written within seconds. |
+| Score over time | Every sample: the eval's measure per account every 100 ticks, in the transcript and the sample's metadata, and drawn in the viewer. |
+| Recording and replay | The world feed around the accounts is saved with each sample (about 135 KB gzipped per minute for one account) and replayed into rs-world at the recorded pace, 4× faster, or from a later tick. |
+| Live 3D view | rs-world, served by the viewer, followed `acct1` live through the viewer's feed proxy during a run. |
+| More than one account | `evals/gold.py`: 4 accounts in one world, each scored and logged out. The full default (4 accounts, 36,000 ticks) ran in 34 min 48 s: all 4 accounts logged out and saved, 350 timeline points, 2,304 coins at the end (peak 4,851). The pickpocket script is a baseline, not a strategy, so it did not reach 100,000. |
+| An LLM program on the same eval | `-T program="bun /programs/llm.ts" --model anthropic/claude-haiku-5-5`: 26 model calls in 2,400 ticks, every call and its tokens in the Inspect log. It scored 2 coins; the script scores around 100. |
+| Parallel samples | `--epochs 3 --max-samples 3`: three worlds at once on three free host ports, three recordings. |
+
+Not verified:
+
+- **Other places to run.** Only the local Docker sandbox has run. The harness uses only Inspect's
+  sandbox calls (exec, file copy and, for the live view, published ports), so k8s or EC2 should need
+  only the world image in a registry and a sandbox config, but that is untested.
+- **Speed under load.** The budget is in engine ticks, so a slow engine plays the same game, only
+  slower. The Gold run on 2 CPUs ran at about 60% of its 20 ticks per second. A sample is stopped
+  anyway after twice its budget in wall-clock time.
+- **Recording area.** The recorder follows the accounts but the engine's feed caps one area at
+  384×384 tiles. Accounts spread further apart are recorded as dots from the roster, not in full.

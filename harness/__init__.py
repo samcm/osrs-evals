@@ -79,7 +79,7 @@ def run_program(command: str, track: Callable[[Accounts], float] | None = None, 
                 stopped_by, now = "budget", start
                 while True:
                     await asyncio.sleep(min(sample_ticks, end_tick - now) * tick_ms / 1000)
-                    now = await sample(sb, names, track, timeline, saved_every=sample_ticks)
+                    now = await sample(sb, names, track, timeline, start, saved_every=sample_ticks)
                     if now >= end_tick:
                         break
                     if time.monotonic() > deadline:
@@ -92,7 +92,7 @@ def run_program(command: str, track: Callable[[Accounts], float] | None = None, 
 
             # 3. log every account out at once, so the server writes the final save
             logout = await sb.exec(["bun", "/harness/logout.ts", *names], timeout=180)
-            final = await sample(sb, names, track, timeline)
+            await sample(sb, names, track, timeline, start)
             exit_code = (await sb.exec(["cat", "/run/program.exit"])).stdout.strip()
             state.metadata["program"] = {
                 "command": command,
@@ -103,7 +103,7 @@ def run_program(command: str, track: Callable[[Accounts], float] | None = None, 
                 "output": (await sb.exec(["tail", "-c", "6000", f"{OUT}/program.log"])).stdout,
             }
             if track:
-                state.metadata["timeline"] = [{**p, "tick": p["tick"] - start} for p in timeline]
+                state.metadata["timeline"] = timeline
             await save_run(sb, run_dir, state)
             return state
         finally:
@@ -119,18 +119,20 @@ async def read_saves(state) -> Accounts:
     return json.loads(result.stdout)["accounts"]
 
 
-async def sample(sb, names, track, timeline, saved_every: int | None = None) -> int:
-    """Read the engine's tick and the accounts' latest saves; record the eval's measure.
-    With saved_every, the saves are the engine's autosaves, made at multiples of that tick."""
-    last = timeline[-1]["tick"] if timeline else 0
+async def sample(sb, names, track, timeline, start: int | None = None, saved_every: int | None = None) -> int:
+    """Read the engine's tick and the accounts' latest saves; record the eval's measure, at ticks
+    counted from start (the first sample). With saved_every, the saves are the engine's
+    autosaves, made at multiples of that tick. Returns the engine's tick."""
+    last = (start or 0) + (timeline[-1]["tick"] if timeline else 0)
     try:
         result = json.loads((await check(sb.exec(["bun", "/harness/sample.ts", *names], timeout=60))).stdout)
     except TimeoutError:
         transcript().info("reading the saves timed out", source="score over time")
         return last
     tick = result["tick"] or last
+    origin = tick if start is None else start
     if track and result["accounts"]:
-        point = {"tick": max(last, tick - tick % saved_every) if saved_every else tick, "value": track(result["accounts"]), "accounts": {n: track({n: a}) for n, a in result["accounts"].items()}}
+        point = {"tick": (max(last, tick - tick % saved_every) if saved_every else tick) - origin, "value": track(result["accounts"]), "accounts": {n: track({n: a}) for n, a in result["accounts"].items()}}
         if not timeline or point["value"] != timeline[-1]["value"] or point["accounts"] != timeline[-1]["accounts"]:
             transcript().info(point, source="score over time")
         timeline.append(point)
