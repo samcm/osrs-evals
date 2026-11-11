@@ -165,13 +165,33 @@ To regenerate the start saves: `docker run --rm --user $(id -u) -v $PWD/saves:/e
 **Point the same eval at another program.** `programs/llm.ts` has a model play through rs-sdk (it
 writes TypeScript against `bot` and `sdk` each turn). Give the eval a model and the harness opens
 Inspect's agent bridge, so the program's OpenAI- or Anthropic-style calls reach that model and
-Inspect logs each call and its tokens. Nothing in the eval or the harness changes:
+Inspect logs each call and its tokens. Nothing in the eval or the harness changes (the model's provider settings are below):
 
 ```sh
 PYTHONPATH=. inspect eval evals/coins.py -T program="bun /programs/llm.ts" --model anthropic/claude-haiku-5-5
 ```
 
-A program can also call any model itself with its own keys; the harness does not care.
+Which model, and through whose account, is the deployment's choice: it is `--model` plus the
+provider settings in the environment you run `inspect` in. The program always gets the bridge
+URLs, never a key. (A program could also call a model itself; the harness does not stop it.)
+
+**One deployment: models through omp on Sam's subscriptions.** Sam's runs use his subscriptions
+through his omp (Oh My Pi) auth broker, never a paid API key. On a
+machine where `omp` can reach the broker (`OMP_AUTH_BROKER_URL` and `OMP_AUTH_BROKER_TOKEN` set,
+as in his orbs), run omp's local gateway and point Inspect's Anthropic provider at it:
+
+```sh
+omp auth-gateway serve --bind=127.0.0.1:4000 --no-auth &   # loopback only; any local caller can use it
+export ANTHROPIC_BASE_URL=http://127.0.0.1:4000
+export ANTHROPIC_API_KEY=unused                            # Inspect wants a value; omp does the auth
+PYTHONPATH=. inspect eval evals/coins.py -T program="bun /programs/llm.ts" --model anthropic/claude-haiku-5-5
+```
+
+The call path is then: program in the sandbox → Inspect's bridge (`localhost:13131` in the
+sandbox) → Inspect's `anthropic` provider → omp's gateway → the broker → Sam's Claude
+subscription. `curl http://127.0.0.1:4000/v1/models` lists what the broker offers. Only Anthropic
+models through this route have been run (`claude-haiku-5-5`); other model families in that list
+would need their matching Inspect provider and base URL, and are untested.
 
 **More accounts.** `evals/gold.py` gives 4 accounts (`-T accounts=N`) 36,000 ticks (30 minutes at 8×)
 to hold 100,000 coins between them, and scores the coins at the end and the first tick they
@@ -233,10 +253,10 @@ Verified by running, in a 2-CPU, 4 GB Linux VM with Docker, Inspect 0.3.289 and 
 | --- | --- |
 | The simple example | `inspect eval evals/coins.py --model none`, above. The final score matches the program's own last report: logout now follows the stop at once, and the save is written within seconds. |
 | Score over time | Every sample: the eval's measure per account every 100 ticks, in the transcript and the sample's metadata, and drawn in the viewer. |
-| Recording and replay | The world feed around the accounts is saved with each sample (about 135 KB gzipped per minute for one account) and replayed into rs-world at the recorded pace, 4× faster, or from a later tick. |
+| Recording and replay | The world feed around the accounts is saved with each sample (about 135 KB gzipped per minute for one account) and replayed into rs-world at the recorded pace, 4× faster, or from a later tick. A 6,000-tick Gold run (4 accounts, 5 min 51 s) was recorded unbroken: every tick, 700 KB. The 36,000-tick run lost its recording after about 2,000 ticks while the VM was swapping; the recorder now reconnects, which was tested only against a fake feed. |
 | Live 3D view | rs-world, served by the viewer, followed `acct1` live through the viewer's feed proxy during a run. |
 | More than one account | `evals/gold.py`: 4 accounts in one world, each scored and logged out. The full default (4 accounts, 36,000 ticks) ran in 34 min 48 s: all 4 accounts logged out and saved, 350 timeline points, 2,304 coins at the end (peak 4,851). The pickpocket script is a baseline, not a strategy, so it did not reach 100,000. |
-| An LLM program on the same eval | `-T program="bun /programs/llm.ts" --model anthropic/claude-haiku-5-5`: 26 model calls in 2,400 ticks, every call and its tokens in the Inspect log. It scored 2 coins; the script scores around 100. |
+| An LLM program on the same eval | `-T program="bun /programs/llm.ts" --model anthropic/claude-haiku-5-5`, through omp on Sam's subscription: 26 model calls in 2,400 ticks, every call and its tokens in the Inspect log. It scored 2 coins; the script scores around 100. |
 | Parallel samples | `--epochs 3 --max-samples 3`: three worlds at once on three free host ports, three recordings. |
 
 Not verified:
