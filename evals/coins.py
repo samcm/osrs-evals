@@ -1,7 +1,13 @@
 from inspect_ai import Task, task
 from inspect_ai.dataset import Sample
 from inspect_ai.scorer import Score, mean, scorer
-from harness import run_program, read_saves
+
+from harness import read_saves, run_program
+
+
+def coins_held(accounts):
+    """Coins the accounts hold, in their inventories and banks."""
+    return sum(a["inv"].get("995", 0) + a["bank"].get("995", 0) for a in accounts.values())
 
 
 @task
@@ -17,7 +23,7 @@ def coins(program: str = "bun /programs/pickpocket.ts", ticks: int = 2000):
                 },
             )
         ],
-        solver=run_program(program),
+        solver=run_program(program, track=coins_held),
         scorer=coins_total(),
         sandbox=("docker", "compose.yaml"),
     )
@@ -26,7 +32,7 @@ def coins(program: str = "bun /programs/pickpocket.ts", ticks: int = 2000):
 @scorer(metrics=[mean()])
 def coins_total():
     async def score(state, target):
-        saves = await read_saves(state)  # read from the server's save files, after logout
-        return Score(value=sum(s["coins"] for s in saves.values()), metadata=saves)
+        accounts = await read_saves(state)  # the server's saves, written at logout
+        return Score(value=coins_held(accounts), metadata={name: coins_held({name: a}) for name, a in accounts.items()})
 
     return score

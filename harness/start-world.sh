@@ -5,4 +5,4 @@ for i in $(seq 300); do
   bun -e "await fetch('http://localhost:8888/api/version')" 2>/dev/null && exit 0
   sleep 1
 done
-echo "world did not start" >&2; exit 1
+echo "world did not start" >&2; tail -50 /run/out/world.log >&2; exit 1

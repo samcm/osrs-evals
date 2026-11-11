@@ -1,3 +1,5 @@
+# Where the evals run: one container per sample, on a local Docker. Another place to run
+# (a k8s cluster, EC2) is another file like this one, chosen with --sandbox.
 services:
   default:
     image: rs-evals-world:71d949d
@@ -7,4 +9,4 @@ services:
       - ../saves:/evals/saves:ro
       - ../programs:/programs:ro
     ports:
-      - "8888:8888"   # engine web port: world feed for rs-world, /mapview
+      - "8888"   # the engine's web port (world feed, /mapview) on a free host port
