@@ -77,7 +77,7 @@ def run_program(command: str, track: Callable[[Accounts], float] | None = None, 
                 stopped_by, now = "budget", start
                 while True:
                     await asyncio.sleep(min(sample_ticks, end_tick - now) * tick_ms / 1000)
-                    now = await sample(sb, names, track, timeline)
+                    now = await sample(sb, names, track, timeline, saved_every=sample_ticks)
                     if now >= end_tick:
                         break
                     if time.monotonic() > deadline:
@@ -117,12 +117,13 @@ async def read_saves(state) -> Accounts:
     return json.loads(result.stdout)["accounts"]
 
 
-async def sample(sb, names, track, timeline) -> int:
-    """Read the engine's tick and the accounts' latest saves; record the eval's measure."""
+async def sample(sb, names, track, timeline, saved_every: int | None = None) -> int:
+    """Read the engine's tick and the accounts' latest saves; record the eval's measure.
+    With saved_every, the saves are the engine's autosaves, made at multiples of that tick."""
     result = json.loads((await check(sb.exec(["bun", "/harness/sample.ts", *names]))).stdout)
     tick = result["tick"] or (timeline[-1]["tick"] if timeline else 0)
     if track and result["accounts"]:
-        point = {"tick": tick, "value": track(result["accounts"]), "accounts": {n: track({n: a}) for n, a in result["accounts"].items()}}
+        point = {"tick": tick - tick % saved_every if saved_every else tick, "value": track(result["accounts"]), "accounts": {n: track({n: a}) for n, a in result["accounts"].items()}}
         if not timeline or point["value"] != timeline[-1]["value"] or point["accounts"] != timeline[-1]["accounts"]:
             transcript().info(point, source="score over time")
         timeline.append(point)
