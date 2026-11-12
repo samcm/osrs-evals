@@ -69,7 +69,9 @@ def turns_of(sample) -> list[dict]:
     model call (the agent running its tools and code)."""
     results = {m.tool_call_id: m for m in sample.messages if m.role == "tool"}
     calls = [e for e in sample.events if e.event == "model"]
-    t0 = sample.events[0].timestamp
+    # Times count from the start of the game (the harness's first sample, when the agent gets the
+    # accounts), the same origin as the timeline's seconds.
+    t0 = next((e.timestamp for e in sample.events if e.event == "info" and e.source == "score over time"), sample.events[0].timestamp)
     turns = []
     for i, e in enumerate(calls):
         u = e.output.usage if e.output else None
@@ -191,6 +193,10 @@ def export(log_dirs: list[str], prices: dict, out: Path):
                 if "world.jsonl.gz" in files:
                     (out / "runs" / f"{run_id}.world.jsonl.gz").write_bytes(files["world.jsonl.gz"])
     runs.sort(key=lambda r: (r["eval"], r["model"], r["agent"], r["started"], r["epoch"]))
+    keep = {r["id"] for r in runs}
+    for f in (out / "runs").iterdir():  # files of runs no longer in these logs
+        if f.name.split(".")[0] not in keep:
+            f.unlink()
     ideas = yaml.safe_load(open(IDEAS)) if IDEAS.exists() else []
     (out / "index.json").write_text(json.dumps({"evals": sorted(evals.values(), key=lambda e: e["id"]), "runs": runs, "prices": prices, "ideas": ideas}))
     print(f"{len(runs)} runs, {len(evals)} evals:", dict(Counter((r['eval'], r['model'], r['agent_name']) for r in runs)))

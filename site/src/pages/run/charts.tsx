@@ -224,7 +224,7 @@ export function TurnTimeline({ run, onTurn }: { run: RunDetail; onTurn: (turn: n
   }, [c, run.model, turns]);
 
   return (
-    <Card title="Model calls" subtitle="Wall-clock time from the first event">
+    <Card title="Model calls" subtitle="Wall-clock seconds from the start of the game">
       <Chart
         option={option}
         height={height}

@@ -316,20 +316,32 @@ pinned commits, not copied in. Nothing comes from RuneBench, which has no licenc
 
 ## Status
 
-Verified by running, in a 2-CPU, 4 GB Linux VM with Docker, Inspect 0.3.289 and rs-sdk 71d949d:
+Verified by running, with Inspect 0.3.289 and rs-sdk 71d949d: the examples above in a 2-CPU, 4 GB
+VM, and the batch below on an 8-CPU, 16 GB one (`evals/matrix.py`, models at list price).
 
-| What | How it was checked |
-| --- | --- |
-| The simple example | Above. The score is read from the server's save after logout. |
-| `command()` through `--solver` | `--solver harness/__init__.py@command -S cmd="bun /programs/pickpocket.ts"` on the coins eval. |
-| A model with a shell | Cook's Assistant, `--model anthropic/claude-haiku-5-5`: completed at tick 5,683 (4 min 48 s), 44 shell calls writing and rerunning scripts in `/work`, every model call in the Inspect log. |
-| The agent matrix | `evals/matrix.py` with `eval-set`, 3 attempts per agent, on Claude Haiku 5.5 and GPT-5.6 Luna. Every run ended at the budget, on done, or when the agent stopped, and was scored from the server. |
-| Claude Code | Cook's Assistant, `--solver inspect_swe/claude_code --model anthropic/claude-haiku-5-5`: Claude Code ran in the sandbox through the agent bridge, 52 model calls in 10 minutes, all logged. It got the milk, egg and pot, could not get flour from the mill, and gave up at tick 10,400 of 12,000 (score 0). |
-| Score over time | Every sample: the eval's measure per account every 100 ticks, in the transcript and the sample's metadata, and drawn in the viewer. |
-| Recording and replay | The world feed around the accounts is saved with each sample and replayed into rs-world at the recorded pace, 4× faster, or from a later tick. A 6,000-tick, 4-account run was recorded unbroken (700 KB). A 36,000-tick run lost its recording after about 2,000 ticks while the VM was swapping; the recorder now reconnects, which was tested only against a fake feed. |
-| Live 3D view | rs-world, served by the viewer, followed `acct1` live during a run. |
-| More than one account | `evals/gold.py`: the full default (4 accounts, 36,000 ticks) ran in 34 min 48 s, all 4 accounts logged out and saved. The pickpocket script ends around 2,300 coins; it is a baseline, not a strategy. |
-| Parallel samples | `--epochs 3 --max-samples 3`: three worlds at once on three free host ports. |
+| Eval | Model | Agent | Runs | Finished | Median ticks to finish | Median cost per run | Output tok/s | Time waiting on model |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Cook's Assistant | Claude Haiku 5.5 | model + bash | 5 | 5 | 4,723 | $0.016 | 159 | 32% |
+| Cook's Assistant | Claude Haiku 5.5 | Claude Code | 5 | 0 | | $0.012 | 196 | 29% |
+| Cook's Assistant | GPT-5.6 Luna | model + bash | 5 | 1 | 5,167 | $0.026 | 37 | 56% |
+| Cook's Assistant | GPT-5.6 Luna | Codex | 5 | 1 | 8,888 | $0.069 | 39 | 60% |
+| Cook's Assistant, five tries | Claude Haiku 5.5 | model + bash | 3 | 2 | 3,057 (best try) | $0.027 | 207 | 36% |
+| Cook's Assistant, five tries | GPT-5.6 Luna | model + bash | 3 | 0 | | $0.024 | 38 | 61% |
+| 500 shrimps | Claude Haiku 5.5 | model + bash | 3 | 0 | | $0.010 | 167 | 3% |
+| 500 shrimps | Claude Haiku 5.5 | Claude Code | 3 | 2 | 7,682 | $0.020 | 168 | 13% |
+| 500 shrimps | GPT-5.6 Luna | model + bash | 3 | 3 | 9,087 | $0.021 | 40 | 24% |
+| 500 shrimps | GPT-5.6 Luna | Codex | 3 | 1 | 6,682 | $0.128 | 24 | 36% |
+| 500 shrimps | none | scripted baseline | 3 | 0 | | $0 | | |
+
+Five tries made Haiku faster (best try 3,057 ticks against 4,723 for one try). Haiku with bash on
+shrimps wrote cooking loops that worked but were slow, then waited them out (one ran `sleep 900`
+in a 600 s tool); the scripted baseline cooks one shrimp at a time and gets about 300 in 30,000
+ticks. Three runs per variant is too few to rank variants; these numbers show the evals work.
+
+Also checked: score over time on every run; recordings replayed in rs-world, live view, screenshots
+from recordings; four accounts in one world (Gold); parallel samples on free ports; runs written to
+S3 (against a local S3 server); a sample errors when its model is never reached; agents run as an
+unprivileged user and can't write the server's saves.
 
 Not verified:
 
@@ -339,6 +351,9 @@ Not verified:
   proxy as no usable tool, so it stopped after one message; 0.130.0 sends plain function tools and
   plays. Which versions work depends on the provider behind `--model`.
 - **OpenCode and `command()` with an agent CLI** use the same path but have not been run here.
+- **Sandboxes left behind.** While Codex samples failed in setup and eval-set retried them, their
+  game containers were not removed and piled up until memory ran low. Whether Inspect or the
+  harness's game watchdog keeps them alive is not yet known.
 - **Viewer on remote logs.** Runs write to S3 (checked against a local S3 server), but the
   viewer reads only a local log folder.
 - **Other places to run.** Only the local Docker sandbox has run. The harness uses only Inspect's
