@@ -1,0 +1,10 @@
+/* The app's stylesheet: fonts, the tokens, the utilities and base styles, and the files Tailwind
+ * scans for classes. Tokens and colour literals live only in styles/tokens.css. */
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+@import './styles/tokens.css';
+@import './styles/utilities.css';
+@import './styles/base.css';
+
+@source './';

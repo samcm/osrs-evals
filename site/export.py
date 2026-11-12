@@ -9,7 +9,6 @@ the logs and the run folders next to them; nothing is recomputed from the game.
 import argparse
 import gzip
 import json
-import shutil
 from collections import Counter
 from pathlib import Path
 
@@ -103,10 +102,22 @@ def last_answer(sample) -> str | None:
     return None
 
 
+def start_tick(recording: bytes, account: str) -> int | None:
+    """The engine tick at which the account joined the world in a recording (runs from before the
+    harness recorded its start tick)."""
+    for line in gzip.decompress(recording).decode().splitlines():
+        m = json.loads(line)
+        if m.get("t") == "roster":
+            for row in m.get("p") or m.get("j") or []:
+                if str(row[1]).lower() == account.lower():
+                    return m["k"]
+    return None
+
+
 def export(log_dirs: list[str], prices: dict, out: Path):
-    if out.exists():
-        shutil.rmtree(out)
-    (out / "runs").mkdir(parents=True)
+    """Writes index.json and runs/<id>.json, and each run's recording; leaves screenshots
+    (runs/<id>.jpg, made by capture.ts) in place."""
+    (out / "runs").mkdir(parents=True, exist_ok=True)
     runs, evals = [], {}
     for log_dir in log_dirs:
         for info in list_eval_logs(log_dir):
@@ -160,6 +171,8 @@ def export(log_dirs: list[str], prices: dict, out: Path):
                     "cost": cost(usage, prices),
                     "has_replay": "world.jsonl.gz" in files,
                     "account": m["accounts"][0]["username"],
+                    "start_tick": (m.get("game") or {}).get("start_tick") or (start_tick(files["world.jsonl.gz"], m["accounts"][0]["username"]) if "world.jsonl.gz" in files else None),
+                    "screenshot": f"runs/{run_id}.jpg" if (out / "runs" / f"{run_id}.jpg").exists() else None,
                 }
                 runs.append(run)
                 evals.setdefault(eval_id, {"id": eval_id, "title": eval_title(eval_id), "goal": s.input if isinstance(s.input, str) else str(s.input), "budget_ticks": m["budget_ticks"], "tick_ms": run["tick_ms"], "attempts": attempts, "target": m.get("target"), "accounts": [a["username"] for a in m["accounts"]], "task_file": spec.task_file})

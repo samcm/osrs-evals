@@ -173,6 +173,7 @@ def game(track: Callable[[Accounts], float] | None = None, done: Callable[[Accou
                 return
             except Exception as e:  # the sample ended some other way and the sandbox is gone
                 transcript().info(f"watchdog stopped: {e}", source="game")
+                remove(f"{g.run_dir}/live.json")
                 return
             if active:
                 # Error, not score, when the agent never reached its model: eval-set retries it.
@@ -205,6 +206,7 @@ async def end_game(sb, state, reason: str, now: int | None = None) -> dict:
         await sb.exec(concurrency=False, cmd=["sh", "-c", "kill $(cat /run/world.pid) 2>/dev/null; true"])
         g.ended = {
             "ended_by": reason,
+            "start_tick": g.start,  # the engine's tick when the agent got the game (for replays)
             "ticks": now - g.start,
             "seconds": round(time.monotonic() - g.began, 1),
             "logout": json.loads((logout.stdout.strip().splitlines() or ["{}"])[-1]),

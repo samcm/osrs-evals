@@ -1,111 +1,96 @@
-// The game view for eval runs: Max's rs-world (a 3D view of the world feed), pointed at a run.
+// Serves the eval site, its data, Max's rs-world, and world feeds for it.
 //
-//   bun viewer/serve.ts            RUNS=logs (Inspect's log dir)  WORLD=<rs-world build>  PORT=7576
+//   bun viewer/serve.ts     SITE=site/dist  DATA=site/public/data  WORLD=<rs-world build>  RUNS=logs  PORT=7576
 //
-// GET /            every sample under RUNS: its score over time, and a link to watch it
-// GET /world/...   rs-world, served with the headers it needs (cross-origin isolation)
-// WS  /feed/<run>  a running sample's live world feed (proxied from the engine's port, which the
-//                  harness writes to live.json), or a finished sample's recording, replayed at the
-//                  pace it was recorded. ?speed=4 plays faster, ?from=<tick> skips ahead.
+// GET /...                 the site (single-page app: unknown paths get index.html)
+// GET /data/...            the exported runs (site/export.py)
+// GET /world/...           rs-world, with the cross-origin isolation headers it needs
+// GET /api/live            samples running now (from live.json files under RUNS)
+// WS  /feed/<run id>       a finished run's recording, replayed at the pace it was recorded:
+//                          ?speed=4 plays faster, ?from=<tick> skips ahead, ?until=<tick> stops there
+// WS  /feed/live/<path>    a running sample's live world feed, relayed from the engine's port
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { join, normalize, relative } from 'path';
 
-const RUNS = process.env.RUNS ?? 'logs';
+const SITE = process.env.SITE ?? 'site/dist';
+const DATA = process.env.DATA ?? 'site/public/data';
 const WORLD = process.env.WORLD ?? 'viewer/world';
+const RUNS = process.env.RUNS ?? 'logs';
 const PORT = Number(process.env.PORT ?? 7576);
 const FEED_HOST = process.env.FEED_HOST ?? '127.0.0.1'; // where the sandboxes' published ports are
 
-type Run = { path: string; live?: { port: number; accounts: string[] }; sample?: any };
+const ISOLATION = { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' };
 
-function findRuns(dir = RUNS, out: Run[] = []): Run[] {
+function inside(root: string, path: string): string | null {
+    const file = normalize(join(root, decodeURIComponent(path)));
+    return file.startsWith(normalize(root)) ? file : null;
+}
+
+function file(root: string, path: string, fallback?: string, headers: Record<string, string> = {}): Response {
+    let f = inside(root, path);
+    if (!f || !existsSync(f) || statSync(f).isDirectory()) f = fallback ? join(root, fallback) : null;
+    if (!f || !existsSync(f)) return new Response('not found', { status: 404 });
+    const cache = f.endsWith('index.html') ? 'no-cache' : 'public, max-age=300';
+    return new Response(Bun.file(f), { headers: { 'Cache-Control': cache, 'Cross-Origin-Resource-Policy': 'same-origin', ...headers } });
+}
+
+type Live = { path: string; port: number; accounts: string[] };
+
+function liveRuns(dir = RUNS, out: Live[] = []): Live[] {
+    if (!existsSync(dir)) return out;
     for (const name of readdirSync(dir)) {
         const path = join(dir, name);
         if (!statSync(path).isDirectory()) continue;
-        const live = join(path, 'live.json'), sample = join(path, 'sample.json');
-        if (existsSync(live) || existsSync(sample)) {
-            out.push({
-                path: relative(RUNS, path),
-                live: existsSync(live) ? JSON.parse(readFileSync(live, 'utf8')) : undefined,
-                sample: existsSync(sample) ? JSON.parse(readFileSync(sample, 'utf8')) : undefined,
-            });
-        } else findRuns(path, out);
+        const live = join(path, 'live.json');
+        if (existsSync(live)) out.push({ path: relative(RUNS, path), ...JSON.parse(readFileSync(live, 'utf8')) });
+        else liveRuns(path, out);
     }
     return out;
 }
 
-function runDir(path: string): string | null {
-    const dir = normalize(join(RUNS, decodeURIComponent(path)));
-    return dir.startsWith(normalize(RUNS)) && existsSync(dir) ? dir : null;
+// The live runs whose engine still answers (a sample that errored can leave its live.json behind).
+async function liveNow(): Promise<Live[]> {
+    const up = await Promise.all(liveRuns().map((l) => fetch(`http://${FEED_HOST}:${l.port}/api/version`, { signal: AbortSignal.timeout(500) }).then((r) => r.ok, () => false)));
+    return liveRuns().filter((_, i) => up[i]);
 }
 
-const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+type Feed = { kind: 'replay' | 'live'; target: string; speed: number; from: number; until: number; upstream?: WebSocket; timer?: ReturnType<typeof setTimeout>; closed?: boolean };
 
-function chart(timeline: { tick: number; value: number }[] = []): string {
-    if (timeline.length < 2) return '';
-    const W = 360, H = 80, maxT = Math.max(...timeline.map((p) => p.tick)) || 1, maxV = Math.max(...timeline.map((p) => p.value)) || 1;
-    const pts = timeline.map((p) => `${((p.tick / maxT) * W).toFixed(1)},${(H - (p.value / maxV) * H).toFixed(1)}`).join(' ');
-    return `<svg width="${W}" height="${H + 14}" viewBox="0 -2 ${W} ${H + 16}"><polyline fill="none" stroke="#f5a623" stroke-width="2" points="${pts}"/>` +
-        `<text x="0" y="${H + 12}" font-size="10" fill="#999">tick 0</text><text x="${W}" y="${H + 12}" font-size="10" fill="#999" text-anchor="end">tick ${maxT}</text>` +
-        `<text x="${W}" y="10" font-size="10" fill="#999" text-anchor="end">${maxV.toLocaleString()}</text></svg>`;
-}
-
-function index(): Response {
-    const runs = findRuns().sort((a, b) => b.path.localeCompare(a.path));
-    const rows = runs.map((r) => {
-        const s = r.sample ?? {}, accounts = r.live?.accounts ?? (s.accounts ?? []).map((a: any) => a.username);
-        const last = s.timeline?.at(-1);
-        const watch = (name: string) => `<a href="#" onclick="watch('${esc(r.path)}','${esc(name)}');return false">${esc(name)}</a>`;
-        return `<tr><td>${r.live ? '<b class=live>LIVE</b>' : 'recorded'}</td><td><code>${esc(r.path)}</code><br><small>${esc(s.game ? `ended by ${s.game.ended_by} after ${s.game.ticks} ticks` : "")}</small></td>` +
-            `<td>${last ? `<b>${last.value.toLocaleString()}</b> at tick ${last.tick}` : ''}<br>${chart(s.timeline)}</td><td>watch ${accounts.map(watch).join(' · ')}</td></tr>`;
-    });
-    return new Response(`<!doctype html><meta charset=utf-8><title>Eval runs</title>
-<style>body{font:14px system-ui;margin:24px;background:#111;color:#ddd}table{border-collapse:collapse}td{border-top:1px solid #333;padding:8px 12px;vertical-align:top}a{color:#7cf}.live{color:#f55}code{color:#fff}</style>
-<h2>Eval runs</h2><p>Under <code>${esc(RUNS)}</code>. Watching opens rs-world on the run's world feed: live while it runs, the recording after.</p>
-<table>${rows.join('') || '<tr><td>No runs yet.</td></tr>'}</table>
-<script>function watch(run, name) {
-  const feed = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/feed/' + encodeURIComponent(run);
-  location.href = '/world/?live=' + encodeURIComponent(feed) + '&follow=' + encodeURIComponent(name);
-}</script>`, { headers: { 'content-type': 'text/html' } });
-}
-
-const ISOLATION = { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' };
-
-function world(path: string): Response {
-    let file = normalize(join(WORLD, path.replace(/^\/world\/?/, '')));
-    if (!file.startsWith(normalize(WORLD)) || !existsSync(file) || statSync(file).isDirectory()) file = join(WORLD, 'index.html');
-    return new Response(Bun.file(file), { headers: ISOLATION });
-}
-
-type Feed = { upstream?: WebSocket; timer?: ReturnType<typeof setTimeout>; closed?: boolean };
-
-Bun.serve<{ run: string; speed: number; from: number } & Feed>({
+Bun.serve<Feed>({
     port: PORT,
+    idleTimeout: 120,
     fetch(req, server) {
         const url = new URL(req.url);
-        if (url.pathname.startsWith('/feed/')) {
-            const run = url.pathname.slice('/feed/'.length);
-            if (!runDir(run)) return new Response('no such run', { status: 404 });
-            const data = { run, speed: Number(url.searchParams.get('speed') ?? 1), from: Number(url.searchParams.get('from') ?? 0) };
+        const p = url.pathname;
+        if (p.startsWith('/feed/')) {
+            const rest = p.slice('/feed/'.length);
+            const num = (k: string, d: number) => Number(url.searchParams.get(k) ?? d);
+            const data: Feed = rest.startsWith('live/')
+                ? { kind: 'live', target: decodeURIComponent(rest.slice('live/'.length)), speed: 1, from: 0, until: Infinity }
+                : { kind: 'replay', target: decodeURIComponent(rest), speed: num('speed', 1), from: num('from', 0), until: num('until', Infinity) };
             return server.upgrade(req, { data }) ? undefined : new Response('websocket expected', { status: 400 });
         }
-        if (url.pathname === '/') return index();
-        if (url.pathname.startsWith('/world')) return world(url.pathname);
-        return new Response('not found', { status: 404 });
+        if (p === '/api/live') return liveNow().then((l) => Response.json(l));
+        if (p.startsWith('/data/')) return file(DATA, p.slice('/data/'.length));
+        if (p === '/world' || p.startsWith('/world/')) return file(WORLD, p.replace(/^\/world\/?/, ''), 'index.html', ISOLATION);
+        return file(SITE, p, 'index.html');
     },
     websocket: {
         open(ws) {
-            const dir = runDir(ws.data.run)!;
-            const live = join(dir, 'live.json');
-            if (existsSync(live)) {
-                // Live: relay both ways, so rs-world picks its own area like it does on the engine.
-                const { port } = JSON.parse(readFileSync(live, 'utf8'));
-                const up = new WebSocket(`ws://${FEED_HOST}:${port}/worldfeed`);
-                ws.data.upstream = up;
+            const d = ws.data;
+            if (d.kind === 'live') {
+                const live = liveRuns().find((l) => l.path === d.target);
+                if (!live) return ws.close(1011, 'not running');
+                // Relay both ways, so rs-world picks its own area as it does on the engine.
+                const up = new WebSocket(`ws://${FEED_HOST}:${live.port}/worldfeed`);
+                d.upstream = up;
                 up.onmessage = (e) => ws.send(String(e.data));
                 up.onclose = () => ws.close();
                 return;
             }
-            replay(ws, join(dir, 'world.jsonl.gz'));
+            const rec = inside(join(DATA, 'runs'), `${d.target}.world.jsonl.gz`);
+            if (!rec || !existsSync(rec)) return ws.close(1011, 'no recording');
+            replay(ws, rec);
         },
         message(ws, msg) {
             const up = ws.data.upstream;
@@ -122,18 +107,23 @@ Bun.serve<{ run: string; speed: number; from: number } & Feed>({
 });
 
 // Send the recorded messages at the pace the engine sent them: one tick every tickMs / speed.
-function replay(ws: any, file: string) {
-    if (!existsSync(file)) return ws.close(1011, 'no recording');
-    const lines = new TextDecoder().decode(Bun.gunzipSync(readFileSync(file))).split('\n').filter(Boolean);
-    let i = 0, tickMs = 400, firstTick = -1, started = performance.now();
+// Everything before `from` goes at once (so the viewer has the state at that tick), and nothing
+// after `until` is sent.
+function replay(ws: any, path: string) {
+    const lines = new TextDecoder().decode(Bun.gunzipSync(readFileSync(path))).split('\n').filter(Boolean);
+    const { speed, from, until } = ws.data as Feed;
+    let i = 0, tickMs = 400, startTick = -1, startAt = 0;
     const step = () => {
         while (i < lines.length && !ws.data.closed) {
             const m = JSON.parse(lines[i]);
             if (m.t === 'hello') tickMs = m.tickMs;
-            if (m.t === 'tick') {
-                if (firstTick < 0) firstTick = m.k, started = performance.now();
-                const due = started + ((m.k - firstTick - Math.max(0, ws.data.from - firstTick)) * tickMs) / ws.data.speed;
-                if (m.k >= ws.data.from && due > performance.now()) return (ws.data.timer = setTimeout(step, due - performance.now()));
+            if (m.t === 'tick' || m.t === 'roster') {
+                if (m.k > until) return;
+                if (m.k >= from) {
+                    if (startTick < 0) (startTick = m.k), (startAt = performance.now());
+                    const due = startAt + ((m.k - startTick) * tickMs) / speed;
+                    if (due > performance.now()) return void (ws.data.timer = setTimeout(step, due - performance.now()));
+                }
             }
             ws.send(lines[i++]);
         }
@@ -141,4 +131,4 @@ function replay(ws: any, file: string) {
     step();
 }
 
-console.log(`eval runs viewer on http://localhost:${PORT} (runs: ${RUNS}, rs-world: ${WORLD})`);
+console.log(`eval site on http://localhost:${PORT} (site: ${SITE}, data: ${DATA}, rs-world: ${WORLD}, live runs under: ${RUNS})`);

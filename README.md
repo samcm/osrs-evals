@@ -209,16 +209,50 @@ environment where you run `inspect`.
 
 ## Comparing agents and models
 
-A set of runs is a file of tasks, one per variant, and Inspect's `eval-set`.
-`evals/matrix.py` is Cook's Assistant with three agents (a model with a shell,
-Claude Code, Codex), 3 attempts each. The models are given at run time, so the same file compares
-models too (`--model a,b`):
+A set of runs is a file of tasks, one per variant, and Inspect's `eval-set`. `evals/matrix.py` has
+Cook's Assistant (one try, and five tries), 500 shrimps, and each with three agents (a model with a
+shell, Claude Code, Codex) plus a scripted shrimps baseline. The models are given at run time, so
+the same file compares models too (`--model a,b`):
 
 ```sh
 PYTHONPATH=. inspect eval-set evals/matrix.py --model anthropic/claude-haiku-5-5 --log-dir logs/cooks-haiku
 ```
 
 Run it again on the same log dir and it runs only what is missing or failed.
+
+## The evals
+
+| Eval | File | What it measures |
+| --- | --- | --- |
+| Coins | `evals/coins.py` | Coins held after 2,000 ticks. The simple example. |
+| Cook's Assistant | `evals/cooks_assistant.py` | Ticks to complete the quest from a new character, read from the quest variable. Done as soon as it is complete. |
+| Cook's Assistant, five tries | `cooks_assistant(attempts=5)` | The same, five times in one run: after each try the account is put back at its start save and the agent goes again, keeping its files and context. Scored by the fastest try; every try is recorded. |
+| Cook 500 shrimps | `evals/shrimps.py` | Ticks until none of 500 raw shrimps in the bank are left raw. Any model should finish it, so the result is how fast and how cheaply. |
+| Gold | `evals/gold.py` | Four accounts, 100,000 coins between them. |
+
+Ideas for more are in `ideas.yaml`.
+
+Every eval says "as fast as you can": the world runs in real time, so the time a model spends
+thinking and writing code is game time too. Each run records both clocks: ticks (game time, the
+score) and wall-clock seconds, plus the time spent waiting on the model, the tokens, and cost at
+list price (`prices.yaml`).
+
+## The site
+
+`site/` is a website for all of it: every eval, variant and run, success CDFs over ticks, seconds
+and cost, cost against finish rate, where the time went, and each run's turns, code, screenshot and
+3D replay. It is built from the logs:
+
+```sh
+python site/export.py logs/<dir> [logs/<dir> ...]       # the logs -> site/public/data
+cd site && npm ci && npm run build && cd ..
+bun viewer/serve.ts                                       # http://localhost:7576
+bun site/capture.ts && python site/export.py logs/<dir>   # screenshots of each run's last moment
+```
+
+or in one image: `docker build -f viewer/Dockerfile -t rs-evals-viewer:71d949d .` and
+`docker run --network host -v $PWD/site/public/data:/data:ro -v $PWD/logs:/runs:ro rs-evals-viewer:71d949d`.
+`site/AGENTS.md` has the rules for changing it.
 
 ## Where runs are stored
 
@@ -241,15 +275,9 @@ per account (`programs/each.sh`).
 **Repeats and parallel runs.** Every sample gets its own world on its own free host port, so
 Inspect's own flags work: `--epochs 5 --max-samples 3`.
 
-**Watch the game.** Run the viewer next to the logs and open http://localhost:7576:
-
-```sh
-docker run --rm --network host -v $PWD/logs:/runs:ro rs-evals-viewer:71d949d
-```
-
-It lists every sample under `logs/` with its score over time; "watch" opens rs-world following an
-account: the live world while the sample runs, its recording afterwards (`?speed=4` on the feed URL
-plays faster, `?from=<tick>` skips ahead).
+**Watch the game.** The site's server relays a running sample's world feed to rs-world, and
+replays a finished one's recording (`?speed=4` on the feed URL plays faster, `?from=<tick>` skips
+ahead).
 
 **Where it runs.** The harness copies `harness/`, `saves/` and `programs/` into the sandbox, so
 another place to run needs only the world image: for example `--sandbox k8s:values.yaml` with
@@ -260,10 +288,12 @@ Inspect's k8s sandbox package. Nothing in the evals or the harness names a host.
 - **The prompt:** the eval's goal, then a note with the accounts, the budget, and how to reach them
   with rs-sdk.
 - **The sandbox:** rs-sdk's server, gateway and SDK (`/opt/sdk`, with `README.md` and `API.md`),
-  bun, and `/work` to write in. Each account is already in the game through rs-sdk's headless
+  bun, and `/work` to write in. Agents run as an unprivileged `agent` user, so they can play but
+  can't edit the server's saves the score is read from. `/work` is kept with the run. Each account is already in the game through rs-sdk's headless
   client, so a script connects to it with the SDK, as rs-sdk's own scripts do.
 - **`$EVAL`** (for `command()` programs): a JSON file with `goal`, `accounts` (username and
-  password), `gateway`, `budget_ticks`, `tick_ms` and `out` (a folder kept with the run).
+  password), `gateway`, `budget_ticks`, `tick_ms`, `attempts` and `out` (`/work/out`, kept with the
+  run). With several attempts, `/run/attempt.json` says which one is running and how the others went.
 - **The end:** at the budget or when the eval is done, the harness stops any `command()` program
   (SIGTERM to its process group, SIGKILL 10 s later), logs every account out, and Inspect scores the
   sample. An agent that finishes earlier ends the game itself.
@@ -278,7 +308,8 @@ Inspect's k8s sandbox package. Nothing in the evals or the harness names a host.
 | `harness/record.ts` | Records the engine's world feed around the accounts (it follows them), plus the all-player roster. |
 | `harness/logout.ts`, `client.sh`, `start-world.sh`, `run.sh`, `stop.sh` | The steps above. Logout clicks the game's logout button, so the server saves at once. |
 | `image/` | The world image: rs-sdk's own server image at a pinned commit, plus its pathfinding data and a settable autosave interval. |
-| `viewer/` | rs-world built against the same map cache, and `serve.ts`: the run list, the live feed proxy and the replay. |
+| `site/` | The website (React, TanStack, ECharts), `export.py` (logs to its data) and `capture.ts` (run screenshots). |
+| `viewer/` | `serve.ts`, which serves the site, its data, rs-world built against the same map cache, the live feed relay and the replays; and the Dockerfile for all of it. |
 
 Licences: rs-sdk is MIT and rs-world is BSD-2-Clause; both are built from their repositories at
 pinned commits, not copied in. Nothing comes from RuneBench, which has no licence file.

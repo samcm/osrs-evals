@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta name="theme-color" content="#efeee5" />
+    <link rel="icon" type="image/png" href="/assets/items/995-10000.png" />
+    <title>2004scape evals</title>
+    <script>
+      // Set the theme before React mounts so the page never flashes the other one
+      (function () {
+        var colors = { light: '#efeee5', dark: '#0f0f0e' };
+        var stored = localStorage.getItem('theme');
+        var dark = stored === 'dark' || (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', dark ? colors.dark : colors.light);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
