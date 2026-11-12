@@ -24,8 +24,9 @@ LONG_EPOCHS = 3  # five tries, and shrimps: up to 25 minutes each
 def agents():
     # Codex 0.167 sends its tools in a "namespace" with a grammar-based shell, which reached the model
     # through an OpenAI-compatible proxy as no usable tool; 0.130.0 sends plain function tools.
-    # Every agent runs as the sandbox's unprivileged "agent" user (see harness.AGENT_USER).
-    return {"bash": react(tools=[bash(timeout=600, user="agent")]), "claude_code": claude_code(user="agent"), "codex": codex_cli(version="0.130.0", user="agent")}
+    # Every agent runs as the sandbox's unprivileged "agent" user (see harness.AGENT_USER), in /work,
+    # the one folder it can write (the CLIs keep their own config there).
+    return {"bash": react(tools=[bash(timeout=600, user="agent")]), "claude_code": claude_code(user="agent", cwd="/work"), "codex": codex_cli(version="0.130.0", user="agent", cwd="/work")}
 
 
 @task
