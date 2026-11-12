@@ -210,12 +210,12 @@ environment where you run `inspect`.
 ## Comparing agents and models
 
 A set of runs is a file of tasks, one per variant, and Inspect's `eval-set`.
-`evals/cooks_assistant_agents.py` is Cook's Assistant with three agents (a model with a shell,
+`evals/matrix.py` is Cook's Assistant with three agents (a model with a shell,
 Claude Code, Codex), 3 attempts each. The models are given at run time, so the same file compares
 models too (`--model a,b`):
 
 ```sh
-PYTHONPATH=. inspect eval-set evals/cooks_assistant_agents.py --model anthropic/claude-haiku-5-5 --log-dir logs/cooks-haiku
+PYTHONPATH=. inspect eval-set evals/matrix.py --model anthropic/claude-haiku-5-5 --log-dir logs/cooks-haiku
 ```
 
 Run it again on the same log dir and it runs only what is missing or failed.
@@ -292,7 +292,7 @@ Verified by running, in a 2-CPU, 4 GB Linux VM with Docker, Inspect 0.3.289 and 
 | The simple example | Above. The score is read from the server's save after logout. |
 | `command()` through `--solver` | `--solver harness/__init__.py@command -S cmd="bun /programs/pickpocket.ts"` on the coins eval. |
 | A model with a shell | Cook's Assistant, `--model anthropic/claude-haiku-5-5`: completed at tick 5,683 (4 min 48 s), 44 shell calls writing and rerunning scripts in `/work`, every model call in the Inspect log. |
-| The agent matrix | `evals/cooks_assistant_agents.py` with `eval-set`, 3 attempts per agent, on Claude Haiku 5.5 and GPT-5.6 Luna. Every run ended at the budget, on done, or when the agent stopped, and was scored from the server. |
+| The agent matrix | `evals/matrix.py` with `eval-set`, 3 attempts per agent, on Claude Haiku 5.5 and GPT-5.6 Luna. Every run ended at the budget, on done, or when the agent stopped, and was scored from the server. |
 | Claude Code | Cook's Assistant, `--solver inspect_swe/claude_code --model anthropic/claude-haiku-5-5`: Claude Code ran in the sandbox through the agent bridge, 52 model calls in 10 minutes, all logged. It got the milk, egg and pot, could not get flour from the mill, and gave up at tick 10,400 of 12,000 (score 0). |
 | Score over time | Every sample: the eval's measure per account every 100 ticks, in the transcript and the sample's metadata, and drawn in the viewer. |
 | Recording and replay | The world feed around the accounts is saved with each sample and replayed into rs-world at the recorded pace, 4× faster, or from a later tick. A 6,000-tick, 4-account run was recorded unbroken (700 KB). A 36,000-tick run lost its recording after about 2,000 ticks while the VM was swapping; the recorder now reconnects, which was tested only against a fake feed. |

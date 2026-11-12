@@ -1,5 +1,4 @@
-"""Cook's Assistant and 500 shrimps, each played by each agent, 5 runs per variant; Cook's
-Assistant also with five tries in one run. The model is not fixed here: give it (or several) at
+"""Cook's Assistant (one try, and five tries in one run) and 500 shrimps, each played by each agent. The model is not fixed here: give it (or several) at
 run time, with the log dir:
 
     PYTHONPATH=. inspect eval-set evals/matrix.py --model anthropic/claude-haiku-5-5 --log-dir <dir>
@@ -13,10 +12,13 @@ from inspect_ai.agent import react
 from inspect_ai.tool import bash
 from inspect_swe import claude_code, codex_cli
 
+from harness import command
+
 from cooks_assistant import cooks_assistant
 from shrimps import shrimps
 
-EPOCHS = 5
+EPOCHS = 5  # one-try Cook's Assistant
+LONG_EPOCHS = 3  # five tries, and shrimps: up to 25 minutes each
 
 
 def agents():
@@ -43,19 +45,25 @@ def cooks_codex():
 
 @task
 def cooks_5_tries_bash():
-    return task_with(cooks_assistant(ticks=6000, attempts=5), solver=agents()["bash"], epochs=EPOCHS)
+    return task_with(cooks_assistant(ticks=6000, attempts=5), solver=agents()["bash"], epochs=LONG_EPOCHS)
 
 
 @task
 def shrimps_bash():
-    return task_with(shrimps(), solver=agents()["bash"], epochs=EPOCHS)
+    return task_with(shrimps(), solver=agents()["bash"], epochs=LONG_EPOCHS)
 
 
 @task
 def shrimps_claude_code():
-    return task_with(shrimps(), solver=agents()["claude_code"], epochs=EPOCHS)
+    return task_with(shrimps(), solver=agents()["claude_code"], epochs=LONG_EPOCHS)
 
 
 @task
 def shrimps_codex():
-    return task_with(shrimps(), solver=agents()["codex"], epochs=EPOCHS)
+    return task_with(shrimps(), solver=agents()["codex"], epochs=LONG_EPOCHS)
+
+
+@task
+def shrimps_script():
+    """The scripted baseline: no model."""
+    return task_with(shrimps(), solver=command("bun /programs/cook_shrimps.ts"), epochs=LONG_EPOCHS)
