@@ -338,7 +338,7 @@ async def announce_live(sb, run_dir: str, names: list[str]) -> None:
 async def save_run(sb, run_dir: str, state) -> None:
     """Copy the sample's game recording, logs and timeline out of the sandbox, next to the log."""
     # The run folder: the harness's files, and the agent's /work (the code it wrote, its out/ folder).
-    await sb.exec(concurrency=False, cmd=["sh", "-c", f"kill $(cat /run/record.pid); sleep 1; gzip -f {OUT}/world.jsonl; tar czf {OUT}/work.tgz --exclude=node_modules -C /work . ; tar czf /tmp/out.tgz -C {OUT} ."])
+    await sb.exec(concurrency=False, cmd=["sh", "-c", f"kill $(cat /run/record.pid); sleep 1; gzip -f {OUT}/world.jsonl; tar czf {OUT}/work.tgz --exclude=node_modules --exclude=./.codex --exclude=./.claude --exclude=./.cache -C /work . ; tar czf /tmp/out.tgz -C {OUT} ."])
     data = await sb.read_file("/tmp/out.tgz", text=False)
     with tarfile.open(fileobj=io.BytesIO(data)) as tar:
         for member in tar.getmembers():
