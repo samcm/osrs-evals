@@ -5,3 +5,6 @@ __pycache__/
 node_modules/
 .cache/
 .amp/
+site/public/data/
+site/node_modules/
+site/dist/

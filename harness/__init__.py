@@ -28,6 +28,7 @@ from inspect_ai.solver import solver
 from inspect_ai.util import sandbox
 
 REPO = Path(__file__).resolve().parent.parent
+AGENT_USER = "agent"  # agents run as this user: they can use the game, not edit its saves or the harness
 PLAYERS = "/opt/server/data/players/main"
 OUT = "/run/out"
 
@@ -52,6 +53,10 @@ Control the accounts with rs-sdk, a TypeScript SDK at /opt/sdk (run with bun; do
 
 run with `bun /work/hello.ts`. The same details are in the JSON file at $EVAL ({eval_path})."""
 
+ATTEMPTS = """
+
+You get {attempts} attempts at this, {budget:,} ticks each. An attempt ends when the goal is met or its ticks run out. Then every account is put back exactly where it started and logged in again, and the next attempt begins at once. Your files in /work are kept. /run/attempt.json says which attempt is running and how the earlier ones went. You are scored on your best attempt."""
+
 
 class Game:
     """One sample's game: its timeline, and the watchdog that ends it."""
@@ -65,6 +70,9 @@ class Game:
         self.ended: dict | None = None
         self.lock = asyncio.Lock()
         self.watchdog: asyncio.Task | None = None
+        self.attempt = 1
+        self.attempts: list[dict] = []  # one result per finished attempt
+        self.attempt_began = (0, self.began)  # tick and wall clock the current attempt began at
 
 
 GAMES: dict[str, Game] = {}
@@ -88,52 +96,78 @@ def game(track: Callable[[Accounts], float] | None = None, done: Callable[[Accou
 
         # A fresh world with this eval's settings and start saves.
         await upload(sb, {"harness": "/harness", "saves": "/evals/saves", "programs": "/programs"})
-        await sb.exec(["mkdir", "-p", PLAYERS, OUT, "/work"])
+        await sb.exec(concurrency=False, cmd=["mkdir", "-p", PLAYERS, OUT, "/work"])
         for a in accounts:
-            await sb.exec(["cp", f"/evals/saves/{a['save']}", f"{PLAYERS}/{a['username']}.sav"])
+            await sb.exec(concurrency=False, cmd=["cp", f"/evals/saves/{a['save']}", f"{PLAYERS}/{a['username']}.sav"])
             await sb.write_file(f"/opt/bots/{a['username']}/bot.env", f"BOT_USERNAME={a['username']}\nPASSWORD=pw\nSERVER=localhost:8888\nGATEWAY_URL=ws://localhost:7780\n")
-        await check(sb.exec(["/harness/start-world.sh"], env={**world, "SAVE_EVERY_TICKS": str(sample_ticks)}, timeout=600))
-        await sb.exec(["sh", "-c", f"nohup bun /harness/record.ts {OUT}/world.jsonl {' '.join(names)} > {OUT}/record.log 2>&1 & echo $! > /run/record.pid"])
+        # The agent's user can read the SDK and write /work, but not the server's data (the saves the
+        # score is read from) or the harness.
+        await check(sb.exec(concurrency=False, cmd=["sh", "-c", f"id {AGENT_USER} >/dev/null 2>&1 || useradd -m {AGENT_USER}; mkdir -p /opt/server/data /work/out; chmod 700 /opt/server/data {OUT}; chown -R {AGENT_USER} /work"]))
+        await check(sb.exec(concurrency=False, cmd=["/harness/start-world.sh"], env={**world, "SAVE_EVERY_TICKS": str(sample_ticks)}, timeout=600))
+        await sb.exec(concurrency=False, cmd=["sh", "-c", f"nohup bun /harness/record.ts {OUT}/world.jsonl {' '.join(names)} > {OUT}/record.log 2>&1 & echo $! > /run/record.pid"])
         g = GAMES[state.uuid] = Game(names, track, done, sample_ticks, tick_ms, budget, run_dir(state))
         await announce_live(sb, g.run_dir, names)
 
         # Each account in the game through rs-sdk's headless client.
         for name in names:
-            await check(sb.exec(["/harness/client.sh", name], timeout=120))
+            await check(sb.exec(concurrency=False, cmd=["/harness/client.sh", name], timeout=120))
         contract = {
             "goal": state.input_text,
             "accounts": [{"username": n, "password": "pw"} for n in names],
             "gateway": "ws://localhost:7780",
             "budget_ticks": budget,
             "tick_ms": tick_ms,
-            "out": f"{OUT}/program",
+            "out": "/work/out",
         }
+        attempts = m.get("attempts", 1)
+        contract["attempts"] = attempts
         await sb.write_file("/run/eval.json", json.dumps(contract))
-        state.messages.append(ChatMessageUser(content=ABOUT.format(
+        about = ABOUT.format(
             tick_ms=tick_ms, budget=budget, minutes=round(budget * tick_ms / 60000, 1), first=names[0], eval_path="/run/eval.json",
             accounts="\n".join(f"- {n} (password: pw)" for n in names),
-        )))
+        )
+        if attempts > 1:
+            about += ATTEMPTS.format(attempts=attempts, budget=budget)
+            await sb.write_file("/run/attempt.json", json.dumps({"attempt": 1, "of": attempts, "earlier": []}))
+        state.messages.append(ChatMessageUser(content=about))
 
         # The clock starts now: sample the accounts, and end the game at the budget or when done.
         g.start = await g_sample(sb, g)
+        g.attempt_began = (g.start, g.began)
         active = sample_active()
 
         async def watchdog():
-            reason = "budget"
-            end_tick, deadline = g.start + budget, time.monotonic() + 2 * budget * tick_ms / 1000 + 120
-            now = g.start
             try:
+                now = g.start
                 while True:
-                    await asyncio.sleep(max(1, min(sample_ticks, end_tick - now)) * tick_ms / 1000)
-                    now = await g_sample(sb, g, saved_every=sample_ticks)
-                    if now >= end_tick:
+                    # One attempt: until its budget runs out or the eval is done.
+                    reason, began, began_at = "budget", now, time.monotonic()
+                    g.attempt_began = (began, began_at)
+                    end_tick, deadline = began + budget, began_at + 2 * budget * tick_ms / 1000 + 120
+                    while True:
+                        await asyncio.sleep(max(1, min(sample_ticks, end_tick - now)) * tick_ms / 1000)
+                        now = await g_sample(sb, g, saved_every=sample_ticks)
+                        if now >= end_tick:
+                            break
+                        if done and g.timeline and done(g.timeline[-1]["state"]):
+                            reason = "done"
+                            break
+                        if time.monotonic() > deadline:
+                            reason = "wall clock (the engine ran slower than its tick rate)"
+                            break
+                    if g.attempt >= attempts:
                         break
-                    if done and g.timeline and done(g.timeline[-1]["state"]):
-                        reason = "done"
-                        break
-                    if time.monotonic() > deadline:
-                        reason = "wall clock (the engine ran slower than its tick rate)"
-                        break
+                    # Reset: every account back to its start save, logged in again; the agent goes on.
+                    g.attempts.append({"attempt": g.attempt, "ended_by": reason, "ticks": now - began, "seconds": round(time.monotonic() - began_at, 1), "value": g.timeline[-1]["value"] if g.timeline else None})
+                    transcript().info(g.attempts[-1], source="attempt over")
+                    await sb.exec(concurrency=False, cmd=["bun", "/harness/logout.ts", *names], timeout=180)
+                    for a in accounts:
+                        await sb.exec(concurrency=False, cmd=["cp", f"/evals/saves/{a['save']}", f"{PLAYERS}/{a['username']}.sav"])
+                    for name in names:
+                        await check(sb.exec(concurrency=False, cmd=["/harness/client.sh", name], timeout=120))
+                    g.attempt += 1
+                    await sb.write_file("/run/attempt.json", json.dumps({"attempt": g.attempt, "of": attempts, "earlier": g.attempts}))
+                    now = await g_sample(sb, g)
                 await end_game(sb, state, reason, now)
             except asyncio.CancelledError:
                 return
@@ -141,7 +175,10 @@ def game(track: Callable[[Accounts], float] | None = None, done: Callable[[Accou
                 transcript().info(f"watchdog stopped: {e}", source="game")
                 return
             if active:
-                active.interrupt("score")
+                # Error, not score, when the agent never reached its model: eval-set retries it.
+                if unreachable := model_unreachable():
+                    transcript().info(unreachable, source="game")
+                active.interrupt("error" if unreachable else "score")
 
         g.watchdog = asyncio.create_task(watchdog())
         return state
@@ -152,7 +189,9 @@ def game(track: Callable[[Accounts], float] | None = None, done: Callable[[Accou
 async def end_game(sb, state, reason: str, now: int | None = None) -> dict:
     """End the sample's game once: stop any program, log every account out so the server saves it,
     stop the world, and copy the run out. Called at the budget, when done, or by the scorer."""
-    g = GAMES[state.uuid]
+    g = GAMES.get(state.uuid)
+    if g is None:  # ended, and its game already let go
+        return state.metadata["game"]
     async with g.lock:
         if g.ended:
             return g.ended
@@ -160,10 +199,10 @@ async def end_game(sb, state, reason: str, now: int | None = None) -> dict:
             g.watchdog.cancel()
         if now is None:
             now = await g_sample(sb, g)
-        await sb.exec(["/harness/stop.sh"], timeout=60)
-        logout = await sb.exec(["bun", "/harness/logout.ts", *g.names], timeout=180)
+        await sb.exec(concurrency=False, cmd=["/harness/stop.sh"], timeout=60)
+        logout = await sb.exec(concurrency=False, cmd=["bun", "/harness/logout.ts", *g.names], timeout=180)
         await g_sample(sb, g)
-        await sb.exec(["sh", "-c", "kill $(cat /run/world.pid) 2>/dev/null; true"])
+        await sb.exec(concurrency=False, cmd=["sh", "-c", "kill $(cat /run/world.pid) 2>/dev/null; true"])
         g.ended = {
             "ended_by": reason,
             "ticks": now - g.start,
@@ -172,10 +211,16 @@ async def end_game(sb, state, reason: str, now: int | None = None) -> dict:
         }
         transcript().info(g.ended, source="game over")
         state.metadata["game"] = g.ended
+        if state.metadata.get("attempts", 1) > 1:
+            began, began_at = g.attempt_began
+            last = {"attempt": g.attempt, "ended_by": reason, "ticks": now - began, "seconds": round(time.monotonic() - began_at, 1), "value": g.timeline[-1]["value"] if g.timeline else None}
+            # The game can end during a reset (the agent stopped then); that attempt is already recorded.
+            state.metadata["attempt_results"] = g.attempts + ([] if g.attempts and g.attempts[-1]["attempt"] == g.attempt else [last])
         if g.track:
             state.metadata["timeline"] = [{k: v for k, v in p.items() if k != "state"} for p in g.timeline]
         await save_run(sb, g.run_dir, state)
         remove(f"{g.run_dir}/live.json")
+        GAMES.pop(state.uuid, None)
         return g.ended
 
 
@@ -183,10 +228,22 @@ async def read_saves(state) -> Accounts:
     """Every account of this sample as the server last saved it, after the game has ended."""
     sb = sandbox()
     await end_game(sb, state, "agent finished")
+    # A run whose agent never reached its model measured the model route, not the agent: fail the
+    # sample (eval-set retries it) instead of scoring it.
+    if unreachable := model_unreachable():
+        raise RuntimeError(unreachable)
     names = [a["username"] for a in state.metadata["accounts"]]
-    result = await check(sb.exec(["bun", "/harness/sample.ts", *names]))
-    GAMES.pop(state.uuid, None)
+    result = await check(sb.exec(concurrency=False, cmd=["bun", "/harness/sample.ts", *names]))
     return json.loads(result.stdout)["accounts"]
+
+
+def model_unreachable() -> str | None:
+    """Why the sample measured the model route instead of the agent, if it did: the agent made model
+    calls and every one failed."""
+    calls = [e for e in transcript().events if e.event == "model"]
+    if calls and all(e.error for e in calls):
+        return f"the model was never reached ({len(calls)} calls, all failed): {calls[-1].error}"
+    return None
 
 
 @solver
@@ -202,13 +259,13 @@ def command(cmd: str):
             if str(get_model()) != "none/none":
                 await stack.enter_async_context(sandbox_agent_bridge())
                 env |= {"OPENAI_BASE_URL": "http://localhost:13131/v1", "ANTHROPIC_BASE_URL": "http://localhost:13131", "OPENAI_API_KEY": "inspect", "ANTHROPIC_API_KEY": "inspect"}
-            await check(sb.exec(["/harness/run.sh", cmd], env=env))
-            while (await sb.exec(["sh", "-c", "kill -0 $(cat /run/program.pid)"])).returncode == 0:
+            await check(sb.exec(concurrency=False, cmd=["/harness/run.sh", cmd], env=env))
+            while (await sb.exec(concurrency=False, cmd=["sh", "-c", "kill -0 $(cat /run/program.pid)"])).returncode == 0:
                 await asyncio.sleep(2)
         state.metadata["program"] = {
             "command": cmd,
-            "exit": (await sb.exec(["cat", "/run/program.exit"])).stdout.strip(),
-            "output": (await sb.exec(["tail", "-c", "6000", f"{OUT}/program.log"])).stdout,
+            "exit": (await sb.exec(concurrency=False, cmd=["cat", "/run/program.exit"])).stdout.strip(),
+            "output": (await sb.exec(concurrency=False, cmd=["tail", "-c", "6000", f"{OUT}/program.log"])).stdout,
         }
         return state
 
@@ -221,7 +278,7 @@ async def g_sample(sb, g: Game, saved_every: int | None = None) -> int:
     made at multiples of that tick. Returns the engine's tick."""
     last = g.start + (g.timeline[-1]["tick"] if g.timeline else 0)
     try:
-        result = json.loads((await check(sb.exec(["bun", "/harness/sample.ts", *g.names], timeout=60))).stdout)
+        result = json.loads((await check(sb.exec(concurrency=False, cmd=["bun", "/harness/sample.ts", *g.names], timeout=60))).stdout)
     except TimeoutError:
         transcript().info("reading the saves timed out", source="score over time")
         return last
@@ -231,6 +288,7 @@ async def g_sample(sb, g: Game, saved_every: int | None = None) -> int:
         point = {
             "tick": (max(last, tick - tick % saved_every) if saved_every else tick) - origin,
             "seconds": round(time.monotonic() - g.began, 1),
+            "attempt": g.attempt,
             "value": g.track(result["accounts"]),
             "accounts": {n: g.track({n: a}) for n, a in result["accounts"].items()},
         }
@@ -277,13 +335,14 @@ async def announce_live(sb, run_dir: str, names: list[str]) -> None:
 
 async def save_run(sb, run_dir: str, state) -> None:
     """Copy the sample's game recording, logs and timeline out of the sandbox, next to the log."""
-    await sb.exec(["sh", "-c", f"kill $(cat /run/record.pid); sleep 1; gzip -f {OUT}/world.jsonl; tar czf /tmp/out.tgz -C {OUT} ."])
+    # The run folder: the harness's files, and the agent's /work (the code it wrote, its out/ folder).
+    await sb.exec(concurrency=False, cmd=["sh", "-c", f"kill $(cat /run/record.pid); sleep 1; gzip -f {OUT}/world.jsonl; tar czf {OUT}/work.tgz --exclude=node_modules -C /work . ; tar czf /tmp/out.tgz -C {OUT} ."])
     data = await sb.read_file("/tmp/out.tgz", text=False)
     with tarfile.open(fileobj=io.BytesIO(data)) as tar:
         for member in tar.getmembers():
             if member.isfile():
                 put(f"{run_dir}/{member.name.removeprefix('./')}", tar.extractfile(member).read())
-    put(f"{run_dir}/sample.json", json.dumps({k: state.metadata.get(k) for k in ["accounts", "world", "budget_ticks", "game", "timeline"]}))
+    put(f"{run_dir}/sample.json", json.dumps({k: state.metadata.get(k) for k in ["accounts", "world", "budget_ticks", "attempts", "game", "attempt_results", "timeline"]}))
     state.metadata["run_dir"] = run_dir
 
 
@@ -294,7 +353,7 @@ async def upload(sb, folders: dict[str, str]) -> None:
         for local, remote in folders.items():
             tar.add(REPO / local, arcname=remote.lstrip("/"), filter=lambda t: None if "__pycache__" in t.name else t)
     await sb.write_file("/tmp/repo.tgz", buf.getvalue())
-    await check(sb.exec(["tar", "xzf", "/tmp/repo.tgz", "-C", "/"]))
+    await check(sb.exec(concurrency=False, cmd=["tar", "xzf", "/tmp/repo.tgz", "-C", "/"]))
 
 
 async def check(result_awaitable):
