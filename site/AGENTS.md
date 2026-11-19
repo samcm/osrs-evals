@@ -84,6 +84,8 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   a render of each run's character. Sprites are drawn with `Sprite` (pixelated, integer scaling
   only). Every eval has a sprite; every quest has its icon; every skill has its icon.
 - The game's bitmap font is allowed only in the wordmark, at its native size or an integer multiple.
+- Tool-call categories (write and run, read, wait, …) have one name and colour each, from
+  `src/lib/tools.ts`. Token kinds and SDK outcomes keep theirs everywhere too.
 - No generic icon sets (heroicons and the like), no emoji.
 
 ## Visual rules
@@ -108,7 +110,7 @@ decoration.
 
 ## Copy rules
 
-- The page name appears once: in the breadcrumb on detail pages, as the H1 on top-level pages.
+- A page names itself once in its content, in the H1. No card, caption or "Goal" box restates it.
 - No subtitle under a heading unless it states a unit, scope or window that the chart does not.
   Never a subtitle that repeats an axis name.
 - No caption under a value that the label already implies ("Cost" needs no "at list price"; prices
@@ -132,7 +134,11 @@ decoration.
 - Charts on one page that share an x axis share the x measure control and a synced crosshair.
 - The usual cuts: x as game ticks, wall-clock seconds, cost or model calls; group by model, vendor,
   agent or variant; aggregate as runs, median or best; log or linear scale for cost.
-- Cost axes are log scale with 1-2-5 ticks formatted `$0.01`, `$0.02`, `$0.05`.
+- Cost axes that compare runs are log scale with 1-2-5 ticks formatted `$0.01`, `$0.02`, `$0.05`
+  (`src/lib/logAxis.ts`). One run's cumulative spend, stacked by token kind, is linear.
+- Synced crosshairs (`Chart` `group`) only follow when the charts share x min and max, grid left
+  and right, and the same first series: give each chart in a group an identical invisible series
+  first, or pass the hover position through state as the eval page's quest strip does.
 - A Pareto frontier is a faint dashed line drawn under the points, through non-dominated points
   only; frontier points are labelled.
 - Line-end labels never collide; drop or nudge them rather than overlap.
@@ -144,6 +150,10 @@ decoration.
 `WorldMap` draws the 2004scape world map (`public/assets/map/`) with paths from the run recordings.
 Paths are coloured by model (eval page) or by time (run page). Its view (centre, zoom) and the
 selected time are URL state. Underground positions (z ≥ 6400) are not drawn on the surface map.
+Never letterbox the map: give it `fitHeight` so the frame takes the paths' shape (up to `height`),
+or a height that matches its neighbour; the fitted view slides back onto the map at the edges.
+Markers are sprites: quest icons where a quest was done, the hitpoints heart for a death, skill
+icons for level-ups.
 
 ## Layout
 
@@ -162,4 +172,22 @@ selected time are URL state. Underground positions (z ≥ 6400) are not drawn on
 derived from the logs and the world recording. `public/data/evals/<id>.json` has every run of one
 eval resampled for overlays. Shapes are in `src/data/types.ts`; keep them in step with
 `site/export.py`. Never present an inferred value (such as a quest guessed from a quest-points
-jump) as read from the game: the data says which it is.
+jump) as read from the game: the data says which it is (`source: 'inferred'`). Mark it the same way
+everywhere: a faint dashed ring or underline on its icon, "≈" and one line of why in its tooltip.
+
+- One clock: every `seconds` counts from the harness's first sample; every `tick` counts straight
+  through all attempts. Never add an attempt offset to a tick.
+- Each run's result is its best value over its attempts, not its last.
+- Game art comes from `site/game/build.sh` (the rs-sdk image at the pinned commit); run
+  `site/game/build.sh avatars` after an export so new runs get their character. Don't hand-edit
+  files in `public/assets`.
+
+## Checking your work
+
+- Run the Vite dev server (`cd site && npx vite`), which serves `public/data`, and look at every
+  page you touched at 1440 and 390 wide, light and dark (`?theme=dark`), with agent-browser at
+  device scale 2. `document.documentElement.scrollWidth` must equal the viewport width at 390.
+- Full-page captures show charts below the fold blank (they draw once scrolled into view), so
+  scroll to each chart and capture the viewport to judge it.
+- Change every control, reload, and check the same view comes back from the URL.
+- Read every string on the page once more and delete the ones that restate something.

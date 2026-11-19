@@ -1,5 +1,12 @@
 /* Base styles and keyframes only; every value comes from tokens.css. */
 
+/* The game's bold font (RuneStar/fonts), for the wordmark only. */
+@font-face {
+  font-family: 'RuneScape Bold 12';
+  src: url('/assets/fonts/RuneScape-Bold-12.ttf') format('truetype');
+  font-display: swap;
+}
+
 @layer base {
   html {
     /* Set html background for overscroll */

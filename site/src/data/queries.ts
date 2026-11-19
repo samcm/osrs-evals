@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query';
-import type { Index, RunDetail } from './types';
+import type { EvalRuns, Index, RunDetail } from './types';
 
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(path);
@@ -19,5 +19,13 @@ export const runQuery = (runId: string) =>
   queryOptions({
     queryKey: ['run', runId],
     queryFn: () => getJson<RunDetail>(`/data/runs/${encodeURIComponent(runId)}.json`),
+    staleTime: Infinity,
+  });
+
+/** Every run of one eval on a shared tick grid, with coarse paths, for overlays. */
+export const evalRunsQuery = (evalId: string) =>
+  queryOptions({
+    queryKey: ['evalRuns', evalId],
+    queryFn: () => getJson<EvalRuns>(`/data/evals/${encodeURIComponent(evalId)}.json`),
     staleTime: Infinity,
   });

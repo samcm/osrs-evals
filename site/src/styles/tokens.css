@@ -46,6 +46,8 @@ html.dark {
   /* Geist for all UI text and numbers, Geist Mono for identifiers (run ids, model ids, code). */
   --font-sans: 'Geist Variable', 'Geist', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, monospace;
+  /* The game's bold bitmap font, for the wordmark only, at 16px or a whole multiple of it. */
+  --font-game: 'RuneScape Bold 12', var(--font-sans);
   --default-font-family: var(--font-sans);
   --default-mono-font-family: var(--font-mono);
 

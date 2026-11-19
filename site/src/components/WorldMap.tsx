@@ -125,6 +125,7 @@ export function WorldMap({
   view,
   onViewChange,
   height = 360,
+  fitHeight = false,
   padding = 24,
   label,
   className,
@@ -136,6 +137,8 @@ export function WorldMap({
   onViewChange?: (view: MapView | undefined) => void;
   /** CSS pixels */
   height?: number;
+  /** Shrink the frame to the paths' shape at its width, up to `height`, so the map fills it */
+  fitHeight?: boolean;
   /** Space around the paths when fitting, in CSS pixels */
   padding?: number;
   /** Accessible description of what the map shows */
@@ -196,6 +199,27 @@ export function WorldMap({
   // What the fitted view depends on: which paths and markers, not their time dots or styles
   const geometryKey = `${paths.map(p => `${p.id}:${p.points.length}`).join('|')}#${markers.map(m => `${m.x},${m.z}`).join('|')}`;
 
+  /** The frame's height: the fitted paths' shape at the frame's width, so the map fills it; `height` is the most. */
+  const frameHeight = useMemo(() => {
+    if (!fitHeight || !meta || size.w === 0) return height;
+    let y0 = Infinity;
+    let y1 = -Infinity;
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    for (const p of prepared)
+      for (const [a, b] of p.runs)
+        for (let i = a; i < b; i++) {
+          x0 = Math.min(x0, p.xy[i * 2]);
+          x1 = Math.max(x1, p.xy[i * 2]);
+          y0 = Math.min(y0, p.xy[i * 2 + 1]);
+          y1 = Math.max(y1, p.xy[i * 2 + 1]);
+        }
+    if (x0 === Infinity) return height;
+    const minSpan = (8 * meta.px_per_tile) / 2;
+    const aspect = Math.max(y1 - y0, minSpan) / Math.max(x1 - x0, minSpan);
+    return Math.round(Math.min(height, Math.max(200, (size.w - 2 * padding) * aspect + 2 * padding)));
+  }, [fitHeight, height, meta, padding, prepared, size.w]);
+
   /** The camera that fits every path and marker (or the whole map) with padding. */
   const fit = useCallback((): Camera | null => {
     if (!meta || size.w === 0) return null;
@@ -220,8 +244,11 @@ export function WorldMap({
     const minSpan = (8 * meta.px_per_tile) / 2;
     const w = Math.max(x1 - x0, minSpan);
     const h = Math.max(y1 - y0, minSpan);
-    const s = Math.min((size.w - 2 * padding) / w, (size.h - 2 * padding) / h);
-    return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, s: clampScale(meta, size, s) };
+    const s = clampScale(meta, size, Math.min((size.w - 2 * padding) / w, (size.h - 2 * padding) / h));
+    // Slide the frame back onto the map where it would show past an edge; the paths stay in view
+    const within = (c: number, half: number, extent: number): number =>
+      half * 2 >= extent ? c : Math.min(extent - half, Math.max(half, c));
+    return { cx: within((x0 + x1) / 2, size.w / 2 / s, meta.width), cy: within((y0 + y1) / 2, size.h / 2 / s, meta.height), s };
   }, [meta, markers, padding, prepared, size]);
 
   const draw = useCallback(() => {
@@ -444,7 +471,7 @@ export function WorldMap({
 
   const failed = metaFailed || imageFailed;
   return (
-    <div ref={containerRef} className={clsx('relative w-full min-w-0 overflow-hidden rounded-sm bg-background', className)} style={{ height }}>
+    <div ref={containerRef} className={clsx('relative w-full min-w-0 overflow-hidden rounded-sm bg-background', className)} style={{ height: frameHeight }}>
       <canvas
         ref={canvasRef}
         role="img"

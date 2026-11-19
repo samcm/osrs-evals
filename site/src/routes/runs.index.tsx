@@ -5,6 +5,7 @@ import { defineSearch, int, oneOf, sortParam, text } from '@/lib/search';
 export const runsSearch = defineSearch({
   eval: text(),
   outcome: oneOf(['finished', 'not_finished', 'scored'], undefined),
+  batch: text(),
   sort: sortParam(['-started']),
   page: int(1, { min: 1 }),
 });

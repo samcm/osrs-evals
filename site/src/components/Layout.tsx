@@ -60,7 +60,7 @@ function Wordmark() {
   return (
     <Link to="/" className="flex items-center gap-2 rounded-sm focus-visible:ring-2 focus-visible:ring-primary-50">
       <img data-sprite src="/assets/items/995-10000.png" alt="" width={32} height={32} className="size-7" />
-      <span className="text-sm font-semibold text-foreground">2004scape evals</span>
+      <span className="font-game text-base/4 font-normal text-foreground">2004scape evals</span>
     </Link>
   );
 }

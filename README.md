@@ -240,17 +240,22 @@ list price (`prices.yaml`).
 
 ## The site
 
-`site/` is a website for all of it: every eval, variant and run, success CDFs over ticks, seconds
-and cost, cost against finish rate, where the time went, and each run's turns, code, screenshot and
-3D replay. It is built from the logs:
+`site/` is a website for all of it. The overview is a grid of every model and agent against every
+eval, then every run's progress over time; each eval page overlays its runs' progress, cost and the
+paths they walked on the world map; each run page puts score, spend, context, model calls and game
+actions on one timeline beside the map and the transcript; `/compare` cuts any measure by model,
+vendor or agent. Every view is a link. It is built from the logs:
 
 ```sh
 python site/export.py logs/<dir> [logs/<dir> ...]       # the logs -> site/public/data
+site/game/build.sh avatars                                # each run's character, from its recording
+bun site/capture.ts && python site/export.py logs/<dir>   # screenshots of each run's last moment
 cd site && npm ci && npm run build && cd ..
 bun viewer/serve.ts                                       # http://localhost:7576
-bun site/capture.ts && python site/export.py logs/<dir>   # screenshots of each run's last moment
 ```
 
+The game art in `site/public/assets` (item, skill and quest icons, the world map) is regenerated from
+the game cache by `site/game/build.sh`; logos and their sources are in `site/public/assets/brands`.
 or in one image: `docker build -f viewer/Dockerfile -t rs-evals-viewer:71d949d .` and
 `docker run --network host -v $PWD/site/public/data:/data:ro -v $PWD/logs:/runs:ro rs-evals-viewer:71d949d`.
 `site/AGENTS.md` has the rules for changing it.
@@ -309,7 +314,7 @@ Inspect's k8s sandbox package. Nothing in the evals or the harness names a host.
 | `harness/record.ts` | Records the engine's world feed around the accounts (it follows them), plus the all-player roster. |
 | `harness/logout.ts`, `client.sh`, `start-world.sh`, `run.sh`, `stop.sh` | The steps above. Logout clicks the game's logout button, so the server saves at once. |
 | `image/` | The world image: rs-sdk's own server image at a pinned commit, plus its pathfinding data and a settable autosave interval. |
-| `site/` | The website (React, TanStack, ECharts), `export.py` (logs to its data) and `capture.ts` (run screenshots). |
+| `site/` | The website (React, TanStack, ECharts), `export.py` (logs to its data), `capture.ts` (run screenshots) and `game/` (game art from the cache). |
 | `viewer/` | `serve.ts`, which serves the site, its data, rs-world built against the same map cache, the live feed relay and the replays; and the Dockerfile for all of it. |
 
 Licences: rs-sdk is MIT and rs-world is BSD-2-Clause; both are built from their repositories at
