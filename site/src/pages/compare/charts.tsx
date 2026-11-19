@@ -170,7 +170,7 @@ export function StripChart({
               const { x, y, payload } = props as { x: number; y: number; payload: { value: number } };
               const g = groups[payload.value];
               return g ? (
-                <text x={x + MEDIAN_WIDTH - 4} y={y} dy="0.35em" textAnchor="end" className="fill-foreground text-xs font-medium tabular-nums">
+                <text x={x + 8} y={y} dy="0.35em" textAnchor="start" className="fill-foreground text-xs font-medium tabular-nums">
                   {metric.format(g.median)}
                 </text>
               ) : (
@@ -228,6 +228,7 @@ export function StripChart({
           ))}
           <Scatter
             name="median"
+            yAxisId="median"
             data={medians}
             isAnimationActive={false}
             shape={(props: { cx?: number; cy?: number }) => (
