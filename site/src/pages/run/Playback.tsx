@@ -111,7 +111,7 @@ export function Playback({ run, clock, measure }: { run: RunDetail; clock: Clock
     const out: Mark[] = [];
     if (width === 0 || max === 0) return out;
     const events = run.events
-      .filter((e): e is Marked => e.kind === 'quest' || e.kind === 'death' || (e.kind === 'attempt' && e.attempt > 1))
+      .filter((e): e is Marked => e.kind === 'quest' || (e.kind === 'attempt' && e.attempt > 1))
       .sort((a, b) => a.tick - b.tick);
     for (const e of events) {
       if (e.tick > max) continue;

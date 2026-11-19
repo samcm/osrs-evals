@@ -146,26 +146,30 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   sprites, skill icons, quest reward items as quest icons, interface side icons, the world map, and
   a render of each run's character. Sprites are drawn with `Sprite` (pixelated, integer scaling
   only). Every eval has a sprite; every quest has its icon; every skill has its icon.
-- The game's bitmap font is allowed only in the wordmark, at its native size or an integer multiple.
+- Game art and the game's font stay out of the shell (sidebar, header, nav): those use lucide icons
+  and the stock type. Sprites appear only in page content, where they mark something in the game.
 - Tool-call categories (write and run, read, wait, …) have one name and colour each, from
   `src/lib/tools.ts`. Token kinds and SDK outcomes keep theirs everywhere too.
-- No generic icon sets (heroicons and the like), no emoji.
+- Interface icons are lucide (shadcn's set), as the stock blocks use them. No other icon sets, no
+  emoji.
 
 ## Visual rules
 
-A warm, quiet, dense instrument panel, after ethPandaOps lab, built from shadcn/ui. Charts are
-artifacts, not decoration.
+Stock shadcn/ui: the dashboard-01 block's shell and the default neutral theme, unmodified. Charts
+are artifacts, not decoration. If something looks off, use the library's own pattern for it; do not
+restyle library components or add a look of our own.
 
 - **The theme is shadcn's CSS variables** (`--background`, `--card`, `--border`, `--primary`,
-  `--muted-foreground`, `--chart-1…`), set in `src/styles/` to the warm palette (cream page, white
-  cards, terracotta primary) for light and dark. Use the semantic classes (`bg-card`,
+  `--muted-foreground`, `--chart-1…`), at shadcn's default neutral values for light and dark in
+  `src/styles/theme.css`; only the data colours and `--success`/`--warning` are ours.
+  Components in `src/components/ui/` stay as `shadcn add` writes them. Use the semantic classes (`bg-card`,
   `text-muted-foreground`, `border`); no hex, no raw Tailwind palette, no arbitrary values, no
   `dark:` variants in pages. Data colours (models, tool categories) are CSS variables too.
 - **Depth:** page, card, border. No shadows beyond the library's defaults, no glows, gradients, blur
   or lift on hover.
 - **Type:** Geist for text and numbers, Geist Mono only for identifiers (run ids, model ids, code).
   Numbers use `tabular-nums`. No uppercase-tracked headings. Use the library's sizes.
-- **One accent** (terracotta `primary`) marks the selected control. Never navigation.
+- **Colour is data.** The chrome is neutral; colour appears only for series, categories and status.
 - **Status colour carries judgement only** and always comes with a word or a mark. A plain number
   stays in the text colour. Heat scales use one hue in tint steps.
 - **Alignment:** cards in a row share a height; no orphan gaps. Column headers never wrap.
@@ -219,13 +223,13 @@ selected time are URL state. Underground positions (z ≥ 6400) are not drawn on
 Never letterbox the map or show past its edges: give it `fitHeight` so the frame takes the paths'
 shape (up to `height`), or a height that matches its neighbour. Zoom stops where the map fills the
 frame, and the view is kept on the map.
-Markers are sprites: quest icons where a quest was done, the hitpoints heart for a death, skill
-icons for level-ups.
+Markers are quest icons where a quest was done; level-ups and deaths are not drawn.
 
 ## Layout
 
-- shadcn `Sidebar` (collapsible to a sheet on small screens) with the evals, each with its sprite,
-  and a header with `SidebarTrigger` and the `Breadcrumb`, which never loses its last crumb.
+- dashboard-01's inset `Sidebar` (a sheet on small screens): Home, Compare, Runs, then the evals,
+  all with lucide icons. The header has `SidebarTrigger`, a separator and the `Breadcrumb`, which
+  never loses its last crumb, and the theme toggle.
 - One page container with the library's spacing; sections are `Card`s in grids with one gap size.
 - Tables are shadcn `Table` driven by TanStack Table: numbers right-aligned, headers on one line,
   most important columns first, ids last. Wide tables scroll inside their card; the page never

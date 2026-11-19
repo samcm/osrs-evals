@@ -177,7 +177,7 @@ function progressLane(ctx: Ctx): Lane {
     ticks
   );
   const rows = xs.map((x, i) => ({ x, v: run.timeline[Math.max(0, at[i])]?.value ?? 0 }));
-  const marked = run.events.filter((e): e is Marked => e.kind === 'quest' || e.kind === 'death' || e.kind === 'level');
+  const marked = run.events.filter((e): e is Marked => e.kind === 'quest');
   const attemptStarts = attempts(run);
   const max = Math.max(1, ...run.timeline.map(p => p.value));
   const target = run.target;

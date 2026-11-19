@@ -96,7 +96,7 @@ export function RunMap({ run, clock, view, height, fitHeight }: { run: RunDetail
   const markers = useMemo(
     () =>
       run.events.flatMap(e => {
-        if (e.kind !== 'quest' && e.kind !== 'death' && e.kind !== 'level') return [];
+        if (e.kind !== 'quest') return [];
         const m = markerFor(e, surface[indexAt(surface, e.tick)]);
         return m ? [m] : [];
       }),

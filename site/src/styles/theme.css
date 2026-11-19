@@ -1,5 +1,5 @@
-/* The site's theme: shadcn/ui's CSS variables set to the warm palette, light and dark, and the data
- * colours (models, tool categories, the series palette). The only stylesheet with colour literals.
+/* The site's theme: shadcn's default neutral theme, unmodified, and the data colours (models, tool
+ * categories, the series palette). The only stylesheet with colour literals.
  * `npx shadcn add` writes here (components.json → tailwind.css). */
 
 /* No sources here: the entry stylesheet (index.css) says what Tailwind scans. */
@@ -12,35 +12,32 @@
 /* The theme is the `dark` class on <html> (set by index.html and lib/theme.ts). */
 @custom-variant dark (&:is(.dark *));
 
-/* Light: cream page, near-white cards, warm hairlines, terracotta primary. Text colours pass WCAG AA
- * (4.5:1) on every surface they sit on, the selected toggle's primary-on-primary/10 included. */
+/* shadcn's default neutral theme, unmodified, plus the site's series palette (chart-0…14, fixed hues
+ * per model and tool category in series.ts and tools.ts) and judgement colours. */
 :root {
   color-scheme: light;
-  --radius: 0.5rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --success: oklch(0.527 0.154 150.069);
+  --warning: oklch(0.666 0.179 58.318);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.625rem;
 
-  --background: #efeee5;
-  --foreground: #2c251e;
-  --card: #fbfaf6;
-  --card-foreground: #2c251e;
-  --popover: #fbfaf6;
-  --popover-foreground: #2c251e;
-  --primary: #a3462a;
-  --primary-foreground: #ffffff;
-  --secondary: #e6e3d6;
-  --secondary-foreground: #2c251e;
-  --muted: #e9e7dc;
-  --muted-foreground: #6b5c48;
-  --accent: #e9e7dc;
-  --accent-foreground: #2c251e;
-  --destructive: #af3d36;
-  --success: #337344;
-  --warning: #a56217;
-  --border: #dcd7c5;
-  --input: #d4cfbc;
-  --ring: #a3462a;
-
-  /* The series palette: shadcn's chart-1…5 plus ten more, the same hues in both themes. Never colour
-   * by position: series.ts and tools.ts give every model and tool category a fixed hue. */
   --chart-0: var(--color-data-blue);
   --chart-1: var(--color-data-emerald);
   --chart-2: var(--color-data-amber);
@@ -57,50 +54,46 @@
   --chart-13: var(--color-data-fuchsia);
   --chart-14: var(--color-data-sky);
 
-  --sidebar: #e7e4d8;
-  --sidebar-foreground: #2c251e;
-  --sidebar-primary: #a3462a;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #d9d3c0;
-  --sidebar-accent-foreground: #2c251e;
-  --sidebar-border: #dcd7c5;
-  --sidebar-ring: #a3462a;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 }
 
-/* Dark: the same warm palette at night (warm greys, not neutral ones, so the two themes agree), in
- * three distinct steps (page, card, border) so panels read without shadows. */
 .dark {
   color-scheme: dark;
-
-  --background: #11100e;
-  --foreground: #f5f3ef;
-  --card: #1a1917;
-  --card-foreground: #f5f3ef;
-  --popover: #1e1d1a;
-  --popover-foreground: #f5f3ef;
-  --primary: #e09770;
-  --primary-foreground: #1c130e;
-  --secondary: #2b2926;
-  --secondary-foreground: #f5f3ef;
-  --muted: #252320;
-  --muted-foreground: #a8a196;
-  --accent: #282623;
-  --accent-foreground: #f5f3ef;
-  --destructive: #e2726b;
-  --success: #76be86;
-  --warning: #e8a95c;
-  --border: #302e2a;
-  --input: #3d3a35;
-  --ring: #e09770;
-
-  --sidebar: #1a1917;
-  --sidebar-foreground: #f5f3ef;
-  --sidebar-primary: #e09770;
-  --sidebar-primary-foreground: #1c130e;
-  --sidebar-accent: #272522;
-  --sidebar-accent-foreground: #f5f3ef;
-  --sidebar-border: #302e2a;
-  --sidebar-ring: #e09770;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --success: oklch(0.723 0.219 149.579);
+  --warning: oklch(0.769 0.188 70.08);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
 }
 
 /* One spacing rhythm. `gutter`: the page's padding, the space between sections and a full-bleed

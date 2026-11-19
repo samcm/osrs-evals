@@ -139,12 +139,6 @@ export function EvalPage() {
         <PageTabs value={search.tab} tabs={[...TABS]} />
         {runs.length > 0 && controls && <PageToolbar label="View controls">{controls}</PageToolbar>}
       </div>
-      {/* The key to the pairings; the race keys its own (labelled lanes, the leaderboard) */}
-      {runs.length > 0 && (search.tab === 'cost' || search.tab === 'behaviour') && (
-        <PageToolbar label="Pairings">
-          <SeriesLegend series={keys} legend={legend} className="pt-0" />
-        </PageToolbar>
-      )}
 
       {runs.length === 0 ? (
         <Empty>No runs in this scope.</Empty>
@@ -174,6 +168,8 @@ export function EvalPage() {
           <div className={target ? 'grid gap-gutter xl:grid-cols-2' : undefined}>
             <PageSection title="What it cost">
               <ParetoChart e={e} ranked={ranked} px={search.px} legend={legend} />
+              {/* The key to the points; the race and behaviour views label their own rows */}
+              <SeriesLegend series={keys} legend={legend} />
             </PageSection>
             {target && (
               <PageSection title="Finished within">
