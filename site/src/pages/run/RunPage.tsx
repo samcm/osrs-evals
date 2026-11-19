@@ -2,7 +2,8 @@ import { useEffect, useMemo, type ReactNode } from 'react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Outcome } from '@/components/bits';
-import { PageHeader, PageSection, type MetaItem } from '@/components/page';
+import { PageHeader, type MetaItem } from '@/components/page';
+import { Card, CardContent } from '@/components/ui/card';
 import { Sprite, VariantLabel } from '@/components/marks';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -226,19 +227,19 @@ export function RunPage() {
   return (
     <>
       <Header run={run} evalInfo={evalInfo} runs={index.runs} measure={search.x} />
-      <PageSection lead>
-        <div className="grid gap-gutter xl:grid-cols-5">
-          <div className="min-w-0 xl:col-span-3">
+      <div className="grid gap-gutter xl:grid-cols-5">
+        <Card className="min-w-0 xl:col-span-3">
+          <CardContent>
             <Player run={run} head={head} />
             <Playback run={run} clock={clock} measure={search.x} />
+          </CardContent>
+        </Card>
+        {run.turns.length > 0 && (
+          <div className="h-120 min-w-0 xl:col-span-2 xl:h-auto xl:contain-size">
+            <Transcript run={run} clock={clock} search={search} tick={head.tick} />
           </div>
-          {run.turns.length > 0 && (
-            <div className="h-120 min-w-0 xl:col-span-2 xl:h-auto xl:contain-size">
-              <Transcript run={run} clock={clock} search={search} tick={head.tick} />
-            </div>
-          )}
-        </div>
-      </PageSection>
+        )}
+      </div>
       <Lanes
         run={run}
         clock={clock}

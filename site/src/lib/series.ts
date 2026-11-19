@@ -30,8 +30,12 @@ const hue = (name: string): SeriesColor => ({
 
 // Literal class names so Tailwind generates them: bg-data-orange border-data-orange fill-data-orange
 // bg-data-purple border-data-purple fill-data-purple bg-data-teal border-data-teal fill-data-teal
-// bg-data-slate border-data-slate fill-data-slate
+// bg-data-slate border-data-slate fill-data-slate bg-data-rose border-data-rose fill-data-rose
+// bg-data-blue border-data-blue fill-data-blue bg-data-green border-data-green fill-data-green
 const HUES = {
+  rose: hue('rose'),
+  blue: hue('blue'),
+  green: hue('green'),
   orange: hue('orange'),
   purple: hue('purple'),
   teal: hue('teal'),
@@ -152,6 +156,9 @@ const MODELS: Record<string, Omit<ModelInfo, 'vendor'>> = {
   'anthropic/claude-haiku-5-5': { name: 'Claude Haiku 5.5', short: 'Haiku 5.5', color: HUES.orange },
   'anthropic/claude-sonnet-5-5': { name: 'Claude Sonnet 5.5', short: 'Sonnet 5.5', color: HUES.purple },
   'openai/openai-codex/gpt-5.6-luna': { name: 'GPT-5.6 Luna', short: 'GPT-5.6 Luna', color: HUES.teal },
+  'anthropic/claude-opus-5-5': { name: 'Claude Opus 5.5', short: 'Opus 5.5', color: HUES.rose },
+  'openai/openai-codex/gpt-6.2-sol': { name: 'GPT-6.2 Sol', short: 'GPT-6.2 Sol', color: HUES.blue },
+  'openai/openai-codex/gpt-6.2-astra': { name: 'GPT-6.2 Astra', short: 'GPT-6.2 Astra', color: HUES.green },
   'none/none': { name: 'No model', short: 'No model', color: HUES.slate },
 };
 
