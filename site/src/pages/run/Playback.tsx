@@ -1,0 +1,174 @@
+/**
+ * The playback bar under the game: play and pause, the speed, a track over the whole run with its
+ * events on it (quests, deaths, attempt starts), and the time at the playhead. It drives the page's
+ * one playhead (playhead.ts). Keys: Space plays or pauses; Shift+← and Shift+→ step to the previous
+ * and next model call (plain ← and → go to the previous and next run).
+ */
+
+import { useEffect, useMemo } from 'react';
+import { getRouteApi } from '@tanstack/react-router';
+import { Sprite } from '@/components/marks';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import type { RunDetail, RunEvent } from '@/data/types';
+import { questSrc, skillSrc, uiSrc } from '@/lib/assets';
+import { formatClock, formatInt } from '@/lib/format';
+import { useSearchUpdate } from '@/lib/search';
+import { useWidth } from '@/lib/useWidth';
+import { cn } from '@/lib/utils';
+import { turnTick, type Clock, type XMeasure } from './model';
+import { commit, pause, REAL_TIME, seek, setSpeed, SPEEDS, toggle, useCommitted, usePlayhead } from './playhead';
+import { runSearch } from './search';
+
+const route = getRouteApi('/runs/$runId');
+
+/** Sprites on the track, CSS pixels; events closer than this share one mark */
+const MARK = 16;
+
+type Marked = Extract<RunEvent, { kind: 'quest' | 'death' | 'attempt' }>;
+
+/** One mark on the track: the first event at that spot, and every event it stands for. */
+interface Mark {
+  left: number;
+  tick: number;
+  events: Marked[];
+}
+
+function eventTitle(e: Marked): string {
+  if (e.kind === 'quest') return e.source === 'inferred' ? `≈ ${e.name ?? 'A quest'}: guessed from the quest-points jump` : (e.name ?? 'A quest');
+  if (e.kind === 'death') return 'Died';
+  return `Attempt ${e.attempt}`;
+}
+
+function EventMark({ mark }: { mark: Mark }) {
+  const e = mark.events[0];
+  const inferred = e.kind === 'quest' && e.source === 'inferred';
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={() => {
+            pause();
+            commit(mark.tick);
+          }}
+          aria-label={mark.events.map(eventTitle).join(', ')}
+          className={cn(
+            'absolute top-0 flex size-4 -translate-x-1/2 items-center justify-center rounded-sm text-xs leading-none text-muted-foreground tabular-nums outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
+            inferred && 'border-b border-dashed border-muted-foreground'
+          )}
+          style={{ left: mark.left }}
+        >
+          {e.kind === 'attempt' ? e.attempt : <Sprite src={e.kind === 'death' ? skillSrc('hitpoints') : e.quest ? questSrc(e.quest) : uiSrc('quests')} size={MARK} alt="" />}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>
+        {mark.events.map((ev, i) => (
+          <div key={i}>{eventTitle(ev)}</div>
+        ))}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+export function Playback({ run, clock, measure }: { run: RunDetail; clock: Clock; measure: XMeasure }) {
+  const [committed, write] = useCommitted(run, clock);
+  const head = usePlayhead(clock, committed, write);
+  const { speed } = route.useSearch();
+  const update = useSearchUpdate(runSearch);
+  const [trackRef, width] = useWidth();
+  const max = clock.maxTicks;
+
+  useEffect(() => setSpeed(REAL_TIME * Number(speed)), [speed]);
+
+  const turnTicks = useMemo(() => run.turns.map(t => turnTick(t, clock)).sort((a, b) => a - b), [run.turns, clock]);
+  const tick = head.tick;
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null;
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      if (target?.closest('input, textarea, select, [contenteditable]')) return;
+      if (event.key === ' ' && !event.shiftKey && !target?.closest('button, a, [role=slider]')) {
+        event.preventDefault();
+        toggle();
+      } else if (event.shiftKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !target?.closest('[role=slider]')) {
+        event.preventDefault();
+        const to = event.key === 'ArrowRight' ? (turnTicks.find(t => t > tick + 0.5) ?? max) : (turnTicks.findLast(t => t < tick - 0.5) ?? 0);
+        pause();
+        commit(to);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [turnTicks, tick, max]);
+
+  // Events left to right; one closer than a mark's width to the last shares its mark
+  const marks = useMemo(() => {
+    const out: Mark[] = [];
+    if (width === 0 || max === 0) return out;
+    const events = run.events
+      .filter((e): e is Marked => e.kind === 'quest' || e.kind === 'death' || (e.kind === 'attempt' && e.attempt > 1))
+      .sort((a, b) => a.tick - b.tick);
+    for (const e of events) {
+      if (e.tick > max) continue;
+      const left = (Math.min(e.tick, max) / max) * width;
+      const last = out[out.length - 1];
+      if (last && left - last.left < MARK + 2) last.events.push(e);
+      else out.push({ left, tick: e.tick, events: [e] });
+    }
+    return out;
+  }, [run.events, width, max]);
+
+  const label = measure === 'ticks' ? formatInt(Math.round(tick)) : formatClock(clock.toSeconds(tick));
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <Button variant="outline" size="icon-sm" onClick={toggle} aria-label={head.playing ? 'Pause' : 'Play'} aria-keyshortcuts="Space" title={head.playing ? 'Pause' : 'Play'}>
+        <svg aria-hidden viewBox="0 0 10 10" className="fill-current">
+          {head.playing ? <path d="M1.5 1h2.5v8H1.5zM6 1h2.5v8H6z" /> : <path d="M2 1l7 4-7 4z" />}
+        </svg>
+      </Button>
+      <div className="order-first flex min-w-0 basis-full flex-col gap-1 sm:order-none sm:basis-0 sm:flex-1">
+        {marks.length > 0 && (
+          <div className="relative h-4">
+            {marks.map(m => (
+              <EventMark key={`${m.events[0].kind}-${m.tick}`} mark={m} />
+            ))}
+          </div>
+        )}
+        <div ref={trackRef}>
+          <Slider
+            aria-label="Playhead"
+            min={0}
+            max={max}
+            step={1}
+            value={[Math.min(max, Math.round(tick))]}
+            onValueChange={([v]) => {
+              pause();
+              seek(v);
+            }}
+            onValueCommit={([v]) => commit(v)}
+          />
+        </div>
+      </div>
+      <span className="text-sm text-muted-foreground tabular-nums">{label}</span>
+      <ToggleGroup
+        type="single"
+        size="sm"
+        variant="outline"
+        value={speed}
+        onValueChange={v => v && update({ speed: v as typeof speed })}
+        aria-label="Playback speed"
+        className="ml-auto"
+      >
+        {SPEEDS.map(s => (
+          <ToggleGroupItem key={s} value={String(s)} className="tabular-nums">
+            {s}×
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+    </div>
+  );
+}

@@ -17,7 +17,8 @@ import { Lanes } from './Lanes';
 import { makeClock, turnTick, type XMeasure } from './model';
 import { usePlayhead } from './playhead';
 import { Player } from './Player';
-import { RunMap, Scrubber } from './RunMap';
+import { Playback } from './Playback';
+import { RunMap } from './RunMap';
 import { runSearch } from './search';
 import { Transcript } from './Transcript';
 
@@ -180,7 +181,7 @@ export function RunPage() {
         <Card className="min-w-0 xl:col-span-3">
           <CardContent className="flex flex-col gap-4">
             <Player run={run} head={head} />
-            <Scrubber clock={clock} selected={selected} measure={search.x} />
+            <Playback run={run} clock={clock} measure={search.x} />
           </CardContent>
         </Card>
         <div className="min-w-0 xl:col-span-2">{run.turns.length > 0 && <Transcript run={run} clock={clock} search={search} />}</div>

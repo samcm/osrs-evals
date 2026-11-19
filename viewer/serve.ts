@@ -103,6 +103,7 @@ Bun.serve<Feed>({
         },
         message(ws, msg) {
             if (ws.data.kind === 'control') return steer(ws, String(msg));
+            if (ws.data.kind === 'drive') return subscribed(ws, String(msg));
             const up = ws.data.upstream;
             if (up?.readyState === WebSocket.OPEN) up.send(String(msg));
             else if (up) up.addEventListener('open', () => up.send(String(msg)), { once: true });
@@ -223,40 +224,51 @@ function recording(id: string): Recording | null {
     return rec;
 }
 
-// The messages that make a fresh rs-world connection show tick k: a hello (which clears it), the
-// roster, and one reset tick with every entity and loc as first seen. Returns them and the index of
-// the first line after k.
-function snapshot(rec: Recording, k: number, ms: number): [string[], number] {
+// The world at engine tick k, folded from the nearest keyframe, and the index of the first line after k.
+function worldAt(rec: Recording, k: number): [World, number] {
     let key = rec.keys[0];
     for (const c of rec.keys) if (c.line === 0 || rec.ticks[c.line - 1] <= k) key = c;
     const w = structuredClone(key.world);
     let i = key.line;
     for (; i < rec.lines.length && rec.ticks[i] <= k; i++) if (rec.ticks[i] > -Infinity) fold(w, JSON.parse(rec.lines[i]));
-    const zone = w.area ? [{ e: 'za', ...w.area, r: 1 }, ...w.locs.values()] : [];
-    return [
-        [
-            JSON.stringify({ ...rec.hello, tick: k }),
-            JSON.stringify({ t: 'roster', k, p: [...w.roster.values()], npcs: w.npcCount }),
-            JSON.stringify({ t: 'tick', k, ms, reset: 1, p: [...w.players.values()], n: [...w.npcs.values()], w: zone }),
-        ],
-        i,
-    ];
+    return [w, i];
 }
 
 // A page's playhead and the rs-world connection it drives. Either end may connect first, and
 // rs-world reconnects on its own; the session lives as long as the page's control socket.
-type Session = { run: string; control?: any; feed?: any; k: number | null; ms: number; next: number; sent: number };
+//
+// The recording streamed the area around the agent, but rs-world's camera only follows a player
+// whose ground it has loaded, and flies to one it can't see from the roster. So, as the engine does
+// for a viewer's area (rs-world's `sub`), a player who appears or jumps outside that area is held
+// back (left out, or removed) until the camera's area reaches them, then sent as first seen.
+type Area = { x: number; z: number; w: number; h: number };
+type Session = {
+    run: string;
+    control?: any;
+    feed?: any;
+    k: number | null;
+    ms: number;
+    next: number;
+    sent: number;
+    /** rs-world's subscribed area, once it has said */
+    area: Area | null;
+    /** Every player as last seen, and the ones held back */
+    players: Map<number, any>;
+    held: Set<number>;
+};
 const sessions = new Map<string, Session>();
 // Further ahead than this, a jump beats sending every tick in between
 const STREAM_AHEAD = 200;
+
+const covers = (a: Area | null, e: any) => !a || (e.x >= a.x && e.x < a.x + a.w && e.z >= a.z && e.z < a.z + a.h);
 
 function attach(ws: any) {
     const { session: id, target, kind } = ws.data as Feed;
     if (!recording(target)) return ws.close(1011, 'no recording');
     let s = sessions.get(id!);
-    if (!s || s.run !== target) sessions.set(id!, (s = { run: target, k: null, ms: 50, next: 0, sent: -1 }));
+    if (!s || s.run !== target) sessions.set(id!, (s = { run: target, k: null, ms: 50, next: 0, sent: -1, area: null, players: new Map(), held: new Set() }));
     if (kind === 'control') s.control = ws;
-    else s.feed?.close(), (s.feed = ws), (s.sent = -1);
+    else s.feed?.close(), (s.feed = ws), (s.sent = -1), (s.area = null);
     if (s.feed) s.control?.send(JSON.stringify({ t: 'ready' }));
     pump(s);
 }
@@ -269,34 +281,83 @@ function detach(ws: any) {
     if (kind === 'drive' && s.feed === ws) (s.feed = undefined), (s.sent = -1);
 }
 
+function parse(msg: string): any {
+    try {
+        return JSON.parse(msg);
+    } catch {
+        return null;
+    }
+}
+
+// The page moved its playhead
 function steer(ws: any, msg: string) {
     const s = sessions.get((ws.data as Feed).session!);
-    let m: any;
-    try {
-        m = JSON.parse(msg);
-    } catch {
-        return;
-    }
-    if (!s || !Number.isFinite(m.k)) return;
+    const m = parse(msg);
+    if (!s || !Number.isFinite(m?.k)) return;
     s.k = Math.floor(m.k);
     if (m.ms > 0) s.ms = m.ms;
     pump(s);
 }
 
+// rs-world moved its camera: send the held players it can now see
+function subscribed(ws: any, msg: string) {
+    const s = sessions.get((ws.data as Feed).session!);
+    const m = parse(msg);
+    if (!s || s.feed !== ws || m?.t !== 'sub') return;
+    s.area = { x: m.x, z: m.z, w: m.w, h: m.h };
+    const seen = [...s.held].map((i) => s.players.get(i)).filter((e) => e && covers(s.area, e));
+    if (!seen.length || s.sent < 0) return;
+    for (const e of seen) s.held.delete(e.i);
+    s.feed.send(JSON.stringify({ t: 'tick', k: s.sent, ms: s.ms, p: seen }));
+}
+
 function pump(s: Session) {
     const rec = recording(s.run);
     if (!rec || !s.feed || s.k == null) return;
+    const ms = Math.round(s.ms * 100) / 100;
     if (s.sent < 0 || s.k < s.sent || s.k - s.sent > STREAM_AHEAD) {
-        const [messages, next] = snapshot(rec, s.k, s.ms);
-        for (const m of messages) s.feed.send(m);
+        // A jump: a hello (which clears rs-world), the roster, and everything as first seen at k
+        const [w, next] = worldAt(rec, s.k);
+        s.players = w.players;
+        s.held = new Set([...w.players.values()].filter((e) => !covers(s.area, e)).map((e) => e.i));
+        const zone = w.area ? [{ e: 'za', ...w.area, r: 1 }, ...w.locs.values()] : [];
+        s.feed.send(JSON.stringify({ ...rec.hello, tick: s.k }));
+        s.feed.send(JSON.stringify({ t: 'roster', k: s.k, p: [...w.roster.values()], npcs: w.npcCount }));
+        s.feed.send(JSON.stringify({ t: 'tick', k: s.k, ms, reset: 1, p: [...w.players.values()].filter((e) => !s.held.has(e.i)), n: [...w.npcs.values()], w: zone }));
         s.next = next;
     } else {
-        const ms = `"ms":${Math.round(s.ms * 100) / 100}`;
         for (; s.next < rec.lines.length && rec.ticks[s.next] <= s.k; s.next++) {
-            if (rec.ticks[s.next] > -Infinity) s.feed.send(rec.lines[s.next].replace(/"ms":[\d.]+/, ms));
+            if (rec.ticks[s.next] === -Infinity) continue;
+            const m = JSON.parse(rec.lines[s.next]);
+            if (m.t === 'tick') stream(s, m);
+            if (m.t === 'tick') m.ms = ms;
+            s.feed.send(JSON.stringify(m));
         }
     }
     s.sent = s.k;
+}
+
+// Keeps the session's players current with one recorded tick, and holds back the ones it moves
+// out of rs-world's area
+function stream(s: Session, m: any) {
+    if (m.reset) s.players.clear(), s.held.clear();
+    for (const i of m.rp ?? []) s.players.delete(i), s.held.delete(i);
+    if (!m.p) return;
+    const sent = [];
+    const removed: number[] = [];
+    for (const r of m.p) {
+        const was = s.held.has(r.i) || !s.players.has(r.i) ? null : s.players.get(r.i);
+        foldEntity(s.players, r);
+        const e = s.players.get(r.i);
+        if (s.held.has(r.i)) {
+            if (covers(s.area, e)) s.held.delete(r.i), sent.push({ ...e });
+        } else if (r.x !== undefined && !covers(s.area, e)) {
+            s.held.add(r.i);
+            if (was) removed.push(r.i);
+        } else sent.push(r);
+    }
+    m.p = sent;
+    if (removed.length) m.rp = [...(m.rp ?? []), ...removed];
 }
 
 console.log(`eval site on http://localhost:${PORT} (site: ${SITE}, data: ${DATA}, rs-world: ${WORLD}, live runs under: ${RUNS})`);
