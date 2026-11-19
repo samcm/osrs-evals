@@ -228,6 +228,7 @@ Run it again on the same log dir and it runs only what is missing or failed.
 | Cook's Assistant | `evals/cooks_assistant.py` | Ticks to complete the quest from a new character, read from the quest variable. Done as soon as it is complete. |
 | Cook's Assistant, five tries | `cooks_assistant(attempts=5)` | The same, five times in one run: after each try the account is put back at its start save and the agent goes again, keeping its files and context. Scored by the fastest try; every try is recorded. |
 | Cook 500 shrimps | `evals/shrimps.py` | Ticks until none of 500 raw shrimps in the bank are left raw. Any model should finish it, so the result is how fast and how cheaply. |
+| Quest points in 30 minutes | `evals/quest_points.py` | Quest points after 36,000 ticks from a new character, read from the server's quest points variable. The prompt is only the goal; which quests and in what order is up to the agent. |
 | Gold | `evals/gold.py` | Four accounts, 100,000 coins between them. |
 
 Ideas for more are in `ideas.yaml`.

@@ -15,6 +15,13 @@
   status: built
   eval: gold
   why: Several accounts in one world. Only a scripted baseline has run; the interesting runs are programs that coordinate accounts.
+- title: Most quest points in 30 minutes
+  status: built
+  eval: quest_points
+  why: Open-ended and long, with partial credit. The agent picks the quests, their order and route, and when to give up on one.
+- title: Demon Slayer
+  status: idea
+  why: Several stages, then a fight against Delrith (level 27) at combat level 3. The first eval where the account can die.
 - title: Same eval, wall-clock budget instead of game ticks
   status: idea
   why: The world runs in real time, so model latency already costs ticks. A wall-clock bound at a slower tick rate would separate thinking speed from game speed.
