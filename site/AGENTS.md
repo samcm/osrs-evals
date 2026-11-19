@@ -40,6 +40,24 @@ Every page has the same skeleton, and nothing on a page invents its own.
   or badges that only restate names already on the page.
 - **Icons on a grid.** Sprites mark real events and sit in lanes, rows or table cells with a fixed
   size and spacing, never scattered.
+- **A page is** `PageHeader`, `PageTabs` (if it has views), `PageToolbar` (sticky, if it has
+  shared controls), then `PageSection`s. The centrepiece is `<PageSection lead>`, full bleed. Use a
+  `Card` only for a thing that stands apart from the page's flow: never a card per chart, never a
+  card inside a section or another card. Controls that drive several charts live in the toolbar,
+  not repeated on each chart.
+- **Every chart is a `ChartFrame`** (`@/components/charts`) at `lead` or `compact` height, or
+  `rows` for one row per group. Never size a chart by hand; y axes keep the fixed default width so
+  stacked charts line up.
+- **Space comes from the theme only:** `gutter` between sections and around the page, `stack`
+  within a section, `gap-2` between controls. No `p-*`/`m-*` on library components.
+- **One hover per page** (`src/lib/hover.ts`): anything that names a pairing (table row via
+  `hoverId`, legend key, line via `lineProps(…, { faded })`, map character) joins it; the hovered
+  pairing stays at full strength and the rest fade.
+- **Motion** is 150 ms of opacity or position, off under reduced motion; loading holds the final
+  size with a skeleton. Nothing jumps.
+- **Marks beside text:** 14 with `text-xs`, 16 with `text-sm`, 20 with `text-base` or larger, 40
+  only as the `PageHeader` mark. The harness is always `HarnessBadge`.
+- **The breadcrumb's last crumb and the H1 name the page the same way.**
 - **Only model-driven runs.** The scripted baseline ("Program") is not on the site; the export skips
   it. There is no ideas page.
 
@@ -106,7 +124,7 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   carried on every internal link, so a scoped view stays scoped as you move around. View params (a
   chart's x measure, a sort) belong to one page and are not carried.
 - Names are short and plain: `x`, `by`, `agg`, `scale`, `sort`, `page`, `hide`, `focus`, `turn`,
-  `t`, `tab`. Lists are comma-separated. Sorts are a column id with a leading `-` for descending.
+  `t`, `tab`, `lanes`, `code`, `speed`, `eval`. Lists are comma-separated. Sorts are a column id with a leading `-` for descending.
 - Theme is a preference kept in local storage; `?theme=dark` or `?theme=light` overrides it for a
   shared link.
 
