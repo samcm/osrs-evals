@@ -1,16 +1,20 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { PageHeader } from '@/components/page';
+import { Outcome } from '@/components/bits';
+import { PageHeader, type MetaItem } from '@/components/page';
 import { Sprite, VariantLabel } from '@/components/marks';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { indexQuery, runQuery } from '@/data/queries';
 import type { Eval, Run, RunDetail } from '@/data/types';
 import { questSrc, uiSrc } from '@/lib/assets';
 import { evalBase } from '@/lib/evals';
-import { formatDuration, formatInt } from '@/lib/format';
+import { capitalize, formatDate, formatDuration, formatInt } from '@/lib/format';
+import { modelInfo } from '@/lib/series';
+import { resultValue } from '@/lib/runResult';
 import { useDocumentTitle, useSearchUpdate } from '@/lib/search';
 import { cn } from '@/lib/utils';
 import { Lanes } from './Lanes';
@@ -26,57 +30,92 @@ const route = getRouteApi('/runs/$runId');
 
 const headSrc = (id: string): string => `/data/runs/${encodeURIComponent(id)}.head.png`;
 
-/** The value an eval counts, as words: "308 of 500 shrimps cooked", "4 quest points". */
-function valuePhrase(evalId: string, measure: string, value: number, target: number | null): string {
-  const of = target != null ? ` of ${formatInt(target)}` : '';
-  switch (evalBase(evalId)) {
-    case 'shrimps':
-      return `${formatInt(value)}${of} shrimps cooked`;
-    case 'quest_points':
-      return `${formatInt(value)}${of} quest point${value === 1 && !of ? '' : 's'}`;
-    case 'cooks_assistant':
-      return `Quest stage ${formatInt(value)}${of}`;
-    default:
-      return `${measure} ${formatInt(value)}${of}`;
-  }
+/** Each quest the run completed, as its icon; an inferred one is underlined and says why. */
+function QuestIcons({ quests }: { quests: RunDetail['metrics']['quests'] }) {
+  return (
+    <ul className="flex items-center gap-1.5">
+      {quests.map(q => {
+        const inferred = q.source === 'inferred';
+        const name = q.name ?? 'A quest';
+        return (
+          <li key={`${q.quest}-${q.tick}`} className="flex">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span tabIndex={0} className={cn('inline-flex rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50', inferred && 'border-b border-dashed border-muted-foreground')}>
+                  <Sprite src={q.quest ? questSrc(q.quest) : uiSrc('quests')} size={20} alt={inferred ? `≈ ${name}` : name} />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{inferred ? `≈ ${name}: guessed from the quest-points jump` : name}</TooltipContent>
+            </Tooltip>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
-/** The run's result in one line; a quest-points run also shows each quest's icon. */
-function Headline({ run, evalInfo, measure }: { run: RunDetail; evalInfo: Eval | undefined; measure: XMeasure }) {
-  const quests = run.metrics.quests;
-  let text: string;
-  if (run.target != null && run.success) {
-    const won = run.attempt_results?.find(a => a.ticks != null);
-    const time = measure === 'ticks' ? `${formatInt(run.ticks)} ticks` : formatDuration(run.seconds);
-    text = `Finished in ${time}${run.attempts > 1 && won ? ` on attempt ${won.attempt}` : ''}`;
-  } else {
-    const best = Math.max(run.final_value ?? 0, ...(run.attempt_results ?? []).map(a => a.best_value ?? 0));
-    text = valuePhrase(run.eval, evalInfo?.measure ?? 'Value', best, run.target);
+/**
+ * The run's result as header meta, each value its own term. A run with a target: whether it
+ * finished, then how long it took (in the lanes' unit) and on which attempt, or how far it got. A
+ * run without one (quest points): its score, with each quest's icon.
+ */
+function resultMeta(run: RunDetail, evalInfo: Eval | undefined, measure: XMeasure): MetaItem[] {
+  const term = evalInfo?.measure ?? 'Score';
+  const value = resultValue(run) ?? 0;
+  if (run.target == null) {
+    const quests = evalBase(run.eval) === 'quest_points' ? run.metrics.quests : [];
+    return [
+      {
+        term,
+        value: (
+          <span className="flex items-center gap-3">
+            {formatInt(value)}
+            {quests.length > 0 && <QuestIcons quests={quests} />}
+          </span>
+        ),
+      },
+    ];
   }
+  const meta: MetaItem[] = [{ term: 'Result', value: <Outcome run={run} /> }];
+  if (run.success) {
+    meta.push({ term: 'Time', value: measure === 'ticks' ? `${formatInt(run.ticks)} ticks` : formatDuration(run.seconds) });
+    const won = run.attempt_results?.find(a => a.ticks != null);
+    if (run.attempts > 1 && won) meta.push({ term: 'Attempt', value: formatInt(won.attempt) });
+  } else {
+    meta.push({ term, value: `${formatInt(value)} of ${formatInt(run.target)}` });
+  }
+  return meta;
+}
+
+/** The facts a reader rarely needs but a debugger does (where the log is, which commit), behind the run id. */
+function RunFacts({ run }: { run: RunDetail }) {
+  const mono = (text: string) => <span className="font-mono text-xs break-all">{text}</span>;
+  const facts: [string, ReactNode][] = [];
+  if (run.model_calls > 0) facts.push(['Model', mono(run.model)]);
+  if (run.agent_version) facts.push([run.agent_name, mono(run.agent_version)]);
+  facts.push(['Character', mono(run.account)]);
+  facts.push(['Started', `${formatDate(run.sample_started ?? run.started)} UTC`]);
+  if (run.ended_by) facts.push(['Ended by', capitalize(run.ended_by)]);
+  if (run.commit) facts.push(['Commit', mono(run.commit)]);
+  facts.push(['Log', mono(run.log)]);
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span className="font-medium tabular-nums">{text}</span>
-      {quests.length > 0 && evalBase(run.eval) === 'quest_points' && (
-        <ul className="flex items-center gap-1.5">
-          {quests.map(q => {
-            const inferred = q.source === 'inferred';
-            const name = q.name ?? 'A quest';
-            return (
-              <li key={`${q.quest}-${q.tick}`}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span tabIndex={0} className={cn('inline-flex rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50', inferred && 'border-b border-dashed border-muted-foreground')}>
-                      <Sprite src={q.quest ? questSrc(q.quest) : uiSrc("quests")} size={20} alt={inferred ? `≈ ${name}` : name} />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>{inferred ? `≈ ${name}: guessed from the quest-points jump` : name}</TooltipContent>
-                </Tooltip>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="font-mono text-muted-foreground">
+          {run.id}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80">
+        <dl className="flex flex-col gap-2">
+          {facts.map(([term, value]) => (
+            <div key={term} className="flex min-w-0 flex-col">
+              <dt className="text-xs text-muted-foreground">{term}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -123,21 +162,22 @@ function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure
       </Button>
     );
   return (
-    <nav aria-label="Runs of this variant" className="flex items-center gap-2">
-      {arrow(prev, '←', 'Previous run')}
+    <nav aria-label="Epochs of this pairing" className="flex items-center gap-2">
+      {arrow(prev, '←', 'Previous epoch')}
       <span className="text-sm whitespace-nowrap text-muted-foreground tabular-nums">
-        <span className="text-foreground">{formatInt(run.epoch)}</span> of {formatInt(siblings.length)}
+        <span className="text-foreground">{formatInt(at + 1)}</span> of {formatInt(siblings.length)}
       </span>
-      {arrow(next, '→', 'Next run')}
+      {arrow(next, '→', 'Next epoch')}
     </nav>
   );
 }
 
+/** The character, the pairing (vendor mark, model, harness), the eval and epoch, the result as meta; the run id and the other epochs on the right. */
 function Header({ run, evalInfo, runs, measure }: { run: RunDetail; evalInfo: Eval | undefined; runs: Run[]; measure: XMeasure }) {
   return (
     <PageHeader
-      mark={<img src={headSrc(run.id)} alt="" className="size-10 object-contain" />}
-      title={<VariantLabel run={run} size={20} className="gap-2" />}
+      mark={<img src={headSrc(run.id)} alt={run.account} className="size-10 object-contain" />}
+      title={<VariantLabel run={run} size={20} className="flex-wrap gap-2" />}
       description={
         <>
           <Link to="/evals/$evalId" params={{ evalId: run.eval }} className="hover:text-foreground">
@@ -146,10 +186,34 @@ function Header({ run, evalInfo, runs, measure }: { run: RunDetail; evalInfo: Ev
           , epoch {formatInt(run.epoch)}
         </>
       }
-      meta={[{ term: 'Result', value: <Headline run={run} evalInfo={evalInfo} measure={measure} /> }]}
-      actions={<Siblings run={run} runs={runs} measure={measure} />}
+      meta={resultMeta(run, evalInfo, measure)}
+      actions={
+        <>
+          <RunFacts run={run} />
+          <Siblings run={run} runs={runs} measure={measure} />
+        </>
+      }
     />
   );
+}
+
+/** Where to stick something so it sits just under a sticky element (the playback bar) and the grid's gap after it. */
+function useStickyBelow() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [top, setTop] = useState<number>();
+  useEffect(() => {
+    const bar = ref.current;
+    if (!bar) return;
+    const measure = (): void => {
+      const gap = bar.parentElement ? parseFloat(getComputedStyle(bar.parentElement).rowGap) || 0 : 0;
+      setTop((parseFloat(getComputedStyle(bar).top) || 0) + bar.offsetHeight + gap);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
+  return { ref, top };
 }
 
 export function RunPage() {
@@ -163,7 +227,7 @@ export function RunPage() {
     return { ...summary, ...detail, screenshot: detail.screenshot ?? summary?.screenshot, replay_url: detail.replay_url ?? summary?.replay_url };
   }, [detail, index.runs, runId]);
   const evalInfo = index.evals.find(e => e.id === run.eval);
-  useDocumentTitle(`${evalInfo?.title ?? run.eval}, epoch ${run.epoch}`);
+  useDocumentTitle(`${modelInfo(run.model).name}, ${evalInfo?.title ?? run.eval}, epoch ${run.epoch}`);
 
   const clock = useMemo(() => makeClock(run), [run]);
   const selectedTurn = search.turn != null ? run.turns[search.turn - 1] : undefined;
@@ -171,26 +235,37 @@ export function RunPage() {
 
   const update = useSearchUpdate(runSearch);
   const head = usePlayhead(clock, selected, tick => update({ t: tick }));
+  const mapTop = useStickyBelow();
 
+  /*
+   * The debugger, on one playhead. Wide: the game and the agent's thinking side by side, the
+   * playback bar under both, then the timeline lanes and the map. Narrow, in source order: the game,
+   * the playback bar, the thinking, the map, the lanes. The playback bar sticks under the site header
+   * so the playhead is in reach wherever the page is scrolled; on wide screens the map sticks under it
+   * while the lanes scroll past. The thinking takes the game's height on wide screens (contain-size
+   * keeps it from growing the row) and a fixed one when stacked, and scrolls inside it.
+   */
   return (
     <>
       <Header run={run} evalInfo={evalInfo} runs={index.runs} measure={search.x} />
-      {/* The debugger: the game and the agent's thinking side by side, one playhead under both, then
-          the lanes and the map on the same playhead. */}
       <div className="grid gap-4 md:gap-6 xl:grid-cols-5">
-        <div className="min-w-0 xl:col-span-3">
+        <div className="min-w-0 xl:col-span-3 xl:row-start-1">
           <Player run={run} head={head} />
           <Playback run={run} clock={clock} measure={search.x} />
         </div>
-        <div className="min-w-0 xl:col-span-2">{run.turns.length > 0 && <Transcript run={run} clock={clock} search={search} />}</div>
-        <div className="min-w-0 xl:col-span-3">
-          <Lanes run={run} clock={clock} search={search} price={index.prices[run.model]} />
-        </div>
-        <Card className="min-w-0 xl:col-span-2 xl:self-start">
+        {run.turns.length > 0 && (
+          <div className="h-120 min-w-0 xl:col-span-2 xl:col-start-4 xl:row-start-1 xl:h-auto xl:contain-size">
+            <Transcript run={run} clock={clock} search={search} tick={head.tick} />
+          </div>
+        )}
+        <Card className="min-w-0 xl:sticky xl:col-span-2 xl:col-start-4 xl:row-start-2 xl:self-start" style={{ top: mapTop.top }}>
           <CardContent>
             <RunMap run={run} clock={clock} view={search.map} height={420} fitHeight />
           </CardContent>
         </Card>
+        <div className="min-w-0 xl:col-span-3 xl:col-start-1 xl:row-start-2">
+          <Lanes run={run} clock={clock} search={search} price={index.prices[run.model]} />
+        </div>
       </div>
     </>
   );
