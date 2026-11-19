@@ -26,6 +26,7 @@ const ART: Record<string, EvalArt> = {
     ],
     measure: 'Shrimps cooked',
   },
+  quest_points: { items: [], measure: 'Quest points' },
   coins: { items: [{ id: '995', name: 'Coins' }], measure: 'Coins' },
   gold: { items: [{ id: '995-10000', name: 'Coins' }], measure: 'Coins' },
 };

@@ -15,6 +15,7 @@ from inspect_swe import claude_code, codex_cli
 from harness import command
 
 from cooks_assistant import cooks_assistant
+from quest_points import quest_points
 from shrimps import shrimps
 
 EPOCHS = 5  # one-try Cook's Assistant
@@ -68,3 +69,13 @@ def shrimps_codex():
 def shrimps_script():
     """The scripted baseline: no model."""
     return task_with(shrimps(), solver=command("bun /programs/cook_shrimps.ts"), epochs=LONG_EPOCHS)
+
+
+@task
+def qp_bash():
+    return task_with(quest_points(), solver=agents()["bash"], epochs=2)
+
+
+@task
+def qp_claude_code():
+    return task_with(quest_points(), solver=agents()["claude_code"], epochs=2)

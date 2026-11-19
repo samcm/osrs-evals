@@ -18,12 +18,12 @@ from inspect_ai.log import list_eval_logs, read_eval_log
 
 IDEAS = Path(__file__).resolve().parent.parent / "ideas.yaml"
 AGENT_NAMES = {"react": "Model + bash", "inspect_swe/claude_code": "Claude Code", "inspect_swe/codex_cli": "Codex", "command": "Program"}
-EVAL_NAMES = {"cooks_assistant": "Cook's Assistant", "shrimps": "Cook 500 shrimps", "coins": "Coins", "gold": "Gold"}
+EVAL_NAMES = {"quest_points": "Quest points in 30 minutes", "cooks_assistant": "Cook's Assistant", "shrimps": "Cook 500 shrimps", "coins": "Coins", "gold": "Gold"}
 
 
 def eval_of(task: str, attempts: int) -> str:
     """The eval a task runs, from its registered name (matrix tasks are named <eval>_<agent>)."""
-    base = "cooks_assistant" if task.startswith("cooks") else task.split("_")[0] if task.startswith("shrimps") else task
+    base = "cooks_assistant" if task.startswith("cooks") else "shrimps" if task.startswith("shrimps") else "quest_points" if task.startswith(("qp_", "quest_points")) else task
     return f"{base}_x{attempts}" if attempts > 1 else base
 
 
