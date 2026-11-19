@@ -1,8 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { EvalPage } from '@/pages/eval/EvalPage';
-import { pageParam } from '@/lib/search';
+import { defineSearch, int } from '@/lib/search';
+
+export const evalSearch = defineSearch({ page: int(1, { min: 1 }) });
 
 export const Route = createFileRoute('/evals/$evalId')({
-  validateSearch: (search: Record<string, unknown>): { page?: number } => ({ page: pageParam(search.page) }),
+  validateSearch: evalSearch.validate,
+  search: { middlewares: evalSearch.middlewares },
   component: EvalPage,
 });

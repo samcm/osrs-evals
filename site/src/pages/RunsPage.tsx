@@ -1,15 +1,16 @@
 import { useMemo } from 'react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { createColumnHelper, type ColumnDef, type SortingState } from '@tanstack/react-table';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { Card } from '@/components/Card';
 import { DataTable } from '@/components/DataTable';
-import { AgentLabel, Empty, ModelLabel, Outcome, PageTitle, linkClassName } from '@/components/bits';
+import { Empty, Outcome, PageTitle, linkClassName } from '@/components/bits';
+import { AgentLabel, ModelLabel } from '@/components/marks';
 import { indexQuery } from '@/data/queries';
 import type { Run } from '@/data/types';
 import { outcomeWord } from '@/lib/evals';
 import { capitalize, formatCost, formatDate, formatInt, formatSeconds } from '@/lib/format';
-import { useDocumentTitle, type RunsSearch } from '@/lib/search';
+import { useDocumentTitle, useScope, useScopeUpdate, useSearchUpdate } from '@/lib/search';
 import { agentName, modelName } from '@/lib/series';
 
 const route = getRouteApi('/runs/');
@@ -61,9 +62,9 @@ export function RunsPage() {
   const navigate = useNavigate();
   const { data } = useSuspenseQuery(indexQuery);
 
-  const setSearch = (patch: Partial<RunsSearch>): void => {
-    navigate({ to: '/runs', search: prev => ({ ...prev, ...patch }), replace: true, resetScroll: false });
-  };
+  const scope = useScope();
+  const setScope = useScopeUpdate();
+  const setSearch = useSearchUpdate<typeof search>();
 
   const titles = useMemo(() => new Map(data.evals.map(e => [e.id, e.title])), [data]);
   const rows = useMemo(
@@ -72,12 +73,12 @@ export function RunsPage() {
         .filter(
           r =>
             (!search.eval || r.eval === search.eval) &&
-            (!search.model || r.model === search.model) &&
-            (!search.agent || r.agent === search.agent) &&
+            (!scope.model.length || scope.model.includes(r.model)) &&
+            (!scope.agent.length || scope.agent.includes(r.agent)) &&
             (!search.outcome || outcomeValue(r) === search.outcome)
         )
         .map(r => ({ ...r, evalTitle: titles.get(r.eval) ?? r.eval })),
-    [data, search.eval, search.model, search.agent, search.outcome, titles]
+    [data, search.eval, scope.model, scope.agent, search.outcome, titles]
   );
 
   const models = [...new Set(data.runs.map(r => r.model))].map(m => ({ value: m, label: modelName(m) })).sort((a, b) => a.label.localeCompare(b.label));
@@ -85,9 +86,6 @@ export function RunsPage() {
     a.label.localeCompare(b.label)
   );
 
-  const sorting: SortingState = search.sort
-    ? [{ id: search.sort.replace(/^-/, ''), desc: search.sort.startsWith('-') }]
-    : [{ id: 'started', desc: true }];
 
   const columns = useMemo(
     () =>
@@ -134,7 +132,7 @@ export function RunsPage() {
     []
   );
 
-  const filtered = Boolean(search.eval || search.model || search.agent || search.outcome);
+  const filtered = Boolean(search.eval || scope.model.length || scope.agent.length || search.outcome);
 
   return (
     <div className="flex flex-col gap-6">
@@ -145,11 +143,11 @@ export function RunsPage() {
           label="Eval"
           value={search.eval}
           options={data.evals.map(e => ({ value: e.id, label: e.title }))}
-          onChange={v => setSearch({ eval: v, page: undefined })}
+          onChange={v => setSearch({ eval: v }, { resetPage: true })}
         />
-        <Select label="Model" value={search.model} options={models} onChange={v => setSearch({ model: v, page: undefined })} />
-        <Select label="Agent" value={search.agent} options={agents} onChange={v => setSearch({ agent: v, page: undefined })} />
-        <Select label="Outcome" value={search.outcome} options={OUTCOMES} onChange={v => setSearch({ outcome: v, page: undefined })} />
+        <Select label="Model" value={scope.model[0]} options={models} onChange={v => setScope({ model: v ? [v] : [] })} />
+        <Select label="Agent" value={scope.agent[0]} options={agents} onChange={v => setScope({ agent: v ? [v] : [] })} />
+        <Select label="Outcome" value={search.outcome} options={OUTCOMES} onChange={v => setSearch({ outcome: v as typeof search.outcome }, { resetPage: true })} />
       </div>
 
       <Card
@@ -158,7 +156,7 @@ export function RunsPage() {
           filtered ? (
             <button
               type="button"
-              onClick={() => navigate({ to: '/runs', search: {} })}
+              onClick={() => navigate({ to: '/runs', search: { model: [], agent: [], vendor: [] } })}
               className="h-7 rounded-sm px-2.5 text-xs font-medium text-muted outline -outline-offset-1 outline-border transition-colors hover:bg-background hover:text-foreground"
             >
               Clear filters
@@ -171,13 +169,12 @@ export function RunsPage() {
           data={rows}
           columns={columns}
           getRowId={r => r.id}
-          sorting={sorting}
-          onSortingChange={next => {
-            const s = next[0];
-            setSearch({ sort: s ? `${s.desc ? '-' : ''}${s.id}` : undefined, page: undefined });
-          }}
+          sort={search.sort}
+          onSortChange={sort => setSearch({ sort }, { resetPage: true })}
           onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.id } })}
-          paging={{ page: (search.page ?? 1) - 1, pageSize: PAGE_SIZE, onPage: p => setSearch({ page: p > 0 ? p + 1 : undefined }) }}
+          page={search.page}
+          pageSize={PAGE_SIZE}
+          onPageChange={page => setSearch({ page })}
           empty={<Empty>No runs match these filters.</Empty>}
         />
       </Card>

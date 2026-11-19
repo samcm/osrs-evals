@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { Badge, Empty, EvalSprites, PageTitle, linkClassName } from '@/components/bits';
+import { Badge, Empty, PageTitle, linkClassName } from '@/components/bits';
+import { EvalMark } from '@/components/marks';
 import { indexQuery } from '@/data/queries';
 import { useDocumentTitle } from '@/lib/search';
 
@@ -33,7 +34,7 @@ export function IdeasPage() {
                   <p className="text-sm/6 text-muted">{idea.why}</p>
                   {isBuilt && idea.eval && (
                     <div className="mt-auto flex items-center gap-2 pt-1 text-sm">
-                      <EvalSprites evalId={idea.eval} size="sm" />
+                      <EvalMark evalId={idea.eval} size={24} />
                       {evalIds.has(idea.eval) ? (
                         <Link to="/evals/$evalId" params={{ evalId: idea.eval }} className={linkClassName}>
                           {data.evals.find(e => e.id === idea.eval)?.title}

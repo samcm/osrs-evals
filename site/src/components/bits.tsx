@@ -1,35 +1,11 @@
-/** Small shared pieces: sprites, outcome marks, swatches, badges, segmented control, disclosure. */
+/** Small shared pieces: outcome marks, badges, segmented controls, disclosure, code, empty states. Identity marks are in marks.tsx. */
 
 import type { ReactNode } from 'react';
 import { Disclosure as HeadlessDisclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react';
 import clsx from 'clsx';
 import type { Run } from '@/data/types';
-import { evalArt, outcomeWord } from '@/lib/evals';
-import { agentInfo, modelInfo, variantOf, type SeriesColor } from '@/lib/series';
-
-const spriteSizeClassName = { sm: 'size-6', md: 'size-8', lg: 'size-8 sm:size-12' } as const;
-
-/** The eval's item sprites, pixel-crisp. */
-export function EvalSprites({ evalId, size = 'md' }: { evalId: string; size?: keyof typeof spriteSizeClassName }) {
-  const { items } = evalArt(evalId);
-  if (items.length === 0) return null;
-  return (
-    <span className="inline-flex shrink-0 items-center">
-      {items.map(item => (
-        <img
-          key={item.id}
-          data-sprite
-          src={`/assets/items/${item.id}.png`}
-          alt={item.name}
-          title={item.name}
-          width={32}
-          height={32}
-          className={clsx(spriteSizeClassName[size], 'object-contain')}
-        />
-      ))}
-    </span>
-  );
-}
+import { outcomeWord } from '@/lib/evals';
+import { useSearchUpdate } from '@/lib/search';
 
 /** A run's outcome: a mark and a word. Finished is a filled dot, not finished a hollow ring. */
 export function Outcome({ run }: { run: Pick<Run, 'success'> }) {
@@ -48,40 +24,6 @@ export function Outcome({ run }: { run: Pick<Run, 'success'> }) {
       <span className={clsx(word === 'Finished' && 'text-success', word === 'Not finished' && 'text-danger')}>
         {word}
       </span>
-    </span>
-  );
-}
-
-export function Swatch({ color, className }: { color: SeriesColor; className?: string }) {
-  return <span aria-hidden className={clsx('inline-block size-2.5 shrink-0 rounded-2xs', color.swatchClassName, className)} />;
-}
-
-export function ModelLabel({ model }: { model: string }) {
-  const info = modelInfo(model);
-  return (
-    <span className="inline-flex items-center gap-2 whitespace-nowrap">
-      <Swatch color={info.color} />
-      <span title={model}>{info.name}</span>
-    </span>
-  );
-}
-
-export function AgentLabel({ agent, fallback }: { agent: string; fallback?: string }) {
-  const info = agentInfo(agent, fallback);
-  return (
-    <span className="inline-flex items-center gap-2 whitespace-nowrap">
-      <Swatch color={info.color} />
-      <span title={agent}>{info.name}</span>
-    </span>
-  );
-}
-
-export function VariantLabel({ run }: { run: Pick<Run, 'model' | 'agent' | 'agent_name'> }) {
-  const variant = variantOf(run);
-  return (
-    <span className="inline-flex items-center gap-2 whitespace-nowrap">
-      <Swatch color={variant.color} />
-      <span>{variant.name}</span>
     </span>
   );
 }
@@ -143,6 +85,29 @@ export function Segmented<T extends string>({
       })}
     </div>
   );
+}
+
+/**
+ * A segmented control bound to a search param of the current route: selecting writes `param`
+ * (the route's defineSearch drops it from the URL when it is the default).
+ */
+export function ParamSegmented<T extends string>({
+  param,
+  value,
+  options,
+  label,
+  resetPage,
+}: {
+  param: string;
+  /** The route's parsed value (with its default applied) */
+  value: T;
+  options: { value: T; label: string }[];
+  label: string;
+  /** Changing this param also returns the page to the first */
+  resetPage?: boolean;
+}) {
+  const update = useSearchUpdate();
+  return <Segmented label={label} value={value} options={options} onChange={v => update({ [param]: v }, { resetPage })} />;
 }
 
 /** A collapsed block of content behind a one-line button. */

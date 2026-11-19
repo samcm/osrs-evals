@@ -1,0 +1,504 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import clsx from 'clsx';
+import { loadTrimmedSprite, type TrimmedSprite } from '@/lib/assets';
+import { imageToTile, indexAt, MAP_IMAGE, MAP_IMAGE_2X, mapMetaQuery, onSurface, roundView, tileToImage, type MapMeta, type MapView, type PathPoint } from '@/lib/map';
+import { useThemeColors } from '@/lib/theme';
+
+export interface MapPath {
+  id: string;
+  /** A colour token ("--color-data-teal") or a resolved CSS colour */
+  color: string;
+  /** Colours along the path from its first tick to its last (tokens or CSS colours); overrides `color` */
+  ramp?: readonly string[];
+  points: readonly PathPoint[];
+  /** Line width in screen pixels; default 1.5 */
+  width?: number;
+  /** Default 1 */
+  opacity?: number;
+  /** A tick to mark with a dot at the path's position then */
+  at?: number;
+}
+
+export interface MapMarker {
+  id: string;
+  /** Tile coordinates */
+  x: number;
+  z: number;
+  /** A sprite path, drawn at one CSS pixel per sprite pixel */
+  src: string;
+  /** Shown on hover */
+  title?: string;
+}
+
+interface Camera {
+  /** Centre in map-image pixels */
+  cx: number;
+  cy: number;
+  /** Screen (CSS) pixels per map-image pixel */
+  s: number;
+}
+
+/** Zoom limits in screen pixels per tile. */
+const MAX_ZOOM = 32;
+
+const mapImages = new Map<string, Promise<HTMLImageElement>>();
+function loadMapImage(src: string): Promise<HTMLImageElement> {
+  let promise = mapImages.get(src);
+  if (!promise) {
+    promise = new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => {
+        mapImages.delete(src);
+        reject(new Error(`${src} did not load`));
+      };
+      img.src = src;
+    });
+    mapImages.set(src, promise);
+  }
+  return promise;
+}
+
+interface Prepared {
+  /** Image-pixel coordinates of surface points, x then y */
+  xy: Float32Array;
+  ticks: Float64Array;
+  /** [start, end) point ranges of unbroken runs */
+  runs: [number, number][];
+}
+
+const preparedCache = new WeakMap<readonly PathPoint[], Prepared>();
+
+/** A path's surface points in image pixels, split where it leaves the surface; cached per points array. */
+function prepare(meta: MapMeta, points: readonly PathPoint[]): Prepared {
+  const cached = preparedCache.get(points);
+  if (cached) return cached;
+  const path = { points };
+  const xy = new Float32Array(path.points.length * 2);
+  const ticks = new Float64Array(path.points.length);
+  const runs: [number, number][] = [];
+  let n = 0;
+  let start = -1;
+  for (const [tick, x, z, level] of path.points) {
+    if (!onSurface(meta, z, level)) {
+      if (start >= 0 && n > start) runs.push([start, n]);
+      start = -1;
+      continue;
+    }
+    if (start < 0) start = n;
+    const [px, py] = tileToImage(meta, x, z);
+    xy[n * 2] = px;
+    xy[n * 2 + 1] = py;
+    ticks[n] = tick;
+    n++;
+  }
+  if (start >= 0 && n > start) runs.push([start, n]);
+  const result = { xy, ticks, runs };
+  preparedCache.set(points, result);
+  return result;
+}
+
+function parseRgb(color: string): [number, number, number] {
+  const m = color.match(/(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)/);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [128, 128, 128];
+}
+
+function rampColor(stops: [number, number, number][], f: number): string {
+  if (stops.length === 1) return `rgb(${stops[0].join(',')})`;
+  const t = Math.min(1, Math.max(0, f)) * (stops.length - 1);
+  const i = Math.min(stops.length - 2, Math.floor(t));
+  const k = t - i;
+  const c = stops[i].map((v, j) => Math.round(v + (stops[i + 1][j] - v) * k));
+  return `rgb(${c.join(',')})`;
+}
+
+/**
+ * The 2004scape world map with run paths, markers and time dots. Pan by dragging, zoom with
+ * ctrl/⌘ + wheel, a trackpad or two-finger pinch, double-click, or the buttons. With no `view` it
+ * fits the paths; `onViewChange` reports the view when a gesture ends (undefined after "Fit"), so a
+ * page can keep it in the URL. Positions underground or on another plane break the line.
+ */
+export function WorldMap({
+  paths,
+  markers = [],
+  view,
+  onViewChange,
+  height = 360,
+  padding = 24,
+  label,
+  className,
+}: {
+  paths: MapPath[];
+  markers?: MapMarker[];
+  /** Centre tile and zoom; undefined fits the paths */
+  view?: MapView;
+  onViewChange?: (view: MapView | undefined) => void;
+  /** CSS pixels */
+  height?: number;
+  /** Space around the paths when fitting, in CSS pixels */
+  padding?: number;
+  /** Accessible description of what the map shows */
+  label?: string;
+  className?: string;
+}) {
+  const { data: meta, isError: metaFailed } = useQuery(mapMetaQuery);
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [image2x, setImage2x] = useState<HTMLImageElement | null>(null);
+  const [imageFailed, setImageFailed] = useState(false);
+  const [sprites, setSprites] = useState<Map<string, TrimmedSprite>>(new Map());
+  const [size, setSize] = useState({ w: 0, h: height });
+  const colors = useThemeColors();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const camera = useRef<Camera | null>(null);
+  const frame = useRef(0);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const moved = useRef(false);
+  const wheelTimer = useRef(0);
+
+  useEffect(() => {
+    let live = true;
+    loadMapImage(MAP_IMAGE).then(
+      img => live && setImage(img),
+      () => live && setImageFailed(true)
+    );
+    loadMapImage(MAP_IMAGE_2X).then(
+      img => live && setImage2x(img),
+      () => undefined
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const markerKey = markers.map(m => m.src).join('|');
+  useEffect(() => {
+    let live = true;
+    const srcs = [...new Set(markerKey ? markerKey.split('|') : [])];
+    Promise.all(srcs.map(src => loadTrimmedSprite(src).then(s => [src, s] as const, () => null))).then(pairs => {
+      if (live) setSprites(new Map(pairs.filter(p => p != null)));
+    });
+    return () => {
+      live = false;
+    };
+  }, [markerKey]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => setSize({ w: entry.contentRect.width, h: entry.contentRect.height }));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const prepared = useMemo(() => (meta ? paths.map(path => ({ path, ...prepare(meta, path.points) })) : []), [meta, paths]);
+  // What the fitted view depends on: which paths and markers, not their time dots or styles
+  const geometryKey = `${paths.map(p => `${p.id}:${p.points.length}`).join('|')}#${markers.map(m => `${m.x},${m.z}`).join('|')}`;
+
+  /** The camera that fits every path and marker (or the whole map) with padding. */
+  const fit = useCallback((): Camera | null => {
+    if (!meta || size.w === 0) return null;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    const add = (x: number, y: number): void => {
+      x0 = Math.min(x0, x);
+      y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x);
+      y1 = Math.max(y1, y);
+    };
+    for (const p of prepared) for (const [a, b] of p.runs) for (let i = a; i < b; i++) add(p.xy[i * 2], p.xy[i * 2 + 1]);
+    for (const m of markers) add(...tileToImage(meta, m.x, m.z));
+    if (x0 === Infinity) {
+      x0 = 0;
+      y0 = 0;
+      x1 = meta.width;
+      y1 = meta.height;
+    }
+    const minSpan = (8 * meta.px_per_tile) / 2;
+    const w = Math.max(x1 - x0, minSpan);
+    const h = Math.max(y1 - y0, minSpan);
+    const s = Math.min((size.w - 2 * padding) / w, (size.h - 2 * padding) / h);
+    return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, s: clampScale(meta, size, s) };
+  }, [meta, markers, padding, prepared, size]);
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    const cam = camera.current;
+    if (!canvas || !cam || !meta || !image) return;
+    const dpr = window.devicePixelRatio || 1;
+    // The backing store follows the container here, so a resize never leaves a cleared canvas
+    const bw = Math.round(size.w * dpr);
+    const bh = Math.round(size.h * dpr);
+    if (canvas.width !== bw || canvas.height !== bh) {
+      canvas.width = bw;
+      canvas.height = bh;
+    }
+    const ctx = canvas.getContext('2d')!;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = colors.background;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const ox = size.w / 2 - cam.cx * cam.s;
+    const oy = size.h / 2 - cam.cy * cam.s;
+    ctx.setTransform(cam.s * dpr, 0, 0, cam.s * dpr, ox * dpr, oy * dpr);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image2x && cam.s * dpr > 1 ? image2x : image, 0, 0, meta.width, meta.height);
+
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    const resolve = (color: string): string => (color.startsWith('--') ? colors.resolve(color) : color);
+    for (const { path, xy, ticks, runs } of prepared) {
+      ctx.globalAlpha = path.opacity ?? 1;
+      ctx.lineWidth = (path.width ?? 1.5) / cam.s;
+      if (path.ramp?.length) {
+        const stops = path.ramp.map(c => parseRgb(resolve(c)));
+        const n = runs.length ? runs[runs.length - 1][1] : 0;
+        const t0 = ticks[0];
+        const span = n ? ticks[n - 1] - t0 || 1 : 1;
+        const chunk = Math.max(2, Math.ceil(n / 48));
+        for (const [a, b] of runs) {
+          for (let i = a; i < b - 1; i += chunk) {
+            const end = Math.min(b - 1, i + chunk);
+            ctx.strokeStyle = rampColor(stops, (ticks[i] - t0) / span);
+            ctx.beginPath();
+            ctx.moveTo(xy[i * 2], xy[i * 2 + 1]);
+            for (let j = i + 1; j <= end; j++) ctx.lineTo(xy[j * 2], xy[j * 2 + 1]);
+            ctx.stroke();
+          }
+        }
+      } else {
+        ctx.strokeStyle = resolve(path.color);
+        ctx.beginPath();
+        for (const [a, b] of runs) {
+          ctx.moveTo(xy[a * 2], xy[a * 2 + 1]);
+          // A single point still shows as a dot (round caps)
+          if (b - a === 1) ctx.lineTo(xy[a * 2] + 0.01, xy[a * 2 + 1]);
+          for (let i = a + 1; i < b; i++) ctx.lineTo(xy[i * 2], xy[i * 2 + 1]);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // Screen-space marks: time dots and sprites
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.globalAlpha = 1;
+    const toScreen = (x: number, z: number): [number, number] => {
+      const [px, py] = tileToImage(meta, x, z);
+      return [ox + px * cam.s, oy + py * cam.s];
+    };
+    for (const { path } of prepared) {
+      if (path.at == null) continue;
+      const i = indexAt(path.points, path.at);
+      const point = path.points[i];
+      if (!point || !onSurface(meta, point[2], point[3])) continue;
+      const [sx, sy] = toScreen(point[1], point[2]);
+      ctx.beginPath();
+      ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = resolve(path.ramp?.length ? path.ramp[path.ramp.length - 1] : path.color);
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = colors.surface;
+      ctx.stroke();
+    }
+    ctx.imageSmoothingEnabled = false;
+    const k = Math.max(1, Math.floor(dpr));
+    for (const m of markers) {
+      const sprite = sprites.get(m.src);
+      if (!sprite) continue;
+      const [sx, sy] = toScreen(m.x, m.z);
+      const w = (sprite.width * k) / dpr;
+      const h = (sprite.height * k) / dpr;
+      ctx.drawImage(sprite.image, Math.round((sx - w / 2) * dpr) / dpr, Math.round((sy - h / 2) * dpr) / dpr, w, h);
+    }
+  }, [colors, image, image2x, markers, meta, prepared, size, sprites]);
+
+  const requestDraw = useCallback(() => {
+    cancelAnimationFrame(frame.current);
+    frame.current = requestAnimationFrame(draw);
+  }, [draw]);
+
+  // The camera follows `view`, or fits the paths when there is none (not on every time-dot change)
+  const fitRef = useRef(fit);
+  fitRef.current = fit;
+  const viewKey = view?.join(',');
+  useEffect(() => {
+    if (!meta || size.w === 0) return;
+    if (view) {
+      const [cx, cy] = tileToImage(meta, view[0], view[1]);
+      camera.current = { cx, cy, s: clampScale(meta, size, view[2] / meta.px_per_tile) };
+    } else {
+      camera.current = fitRef.current();
+    }
+    requestDraw();
+    // view and geometry are compared by value (viewKey, geometryKey), not by array identity
+  }, [meta, size, viewKey, geometryKey]);
+
+  useEffect(() => {
+    requestDraw();
+    return () => cancelAnimationFrame(frame.current);
+  }, [requestDraw]);
+
+  const commit = useCallback(() => {
+    const cam = camera.current;
+    if (!cam || !meta || !onViewChange) return;
+    const [x, z] = imageToTile(meta, cam.cx, cam.cy);
+    onViewChange(roundView([x, z, cam.s * meta.px_per_tile]));
+  }, [meta, onViewChange]);
+
+  /** Zoom by a factor keeping the image point under (px, py) fixed. */
+  const zoomAt = useCallback(
+    (px: number, py: number, factor: number) => {
+      const cam = camera.current;
+      if (!cam || !meta) return;
+      const ix = cam.cx + (px - size.w / 2) / cam.s;
+      const iy = cam.cy + (py - size.h / 2) / cam.s;
+      const s = clampScale(meta, size, cam.s * factor);
+      camera.current = clampCentre(meta, { cx: ix - (px - size.w / 2) / s, cy: iy - (py - size.h / 2) / s, s });
+      requestDraw();
+    },
+    [meta, requestDraw, size]
+  );
+
+  // Ctrl/⌘ + wheel (and trackpad pinch, which arrives as ctrl + wheel) zooms; a plain wheel scrolls the page
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onWheel = (event: WheelEvent): void => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+      zoomAt(event.clientX - rect.left, event.clientY - rect.top, Math.exp(-delta * 0.01));
+      window.clearTimeout(wheelTimer.current);
+      wheelTimer.current = window.setTimeout(commit, 250);
+    };
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
+  }, [commit, zoomAt]);
+
+  const local = (event: React.PointerEvent | React.MouseEvent): [number, number] => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return [event.clientX - rect.left, event.clientY - rect.top];
+  };
+
+  const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>): void => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const [x, y] = local(event);
+    pointers.current.set(event.pointerId, { x, y });
+    moved.current = false;
+  };
+
+  const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>): void => {
+    const [x, y] = local(event);
+    const active = pointers.current;
+    const previous = active.get(event.pointerId);
+    const cam = camera.current;
+    if (!previous || !cam) {
+      // Hover: a marker's title as the canvas tooltip
+      const hit = meta && cam ? markers.find(m => markerHit(meta, cam, size, m, sprites.get(m.src), x, y)) : undefined;
+      event.currentTarget.title = hit?.title ?? '';
+      return;
+    }
+    if (active.size === 1) {
+      camera.current = clampCentre(meta, { ...cam, cx: cam.cx - (x - previous.x) / cam.s, cy: cam.cy - (y - previous.y) / cam.s });
+      active.set(event.pointerId, { x, y });
+      moved.current = true;
+      requestDraw();
+    } else if (active.size === 2) {
+      const [a, b] = [...active.entries()];
+      const other = a[0] === event.pointerId ? b[1] : a[1];
+      const before = Math.hypot(previous.x - other.x, previous.y - other.y) || 1;
+      const after = Math.hypot(x - other.x, y - other.y) || 1;
+      active.set(event.pointerId, { x, y });
+      // Pan by the midpoint's move, then zoom about the new midpoint
+      const mx = (x + other.x) / 2;
+      const my = (y + other.y) / 2;
+      const px = (previous.x + other.x) / 2;
+      const py = (previous.y + other.y) / 2;
+      camera.current = clampCentre(meta, { ...cam, cx: cam.cx - (mx - px) / cam.s, cy: cam.cy - (my - py) / cam.s });
+      moved.current = true;
+      zoomAt(mx, my, after / before);
+    }
+  };
+
+  const onPointerUp = (event: React.PointerEvent<HTMLCanvasElement>): void => {
+    pointers.current.delete(event.pointerId);
+    if (pointers.current.size === 0 && moved.current) commit();
+  };
+
+  const button = (text: string, title: string, onClick: () => void) => (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      onClick={onClick}
+      className="h-7 min-w-7 bg-surface px-2 text-xs font-medium text-foreground outline -outline-offset-1 outline-border transition-colors not-first:-ml-px first:rounded-l-sm last:rounded-r-sm hover:bg-background focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary-50"
+    >
+      {text}
+    </button>
+  );
+
+  const failed = metaFailed || imageFailed;
+  return (
+    <div ref={containerRef} className={clsx('relative w-full min-w-0 overflow-hidden rounded-sm bg-background', className)} style={{ height }}>
+      <canvas
+        ref={canvasRef}
+        role="img"
+        aria-label={label ?? `World map with ${paths.length === 1 ? 'one path' : `${paths.length} paths`}`}
+        className="block size-full cursor-grab touch-pan-y active:cursor-grabbing"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onDoubleClick={event => {
+          const [x, y] = local(event);
+          zoomAt(x, y, 2);
+          commit();
+        }}
+      />
+      {failed ? (
+        <p className="absolute inset-0 flex items-center justify-center text-sm text-muted">The map could not be loaded.</p>
+      ) : (
+        <div className="absolute top-2 right-2 flex">
+          {button('+', 'Zoom in', () => {
+            zoomAt(size.w / 2, size.h / 2, 2);
+            commit();
+          })}
+          {button('−', 'Zoom out', () => {
+            zoomAt(size.w / 2, size.h / 2, 0.5);
+            commit();
+          })}
+          {button('Fit', 'Fit the paths', () => {
+            camera.current = fit();
+            requestDraw();
+            onViewChange?.(undefined);
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Keep the zoom between a little wider than the whole map and MAX_ZOOM pixels per tile. */
+function clampScale(meta: MapMeta, size: { w: number; h: number }, s: number): number {
+  const min = Math.min(size.w / meta.width, size.h / meta.height) / 2;
+  return Math.min(MAX_ZOOM / meta.px_per_tile, Math.max(min, s));
+}
+
+/** Keep the view's centre on the map image, so panning can't lose the map. */
+function clampCentre(meta: MapMeta | undefined, cam: Camera): Camera {
+  if (!meta) return cam;
+  return { ...cam, cx: Math.min(meta.width, Math.max(0, cam.cx)), cy: Math.min(meta.height, Math.max(0, cam.cy)) };
+}
+
+function markerHit(meta: MapMeta, cam: Camera, size: { w: number; h: number }, m: MapMarker, sprite: TrimmedSprite | undefined, x: number, y: number): boolean {
+  const [px, py] = tileToImage(meta, m.x, m.z);
+  const sx = size.w / 2 + (px - cam.cx) * cam.s;
+  const sy = size.h / 2 + (py - cam.cy) * cam.s;
+  const half = Math.max(8, (sprite ? Math.max(sprite.width, sprite.height) : 16) / 2);
+  return Math.abs(x - sx) <= half && Math.abs(y - sy) <= half;
+}

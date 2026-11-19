@@ -4,7 +4,8 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Card } from '@/components/Card';
 import { Stats, type Stat } from '@/components/Stats';
-import { AgentLabel, CodeBlock, Disclosure, EvalSprites, ModelLabel, Outcome, PageTitle } from '@/components/bits';
+import { CodeBlock, Disclosure, Outcome, PageTitle } from '@/components/bits';
+import { AgentLabel, EvalMark, ModelLabel } from '@/components/marks';
 import { indexQuery, runQuery } from '@/data/queries';
 import type { Action, RunDetail, Turn } from '@/data/types';
 import { evalArt, hasTarget } from '@/lib/evals';
@@ -40,7 +41,7 @@ function Header({ run, evalTitle, replay }: { run: RunDetail; evalTitle: string;
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <EvalSprites evalId={run.eval} size="lg" />
+        <EvalMark evalId={run.eval} size={40} />
         <div className="min-w-0 flex-1 basis-60">
           <PageTitle>
             <Link to="/evals/$evalId" params={{ evalId: run.eval }} className="transition-colors hover:text-primary">

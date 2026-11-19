@@ -22,6 +22,18 @@ export function getChartTooltipChrome(colors: ChartChromeColors) {
   };
 }
 
+/**
+ * An axis-triggered tooltip with a vertical crosshair, for charts that share an x and a Chart
+ * `group`: hovering one moves the crosshair on all of them.
+ */
+export function crosshairTooltip(colors: ChartChromeColors) {
+  return {
+    ...getChartTooltipChrome(colors),
+    trigger: 'axis' as const,
+    axisPointer: { type: 'line' as const, snap: false, lineStyle: { color: colors.muted, width: 1, type: 'dashed' as const } },
+  };
+}
+
 /** Axis name text style. */
 export function getChartAxisNameStyle(colors: ChartChromeColors) {
   return { color: colors.muted, fontSize: 11, fontWeight: 'normal' as const };

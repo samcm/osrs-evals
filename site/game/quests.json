@@ -1,0 +1,1311 @@
+[
+ {
+  "id": "rune_mysteries_quest",
+  "name": "Rune Mysteries Quest",
+  "members": false,
+  "qp": 1,
+  "varp": 63,
+  "complete": [
+   {
+    "varp": 63,
+    "op": "eq",
+    "value": 6
+   }
+  ],
+  "icon": "assets/quests/rune_mysteries_quest.png",
+  "reward_item": {
+   "id": 1438,
+   "name": "Air talisman"
+  }
+ },
+ {
+  "id": "dorics_quest",
+  "name": "Doric's Quest",
+  "members": false,
+  "qp": 1,
+  "varp": 31,
+  "complete": [
+   {
+    "varp": 31,
+    "op": "eq",
+    "value": 100
+   }
+  ],
+  "icon": "assets/quests/dorics_quest.png",
+  "reward_item": {
+   "id": 1269,
+   "name": "Steel pickaxe"
+  }
+ },
+ {
+  "id": "cooks_assistant",
+  "name": "Cook's Assistant",
+  "members": false,
+  "qp": 1,
+  "varp": 29,
+  "complete": [
+   {
+    "varp": 29,
+    "op": "eq",
+    "value": 2
+   }
+  ],
+  "icon": "assets/quests/cooks_assistant.png",
+  "reward_item": {
+   "id": 1891,
+   "name": "Cake"
+  }
+ },
+ {
+  "id": "romeo_and_juliet",
+  "name": "Romeo & Juliet",
+  "members": false,
+  "qp": 5,
+  "varp": 144,
+  "complete": [
+   {
+    "varp": 144,
+    "op": "eq",
+    "value": 100
+   }
+  ],
+  "icon": "assets/quests/romeo_and_juliet.png",
+  "reward_item": {
+   "id": 756,
+   "name": "Cadava potion"
+  }
+ },
+ {
+  "id": "witchs_potion",
+  "name": "Witch's Potion",
+  "members": false,
+  "qp": 1,
+  "varp": 67,
+  "complete": [
+   {
+    "varp": 67,
+    "op": "eq",
+    "value": 3
+   }
+  ],
+  "icon": "assets/quests/witchs_potion.png",
+  "reward_item": {
+   "id": 221,
+   "name": "Eye of newt"
+  }
+ },
+ {
+  "id": "big_chompy_bird_hunting",
+  "name": "Big Chompy Bird Hunting",
+  "members": true,
+  "qp": 2,
+  "varp": 293,
+  "complete": [
+   {
+    "varp": 293,
+    "op": "eq",
+    "value": 65
+   }
+  ],
+  "icon": "assets/quests/big_chompy_bird_hunting.png",
+  "reward_item": {
+   "id": 2883,
+   "name": "Ogre bow"
+  }
+ },
+ {
+  "id": "restless_ghost",
+  "name": "The Restless Ghost",
+  "members": false,
+  "qp": 1,
+  "varp": 107,
+  "complete": [
+   {
+    "varp": 107,
+    "op": "eq",
+    "value": 5
+   }
+  ],
+  "icon": "assets/quests/restless_ghost.png",
+  "reward_item": {
+   "id": 553,
+   "name": "Skull"
+  }
+ },
+ {
+  "id": "knights_sword",
+  "name": "The Knight's Sword",
+  "members": false,
+  "qp": 1,
+  "varp": 122,
+  "complete": [
+   {
+    "varp": 122,
+    "op": "eq",
+    "value": 7
+   }
+  ],
+  "icon": "assets/quests/knights_sword.png",
+  "reward_item": {
+   "id": 667,
+   "name": "Blurite sword"
+  }
+ },
+ {
+  "id": "imp_catcher",
+  "name": "Imp Catcher",
+  "members": false,
+  "qp": 1,
+  "varp": 160,
+  "complete": [
+   {
+    "varp": 160,
+    "op": "eq",
+    "value": 2
+   }
+  ],
+  "icon": "assets/quests/imp_catcher.png",
+  "reward_item": {
+   "id": 1478,
+   "name": "Amulet of accuracy"
+  }
+ },
+ {
+  "id": "druidic_ritual",
+  "name": "Druidic Ritual",
+  "members": true,
+  "qp": 4,
+  "varp": 80,
+  "complete": [
+   {
+    "varp": 80,
+    "op": "eq",
+    "value": 4
+   }
+  ],
+  "icon": "assets/quests/druidic_ritual.png",
+  "reward_item": {
+   "id": 251,
+   "name": "Marrentill"
+  }
+ },
+ {
+  "id": "goblin_diplomacy",
+  "name": "Goblin Diplomacy",
+  "members": false,
+  "qp": 5,
+  "varp": 62,
+  "complete": [
+   {
+    "varp": 62,
+    "op": "eq",
+    "value": 6
+   }
+  ],
+  "icon": "assets/quests/goblin_diplomacy.png",
+  "reward_item": {
+   "id": 2357,
+   "name": "Gold bar"
+  }
+ },
+ {
+  "id": "sheep_shearer",
+  "name": "Sheep Shearer",
+  "members": false,
+  "qp": 1,
+  "varp": 179,
+  "complete": [
+   {
+    "varp": 179,
+    "op": "eq",
+    "value": 22
+   }
+  ],
+  "icon": "assets/quests/sheep_shearer.png",
+  "reward_item": {
+   "id": 995,
+   "name": "Coins"
+  }
+ },
+ {
+  "id": "gertrudes_cat",
+  "name": "Gertrude's Cat",
+  "members": true,
+  "qp": 1,
+  "varp": 180,
+  "complete": [
+   {
+    "varp": 180,
+    "op": "eq",
+    "value": 6
+   }
+  ],
+  "icon": "assets/quests/gertrudes_cat.png",
+  "reward_item": {
+   "id": 1555,
+   "name": "Pet kitten"
+  }
+ },
+ {
+  "id": "demon_slayer",
+  "name": "Demon Slayer",
+  "members": false,
+  "qp": 3,
+  "varp": 222,
+  "complete": [
+   {
+    "varp": 222,
+    "op": "eq",
+    "value": 30
+   }
+  ],
+  "icon": "assets/quests/demon_slayer.png",
+  "reward_item": {
+   "id": 2402,
+   "name": "Silverlight"
+  }
+ },
+ {
+  "id": "prince_ali_rescue",
+  "name": "Prince Ali Rescue",
+  "members": false,
+  "qp": 3,
+  "varp": 273,
+  "complete": [
+   {
+    "varp": 273,
+    "op": "eq",
+    "value": 110
+   }
+  ],
+  "icon": "assets/quests/prince_ali_rescue.png",
+  "reward_item": {
+   "id": 995,
+   "name": "Coins"
+  }
+ },
+ {
+  "id": "black_knights_fortress",
+  "name": "Black Knight's Fortress",
+  "members": false,
+  "qp": 3,
+  "varp": 130,
+  "complete": [
+   {
+    "varp": 130,
+    "op": "eq",
+    "value": 4
+   }
+  ],
+  "icon": "assets/quests/black_knights_fortress.png",
+  "reward_item": {
+   "id": 995,
+   "name": "Coins"
+  }
+ },
+ {
+  "id": "ernest_the_chicken",
+  "name": "Ernest the Chicken",
+  "members": false,
+  "qp": 4,
+  "varp": 32,
+  "complete": [
+   {
+    "varp": 32,
+    "op": "eq",
+    "value": 3
+   }
+  ],
+  "icon": "assets/quests/ernest_the_chicken.png",
+  "reward_item": {
+   "id": 314,
+   "name": "Feather"
+  }
+ },
+ {
+  "id": "pirates_treasure",
+  "name": "Pirate's Treasure",
+  "members": false,
+  "qp": 2,
+  "varp": 71,
+  "complete": [
+   {
+    "varp": 71,
+    "op": "eq",
+    "value": 4
+   }
+  ],
+  "icon": "assets/quests/pirates_treasure.png",
+  "reward_item": {
+   "id": 1605,
+   "name": "Emerald"
+  }
+ },
+ {
+  "id": "monks_friend",
+  "name": "Monk's Friend",
+  "members": true,
+  "qp": 1,
+  "varp": 30,
+  "complete": [
+   {
+    "varp": 30,
+    "op": "eq",
+    "value": 80
+   }
+  ],
+  "icon": "assets/quests/monks_friend.png",
+  "reward_item": {
+   "id": 563,
+   "name": "Law rune"
+  }
+ },
+ {
+  "id": "vampire_slayer",
+  "name": "Vampire Slayer",
+  "members": false,
+  "qp": 3,
+  "varp": 178,
+  "complete": [
+   {
+    "varp": 178,
+    "op": "eq",
+    "value": 3
+   }
+  ],
+  "icon": "assets/quests/vampire_slayer.png",
+  "reward_item": {
+   "id": 1549,
+   "name": "Stake"
+  }
+ },
+ {
+  "id": "tribal_totem",
+  "name": "Tribal Totem",
+  "members": true,
+  "qp": 1,
+  "varp": 200,
+  "complete": [
+   {
+    "varp": 200,
+    "op": "eq",
+    "value": 5
+   }
+  ],
+  "icon": "assets/quests/tribal_totem.png",
+  "reward_item": {
+   "id": 1857,
+   "name": "Totem"
+  }
+ },
+ {
+  "id": "fishing_contest",
+  "name": "Fishing Contest",
+  "members": true,
+  "qp": 1,
+  "varp": 11,
+  "complete": [
+   {
+    "varp": 11,
+    "op": "eq",
+    "value": 5
+   }
+  ],
+  "icon": "assets/quests/fishing_contest.png",
+  "reward_item": {
+   "id": 26,
+   "name": "Fishing trophy"
+  }
+ },
+ {
+  "id": "scorpion_catcher",
+  "name": "Scorpion Catcher",
+  "members": true,
+  "qp": 1,
+  "varp": 76,
+  "complete": [
+   {
+    "varp": 76,
+    "op": "eq",
+    "value": 6
+   }
+  ],
+  "icon": "assets/quests/scorpion_catcher.png",
+  "reward_item": {
+   "id": 463,
+   "name": "Scorpion cage"
+  }
+ },
+ {
+  "id": "lost_city",
+  "name": "Lost City",
+  "members": true,
+  "qp": 3,
+  "varp": 147,
+  "complete": [
+   {
+    "varp": 147,
+    "op": "eq",
+    "value": 6
+   }
+  ],
+  "icon": "assets/quests/lost_city.png",
+  "reward_item": {
+   "id": 995,
+   "name": "Coins"
+  }
+ },
+ {
+  "id": "shield_of_arrav",
+  "name": "Shield of Arrav",
+  "members": false,
+  "qp": 1,
+  "varp": 145,
+  "complete": [
+   {
+    "varp": 145,
+    "op": "eq",
+    "value": 4
+   },
+   {
+    "varp": 146,
+    "op": "eq",
+    "value": 10
+   }
+  ],
+  "icon": "assets/quests/shield_of_arrav.png",
+  "reward_item": {
+   "id": 995,
+   "name": "Coins"
+  }
+ },
+ {
+  "id": "plague_city",
+  "name": "Plague City",
+  "members": true,
+  "qp": 1,
+  "varp": 165,
+  "complete": [
+   {
+    "varp": 165,
+    "op": "ge",
+    "value": 29
+   }
+  ],
+  "icon": "assets/quests/plague_city.png",
+  "reward_item": {
+   "id": 1506,
+   "name": "Gas mask"
+  }
+ },
+ {
+  "id": "dragon_slayer",
+  "name": "Dragon Slayer",
+  "members": false,
+  "qp": 2,
+  "varp": 176,
+  "complete": [
+   {
+    "varp": 176,
+    "op": "ge",
+    "value": 10
+   }
+  ],
+  "icon": "assets/quests/dragon_slayer.png",
+  "reward_item": {
+   "id": 1127,
+   "name": "Rune platebody"
+  }
+ },
+ {
+  "id": "sea_slug_quest",
+  "name": "Sea Slug Quest",
+  "members": true,
+  "qp": 1,
+  "varp": 159,
+  "complete": [
+   {
+    "varp": 159,
+    "op": "eq",
+    "value": 12
+   }
+  ],
+  "icon": "assets/quests/sea_slug_quest.png",
+  "reward_item": {
+   "id": 1466,
+   "name": "Sea slug"
+  }
+ },
+ {
+  "id": "merlins_crystal",
+  "name": "Merlin's Crystal",
+  "members": true,
+  "qp": 6,
+  "varp": 14,
+  "complete": [
+   {
+    "varp": 14,
+    "op": "eq",
+    "value": 7
+   }
+  ],
+  "icon": "assets/quests/merlins_crystal.png",
+  "reward_item": {
+   "id": 35,
+   "name": "Excalibur"
+  }
+ },
+ {
+  "id": "tree_gnome_village",
+  "name": "Tree Gnome Village",
+  "members": true,
+  "qp": 2,
+  "varp": 111,
+  "complete": [
+   {
+    "varp": 111,
+    "op": "eq",
+    "value": 9
+   }
+  ],
+  "icon": "assets/quests/tree_gnome_village.png",
+  "reward_item": {
+   "id": 589,
+   "name": "Gnome amulet"
+  }
+ },
+ {
+  "id": "waterfall_quest",
+  "name": "Waterfall Quest",
+  "members": true,
+  "qp": 1,
+  "varp": 65,
+  "complete": [
+   {
+    "varp": 65,
+    "op": "eq",
+    "value": 10
+   }
+  ],
+  "icon": "assets/quests/waterfall_quest.png",
+  "reward_item": {
+   "id": 1601,
+   "name": "Diamond"
+  }
+ },
+ {
+  "id": "holy_grail",
+  "name": "Holy Grail",
+  "members": true,
+  "qp": 2,
+  "varp": 5,
+  "complete": [
+   {
+    "varp": 5,
+    "op": "eq",
+    "value": 10
+   }
+  ],
+  "icon": "assets/quests/holy_grail.png",
+  "reward_item": {
+   "id": 19,
+   "name": "Holy grail"
+  }
+ },
+ {
+  "id": "witchs_house",
+  "name": "Witch's House",
+  "members": true,
+  "qp": 4,
+  "varp": 226,
+  "complete": [
+   {
+    "varp": 226,
+    "op": "eq",
+    "value": 7
+   }
+  ],
+  "icon": "assets/quests/witchs_house.png",
+  "reward_item": {
+   "id": 2407,
+   "name": "Ball"
+  }
+ },
+ {
+  "id": "murder_mystery",
+  "name": "Murder Mystery",
+  "members": true,
+  "qp": 3,
+  "varp": 192,
+  "complete": [
+   {
+    "varp": 192,
+    "op": "eq",
+    "value": 2
+   }
+  ],
+  "icon": "assets/quests/murder_mystery.png",
+  "reward_item": {
+   "id": 995,
+   "name": "Coins"
+  }
+ },
+ {
+  "id": "hazeel_cult",
+  "name": "Hazeel Cult",
+  "members": true,
+  "qp": 1,
+  "varp": 223,
+  "complete": [
+   {
+    "varp": 223,
+    "op": "eq",
+    "value": 9
+   }
+  ],
+  "icon": "assets/quests/hazeel_cult.png",
+  "reward_item": {
+   "id": 995,
+   "name": "Coins"
+  }
+ },
+ {
+  "id": "heros_quest",
+  "name": "Hero's Quest",
+  "members": true,
+  "qp": 1,
+  "varp": 188,
+  "complete": [
+   {
+    "varp": 188,
+    "op": "eq",
+    "value": 15
+   }
+  ],
+  "icon": "assets/quests/heros_quest.png",
+  "reward_item": {
+   "id": 1377,
+   "name": "Dragon battleaxe"
+  }
+ },
+ {
+  "id": "observatory_quest",
+  "name": "Observatory Quest",
+  "members": true,
+  "qp": 2,
+  "varp": 112,
+  "complete": [
+   {
+    "varp": 112,
+    "op": "ge",
+    "value": 7
+   }
+  ],
+  "icon": "assets/quests/observatory_quest.png",
+  "reward_item": {
+   "id": 603,
+   "name": "Lens"
+  }
+ },
+ {
+  "id": "fight_arena",
+  "name": "Fight Arena",
+  "members": true,
+  "qp": 2,
+  "varp": 17,
+  "complete": [
+   {
+    "varp": 17,
+    "op": "ge",
+    "value": 14
+   }
+  ],
+  "icon": "assets/quests/fight_arena.png",
+  "reward_item": {
+   "id": 995,
+   "name": "Coins"
+  }
+ },
+ {
+  "id": "jungle_potion",
+  "name": "Jungle Potion",
+  "members": true,
+  "qp": 1,
+  "varp": 175,
+  "complete": [
+   {
+    "varp": 175,
+    "op": "ge",
+    "value": 12
+   }
+  ],
+  "icon": "assets/quests/jungle_potion.png",
+  "reward_item": {
+   "id": 251,
+   "name": "Marrentill"
+  }
+ },
+ {
+  "id": "temple_of_ikov",
+  "name": "Temple of Ikov",
+  "members": true,
+  "qp": 1,
+  "varp": 26,
+  "complete": [
+   {
+    "varp": 26,
+    "op": "ge",
+    "value": 80
+   }
+  ],
+  "icon": "assets/quests/temple_of_ikov.png",
+  "reward_item": {
+   "id": 855,
+   "name": "Yew longbow"
+  }
+ },
+ {
+  "id": "biohazard",
+  "name": "Biohazard",
+  "members": true,
+  "qp": 3,
+  "varp": 68,
+  "complete": [
+   {
+    "varp": 68,
+    "op": "ge",
+    "value": 16
+   }
+  ],
+  "icon": "assets/quests/biohazard.png",
+  "reward_item": {
+   "id": 420,
+   "name": "Distillator"
+  }
+ },
+ {
+  "id": "sheep_herder",
+  "name": "Sheep Herder",
+  "members": true,
+  "qp": 4,
+  "varp": 60,
+  "complete": [
+   {
+    "varp": 60,
+    "op": "ge",
+    "value": 3
+   }
+  ],
+  "icon": "assets/quests/sheep_herder.png",
+  "reward_item": {
+   "id": 995,
+   "name": "Coins"
+  }
+ },
+ {
+  "id": "dwarf_cannon",
+  "name": "Dwarf Cannon",
+  "members": true,
+  "qp": 1,
+  "varp": 0,
+  "complete": [
+   {
+    "varp": 0,
+    "op": "eq",
+    "value": 11
+   }
+  ],
+  "icon": "assets/quests/dwarf_cannon.png",
+  "reward_item": {
+   "id": 2,
+   "name": "Cannonball"
+  }
+ },
+ {
+  "id": "clock_tower",
+  "name": "Clock Tower",
+  "members": true,
+  "qp": 1,
+  "varp": 10,
+  "complete": [
+   {
+    "varp": 10,
+    "bits": [
+     0,
+     3
+    ],
+    "op": "eq",
+    "value": 8
+   }
+  ],
+  "icon": "assets/quests/clock_tower.png",
+  "reward_item": {
+   "id": 995,
+   "name": "Coins"
+  }
+ },
+ {
+  "id": "grand_tree",
+  "name": "The Grand Tree",
+  "members": true,
+  "qp": 5,
+  "varp": 150,
+  "complete": [
+   {
+    "varp": 150,
+    "op": "eq",
+    "value": 160
+   }
+  ],
+  "icon": "assets/quests/grand_tree.png",
+  "reward_item": {
+   "id": 793,
+   "name": "Daconia rock"
+  }
+ },
+ {
+  "id": "underground_pass",
+  "name": "Underground Pass",
+  "members": true,
+  "qp": 5,
+  "varp": 161,
+  "complete": [
+   {
+    "varp": 161,
+    "op": "eq",
+    "value": 10
+   }
+  ],
+  "icon": "assets/quests/underground_pass.png",
+  "reward_item": {
+   "id": 1492,
+   "name": "Doll of iban"
+  }
+ },
+ {
+  "id": "shilo_village",
+  "name": "Shilo Village",
+  "members": true,
+  "qp": 2,
+  "varp": 116,
+  "complete": [
+   {
+    "varp": 116,
+    "op": "ge",
+    "value": 15
+   }
+  ],
+  "icon": "assets/quests/shilo_village.png",
+  "reward_item": {
+   "id": 616,
+   "name": "Beads of the dead"
+  }
+ },
+ {
+  "id": "family_crest",
+  "name": "Family Crest",
+  "members": true,
+  "qp": 1,
+  "varp": 148,
+  "complete": [
+   {
+    "varp": 148,
+    "op": "eq",
+    "value": 11
+   }
+  ],
+  "icon": "assets/quests/family_crest.png",
+  "reward_item": {
+   "id": 778,
+   "name": "Steel gauntlets"
+  }
+ },
+ {
+  "id": "digsite_quest",
+  "name": "Digsite Quest",
+  "members": true,
+  "qp": 2,
+  "varp": 131,
+  "complete": [
+   {
+    "varp": 131,
+    "op": "eq",
+    "value": 9
+   }
+  ],
+  "icon": "assets/quests/digsite_quest.png",
+  "reward_item": {
+   "id": 676,
+   "name": "Trowel"
+  }
+ },
+ {
+  "id": "tourist_trap",
+  "name": "The Tourist Trap",
+  "members": true,
+  "qp": 2,
+  "varp": 197,
+  "complete": [
+   {
+    "varp": 197,
+    "op": "eq",
+    "value": 30
+   }
+  ],
+  "icon": "assets/quests/tourist_trap.png",
+  "reward_item": {
+   "id": 806,
+   "name": "Bronze dart"
+  }
+ },
+ {
+  "id": "watch_tower",
+  "name": "Watch Tower",
+  "members": true,
+  "qp": 4,
+  "varp": 212,
+  "complete": [
+   {
+    "varp": 212,
+    "op": "ge",
+    "value": 13
+   }
+  ],
+  "icon": "assets/quests/watch_tower.png",
+  "reward_item": {
+   "id": 2372,
+   "name": "Ogre relic"
+  }
+ },
+ {
+  "id": "throne_of_miscellania",
+  "name": "Throne of Miscellania",
+  "members": true,
+  "qp": 1,
+  "varp": 359,
+  "complete": [
+   {
+    "varp": 359,
+    "op": "ge",
+    "value": 100
+   }
+  ],
+  "icon": "assets/quests/throne_of_miscellania.png",
+  "reward_item": {
+   "id": 3898,
+   "name": "Giant pen"
+  }
+ },
+ {
+  "id": "legends_quest",
+  "name": "Legends Quest",
+  "members": true,
+  "qp": 4,
+  "varp": 139,
+  "complete": [
+   {
+    "varp": 139,
+    "op": "eq",
+    "value": 75
+   }
+  ],
+  "icon": "assets/quests/legends_quest.png",
+  "reward_item": {
+   "id": 750,
+   "name": "Gilded totem"
+  }
+ },
+ {
+  "id": "elemental_workshop",
+  "name": "Elemental Workshop",
+  "members": true,
+  "qp": 1,
+  "varp": 299,
+  "complete": [
+   {
+    "varp": 299,
+    "bits": [
+     20,
+     20
+    ],
+    "op": "eq",
+    "value": 1
+   }
+  ],
+  "icon": "assets/quests/elemental_workshop.png",
+  "reward_item": {
+   "id": 2890,
+   "name": "Elemental shield"
+  }
+ },
+ {
+  "id": "priest_in_peril",
+  "name": "Priest in Peril",
+  "members": true,
+  "qp": 1,
+  "varp": 302,
+  "complete": [
+   {
+    "varp": 302,
+    "op": "ge",
+    "value": 60
+   }
+  ],
+  "icon": "assets/quests/priest_in_peril.png",
+  "reward_item": {
+   "id": 2952,
+   "name": "Wolfbane"
+  }
+ },
+ {
+  "id": "nature_spirit",
+  "name": "Nature Spirit",
+  "members": true,
+  "qp": 2,
+  "varp": 307,
+  "complete": [
+   {
+    "varp": 307,
+    "op": "eq",
+    "value": 110
+   }
+  ],
+  "icon": "assets/quests/nature_spirit.png",
+  "reward_item": {
+   "id": 2963,
+   "name": "Silver sickle(b)"
+  }
+ },
+ {
+  "id": "death_plateau",
+  "name": "Death Plateau",
+  "members": true,
+  "qp": 1,
+  "varp": 314,
+  "complete": [
+   {
+    "varp": 314,
+    "op": "eq",
+    "value": 80
+   }
+  ],
+  "icon": "assets/quests/death_plateau.png",
+  "reward_item": {
+   "id": 3097,
+   "name": "Steel claws"
+  }
+ },
+ {
+  "id": "troll_stronghold",
+  "name": "Troll Stronghold",
+  "members": true,
+  "qp": 1,
+  "varp": 317,
+  "complete": [
+   {
+    "varp": 317,
+    "op": "eq",
+    "value": 50
+   }
+  ],
+  "icon": "assets/quests/troll_stronghold.png",
+  "reward_item": {
+   "id": 1458,
+   "name": "Law talisman"
+  }
+ },
+ {
+  "id": "troll_romance",
+  "name": "Troll Romance",
+  "members": true,
+  "qp": 2,
+  "varp": 385,
+  "complete": [
+   {
+    "varp": 385,
+    "op": "eq",
+    "value": 45
+   }
+  ],
+  "icon": "assets/quests/troll_romance.png",
+  "reward_item": {
+   "id": 4086,
+   "name": "Trollweiss"
+  }
+ },
+ {
+  "id": "tai_bwo_wannai_trio",
+  "name": "Tai Bwo Wannai Trio",
+  "members": true,
+  "qp": 2,
+  "varp": 320,
+  "complete": [
+   {
+    "varp": 320,
+    "op": "eq",
+    "value": 6
+   }
+  ],
+  "icon": "assets/quests/tai_bwo_wannai_trio.png",
+  "reward_item": {
+   "id": 3142,
+   "name": "Raw karambwan"
+  }
+ },
+ {
+  "id": "shades_of_mortton",
+  "name": "Shades of Mortton",
+  "members": true,
+  "qp": 3,
+  "varp": 339,
+  "complete": [
+   {
+    "varp": 339,
+    "op": "eq",
+    "value": 85
+   }
+  ],
+  "icon": "assets/quests/shades_of_mortton.png",
+  "reward_item": {
+   "id": 3469,
+   "name": "Silver key purple"
+  }
+ },
+ {
+  "id": "regicide",
+  "name": "Regicide",
+  "members": true,
+  "qp": 3,
+  "varp": 328,
+  "complete": [
+   {
+    "varp": 328,
+    "op": "eq",
+    "value": 15
+   }
+  ],
+  "icon": "assets/quests/regicide.png",
+  "reward_item": {
+   "id": 3237,
+   "name": "Symbol4"
+  }
+ },
+ {
+  "id": "fremennik_trials",
+  "name": "The Fremennik Trials",
+  "members": true,
+  "qp": 3,
+  "varp": 347,
+  "complete": [
+   {
+    "varp": 347,
+    "op": "eq",
+    "value": 10
+   }
+  ],
+  "icon": "assets/quests/fremennik_trials.png",
+  "reward_item": {
+   "id": 3748,
+   "name": "Fremennik helm"
+  }
+ },
+ {
+  "id": "horror_from_the_deep",
+  "name": "Horror from the Deep",
+  "members": true,
+  "qp": 2,
+  "varp": 351,
+  "complete": [
+   {
+    "varp": 351,
+    "bits": [
+     0,
+     10
+    ],
+    "op": "eq",
+    "value": 10
+   }
+  ],
+  "icon": "assets/quests/horror_from_the_deep.png",
+  "reward_item": {
+   "id": 3849,
+   "name": "Rusty casket"
+  }
+ },
+ {
+  "id": "eadgars_ruse",
+  "name": "Eadgar's Ruse",
+  "members": true,
+  "qp": 1,
+  "varp": 335,
+  "complete": [
+   {
+    "varp": 335,
+    "op": "eq",
+    "value": 110
+   }
+  ],
+  "icon": "assets/quests/eadgars_ruse.png",
+  "reward_item": {
+   "id": 3261,
+   "name": "Goutweed"
+  }
+ },
+ {
+  "id": "monkey_madness",
+  "name": "Monkey Madness",
+  "members": true,
+  "qp": 3,
+  "varp": 365,
+  "complete": [
+   {
+    "varp": 365,
+    "op": "ge",
+    "value": 9
+   }
+  ],
+  "icon": "assets/quests/monkey_madness.png",
+  "reward_item": {
+   "id": 4033,
+   "name": "Monkey"
+  }
+ },
+ {
+  "id": "in_search_of_the_myreque",
+  "name": "In Search of the Myreque",
+  "members": true,
+  "qp": 2,
+  "varp": 387,
+  "complete": [
+   {
+    "varp": 387,
+    "op": "ge",
+    "value": 105
+   }
+  ],
+  "icon": "assets/quests/in_search_of_the_myreque.png",
+  "reward_item": {
+   "id": 1281,
+   "name": "Steel sword"
+  }
+ },
+ {
+  "id": "haunted_mine",
+  "name": "Haunted Mine",
+  "members": true,
+  "qp": 2,
+  "varp": 382,
+  "complete": [
+   {
+    "varp": 382,
+    "op": "eq",
+    "value": 11
+   }
+  ],
+  "icon": "assets/quests/haunted_mine.png",
+  "reward_item": {
+   "id": 4081,
+   "name": "Salve amulet"
+  }
+ }
+]

@@ -4,7 +4,8 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { Card } from '@/components/Card';
 import { DataTable } from '@/components/DataTable';
-import { AgentLabel, ModelLabel, PageTitle } from '@/components/bits';
+import { PageTitle } from '@/components/bits';
+import { AgentLabel, ModelLabel } from '@/components/marks';
 import { indexQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
 import { hasTarget } from '@/lib/evals';
@@ -18,7 +19,7 @@ interface Row {
   id: string;
   label: string;
   /** For the runs filter */
-  filter: { model?: string; agent?: string };
+  filter: { model?: string[]; agent?: string[] };
   stats: GroupStats;
   perEval: Map<string, GroupStats>;
 }
@@ -82,9 +83,9 @@ export function ModelsPage() {
   useDocumentTitle('Models');
   const { data } = useSuspenseQuery(indexQuery);
 
-  const models = useMemo(() => rowsBy(data.runs, r => r.model, r => modelName(r.model), id => ({ model: id })), [data]);
+  const models = useMemo(() => rowsBy(data.runs, r => r.model, r => modelName(r.model), id => ({ model: [id] })), [data]);
   const agents = useMemo(
-    () => rowsBy(data.runs, r => r.agent, r => agentName(r.agent, r.agent_name), id => ({ agent: id })),
+    () => rowsBy(data.runs, r => r.agent, r => agentName(r.agent, r.agent_name), id => ({ agent: [id] })),
     [data]
   );
   const modelColumns = useMemo(() => columns('model', data.evals), [data.evals]);

@@ -11,6 +11,7 @@ eval's accounts in $EVAL.
 
 import asyncio
 import contextlib
+import gzip
 import io
 import json
 import tarfile
@@ -73,6 +74,8 @@ class Game:
         self.attempt = 1
         self.attempts: list[dict] = []  # one result per finished attempt
         self.attempt_began = (0, self.began)  # tick and wall clock the current attempt began at
+        self.states: list[dict] = []  # the accounts' saved state over time, changes only (states.jsonl.gz)
+        self.last_state: dict[str, dict] = {}
 
 
 GAMES: dict[str, Game] = {}
@@ -220,7 +223,7 @@ async def end_game(sb, state, reason: str, now: int | None = None) -> dict:
             state.metadata["attempt_results"] = g.attempts + ([] if g.attempts and g.attempts[-1]["attempt"] == g.attempt else [last])
         if g.track:
             state.metadata["timeline"] = [{k: v for k, v in p.items() if k != "state"} for p in g.timeline]
-        await save_run(sb, g.run_dir, state)
+        await save_run(sb, g.run_dir, state, g.states)
         remove(f"{g.run_dir}/live.json")
         GAMES.pop(state.uuid, None)
         return g.ended
@@ -286,10 +289,14 @@ async def g_sample(sb, g: Game, saved_every: int | None = None) -> int:
         return last
     tick = result["tick"] or last
     origin = g.start or tick
+    at = (max(last, tick - tick % saved_every) if saved_every else tick) - origin
+    seconds = round(time.monotonic() - g.began, 1)
+    if result["accounts"]:
+        record_state(g, at, seconds, result["accounts"])
     if g.track and result["accounts"]:
         point = {
-            "tick": (max(last, tick - tick % saved_every) if saved_every else tick) - origin,
-            "seconds": round(time.monotonic() - g.began, 1),
+            "tick": at,
+            "seconds": seconds,
             "attempt": g.attempt,
             "value": g.track(result["accounts"]),
             "accounts": {n: g.track({n: a}) for n, a in result["accounts"].items()},
@@ -299,6 +306,44 @@ async def g_sample(sb, g: Game, saved_every: int | None = None) -> int:
         point["state"] = result["accounts"]  # for done(); not logged
         g.timeline.append(point)
     return tick
+
+
+STATE_TABLES = ("xp", "varps", "inv", "worn", "bank")
+
+
+def account_state(account: dict) -> dict:
+    """The part of a saved account worth following over time: where it is, its xp per skill, its
+    varps (quest progress) and its items. Tables keep non-zero entries only."""
+    return {
+        "x": account["x"], "z": account["z"], "level": account["level"],
+        "xp": {name: s["xp"] for name, s in account["skills"].items() if s["xp"]},
+        **{k: {str(i): n for i, n in account[k].items() if n} for k in ("varps", "inv", "worn", "bank")},
+    }
+
+
+def state_change(before: dict, after: dict) -> dict:
+    """What changed between two account states: changed positions, and the changed entries of each
+    table, with 0 for an entry that is gone. Empty when nothing changed."""
+    change = {k: after[k] for k in ("x", "z", "level") if before.get(k) != after[k]}
+    for k in STATE_TABLES:
+        old, new = before.get(k, {}), after[k]
+        diff = {i: n for i, n in new.items() if old.get(i) != n} | {i: 0 for i in old if i not in new}
+        if diff:
+            change[k] = diff
+    return change
+
+
+def record_state(g: Game, tick: int, seconds: float, accounts: Accounts) -> None:
+    """Add the accounts' saved state at this tick to the game's states, changes only (the first
+    record of an account is its whole state)."""
+    changes = {}
+    for name, account in accounts.items():
+        now = account_state(account)
+        if change := state_change(g.last_state.get(name, {}), now):
+            changes[name] = change
+        g.last_state[name] = now
+    if changes:
+        g.states.append({"tick": tick, "seconds": seconds, "attempt": g.attempt, "accounts": changes})
 
 
 def run_dir(state) -> str:
@@ -335,8 +380,9 @@ async def announce_live(sb, run_dir: str, names: list[str]) -> None:
             transcript().info({"world_feed_port": p.mappings[0].host_port, "accounts": names}, source="live view")
 
 
-async def save_run(sb, run_dir: str, state) -> None:
-    """Copy the sample's game recording, logs and timeline out of the sandbox, next to the log."""
+async def save_run(sb, run_dir: str, state, states: list[dict]) -> None:
+    """Copy the sample's game recording, logs, timeline and account states out of the sandbox, next
+    to the log."""
     # The run folder: the harness's files, and the agent's /work (the code it wrote, its out/ folder).
     await sb.exec(concurrency=False, cmd=["sh", "-c", f"kill $(cat /run/record.pid); sleep 1; gzip -f {OUT}/world.jsonl; tar czf {OUT}/work.tgz --exclude=node_modules --exclude=./.codex --exclude=./.claude --exclude=./.cache -C /work . ; tar czf /tmp/out.tgz -C {OUT} ."])
     data = await sb.read_file("/tmp/out.tgz", text=False)
@@ -344,6 +390,8 @@ async def save_run(sb, run_dir: str, state) -> None:
         for member in tar.getmembers():
             if member.isfile():
                 put(f"{run_dir}/{member.name.removeprefix('./')}", tar.extractfile(member).read())
+    # One JSON line per sample that changed an account: {tick, seconds, attempt, accounts: {name: change}}
+    put(f"{run_dir}/states.jsonl.gz", gzip.compress("".join(json.dumps(r) + "\n" for r in states).encode()))
     put(f"{run_dir}/sample.json", json.dumps({k: state.metadata.get(k) for k in ["accounts", "world", "budget_ticks", "attempts", "game", "attempt_results", "timeline"]}))
     state.metadata["run_dir"] = run_dir
 

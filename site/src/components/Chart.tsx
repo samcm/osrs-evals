@@ -15,12 +15,15 @@ export function Chart({
   height,
   className,
   onEvents,
+  group,
 }: {
   option: EChartsOption;
   /** Pixels; charts are as wide as their card */
   height: number;
   className?: string;
   onEvents?: Record<string, (params: unknown) => void>;
+  /** Charts with the same group share a crosshair (ECharts connect): give them the same x axis, min/max and grid left/right, and crosshairTooltip */
+  group?: string;
 }) {
   const [ready, setReady] = useState(fontsReady);
   useEffect(() => {
@@ -45,6 +48,11 @@ export function Chart({
           notMerge
           lazyUpdate
           onEvents={onEvents}
+          onChartReady={chart => {
+            if (!group) return;
+            chart.group = group;
+            echarts.connect(group);
+          }}
           style={{ height, width: '100%' }}
           opts={{ renderer: 'canvas' }}
         />

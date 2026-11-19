@@ -20,8 +20,8 @@
     font-family: var(--font-mono);
   }
 
-  /* Item sprites from the game cache are 32px pixel art: scale them without smoothing. */
-  img[data-sprite] {
+  /* Sprites from the game cache are pixel art: scale them without smoothing (img or Sprite's canvas). */
+  [data-sprite] {
     image-rendering: pixelated;
   }
 

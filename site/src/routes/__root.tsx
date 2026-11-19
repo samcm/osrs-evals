@@ -1,16 +1,18 @@
-import { createRootRouteWithContext, Link, Outlet } from '@tanstack/react-router';
+import { useEffect } from 'react';
+import { createRootRouteWithContext, Link, Outlet, retainSearchParams } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { Empty, linkClassName } from '@/components/bits';
 import { indexQuery } from '@/data/queries';
+import { RETAINED_PARAMS, rootSearch } from '@/lib/search';
+import { setThemeOverride } from '@/lib/theme';
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  // Scope (model, agent, vendor) and the theme override live on the root and ride along on every link
+  validateSearch: rootSearch.validate,
+  search: { middlewares: [retainSearchParams([...RETAINED_PARAMS]), ...rootSearch.middlewares] },
   loader: ({ context }) => context.queryClient.ensureQueryData(indexQuery),
-  component: () => (
-    <Layout>
-      <Outlet />
-    </Layout>
-  ),
+  component: Root,
   pendingComponent: () => (
     <Layout>
       <Empty>Loading.</Empty>
@@ -30,3 +32,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     </Empty>
   ),
 });
+
+function Root() {
+  const { theme } = Route.useSearch();
+  useEffect(() => setThemeOverride(theme), [theme]);
+  return (
+    <Layout>
+      <Outlet />
+    </Layout>
+  );
+}

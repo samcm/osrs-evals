@@ -1,6 +1,7 @@
 /**
  * Light and dark, following the system until the reader picks one (as lab does). The theme is the
- * `dark` class on <html>, set before React mounts by index.html; tokens switch with it.
+ * `dark` class on <html>, set before React mounts by index.html; tokens switch with it. A `?theme=`
+ * in the URL overrides the stored choice for that view (see setThemeOverride).
  */
 
 import { useMemo, useSyncExternalStore } from 'react';
@@ -8,6 +9,19 @@ import { useMemo, useSyncExternalStore } from 'react';
 export type Theme = 'light' | 'dark';
 
 const THEME_COLORS: Record<Theme, string> = { light: '#efeee5', dark: '#0f0f0e' };
+
+/** The theme from the URL, when a link sets one */
+let override: Theme | undefined;
+
+function systemTheme(): Theme {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/** The theme to show: the URL's, else the stored choice, else the system's. */
+function wantedTheme(): Theme {
+  const stored = localStorage.getItem('theme');
+  return override ?? (stored === 'dark' || stored === 'light' ? stored : systemTheme());
+}
 
 function currentTheme(): Theme {
   return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
@@ -18,7 +32,7 @@ function subscribe(onChange: () => void): () => void {
   observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   const media = window.matchMedia('(prefers-color-scheme: dark)');
   const onSystem = (): void => {
-    if (!localStorage.getItem('theme')) applyTheme(media.matches ? 'dark' : 'light');
+    applyTheme(wantedTheme());
   };
   media.addEventListener('change', onSystem);
   return () => {
@@ -32,12 +46,18 @@ function applyTheme(theme: Theme): void {
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLORS[theme]);
 }
 
-/** Pick a theme; picking the system's own clears the stored choice. */
+/** Pick a theme as the reader's preference; picking the system's own clears the stored choice. */
 export function setTheme(theme: Theme): void {
-  const system: Theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  if (theme === system) localStorage.removeItem('theme');
+  if (theme === systemTheme()) localStorage.removeItem('theme');
   else localStorage.setItem('theme', theme);
+  override = undefined;
   applyTheme(theme);
+}
+
+/** Show the URL's `?theme=` (or, when undefined, the preference) without storing it. */
+export function setThemeOverride(theme: Theme | undefined): void {
+  override = theme;
+  applyTheme(wantedTheme());
 }
 
 export function useTheme(): Theme {

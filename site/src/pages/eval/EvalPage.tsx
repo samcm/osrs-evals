@@ -5,7 +5,8 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { Card } from '@/components/Card';
 import { DataTable } from '@/components/DataTable';
-import { AgentLabel, Empty, EvalSprites, ModelLabel, Outcome, PageTitle, VariantLabel, linkClassName } from '@/components/bits';
+import { Empty, Outcome, PageTitle, linkClassName } from '@/components/bits';
+import { AgentLabel, EvalMark, ModelLabel, VariantLabel } from '@/components/marks';
 import { indexQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
 import { budgetMinutes, evalArt, hasTarget } from '@/lib/evals';
@@ -228,7 +229,7 @@ export function EvalPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
-        <EvalSprites evalId={e.id} size="lg" />
+        <EvalMark evalId={e.id} size={40} />
         <PageTitle>{e.title}</PageTitle>
       </div>
 
@@ -282,13 +283,11 @@ export function EvalPage() {
           data={runs}
           columns={rColumns}
           getRowId={r => r.id}
-          initialSorting={[{ id: 'variant', desc: false }]}
+          sort={['variant']}
           onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.id } })}
-          paging={{
-            page: (page ?? 1) - 1,
-            pageSize: PAGE_SIZE,
-            onPage: p => navigate({ to: '.', search: { page: p > 0 ? p + 1 : undefined }, replace: false, resetScroll: false }),
-          }}
+          page={page}
+          pageSize={PAGE_SIZE}
+          onPageChange={p => navigate({ to: '.', search: prev => ({ ...prev, page: p }), resetScroll: false })}
           empty={<Empty>No runs yet.</Empty>}
         />
       </Card>

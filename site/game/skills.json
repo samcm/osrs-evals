@@ -1,0 +1,116 @@
+[
+ {
+  "id": "attack",
+  "name": "Attack",
+  "stat": 0,
+  "icon": "assets/skills/attack.png"
+ },
+ {
+  "id": "defence",
+  "name": "Defence",
+  "stat": 1,
+  "icon": "assets/skills/defence.png"
+ },
+ {
+  "id": "strength",
+  "name": "Strength",
+  "stat": 2,
+  "icon": "assets/skills/strength.png"
+ },
+ {
+  "id": "hitpoints",
+  "name": "Hitpoints",
+  "stat": 3,
+  "icon": "assets/skills/hitpoints.png"
+ },
+ {
+  "id": "ranged",
+  "name": "Ranged",
+  "stat": 4,
+  "icon": "assets/skills/ranged.png"
+ },
+ {
+  "id": "prayer",
+  "name": "Prayer",
+  "stat": 5,
+  "icon": "assets/skills/prayer.png"
+ },
+ {
+  "id": "magic",
+  "name": "Magic",
+  "stat": 6,
+  "icon": "assets/skills/magic.png"
+ },
+ {
+  "id": "cooking",
+  "name": "Cooking",
+  "stat": 7,
+  "icon": "assets/skills/cooking.png"
+ },
+ {
+  "id": "woodcutting",
+  "name": "Woodcutting",
+  "stat": 8,
+  "icon": "assets/skills/woodcutting.png"
+ },
+ {
+  "id": "fletching",
+  "name": "Fletching",
+  "stat": 9,
+  "icon": "assets/skills/fletching.png"
+ },
+ {
+  "id": "fishing",
+  "name": "Fishing",
+  "stat": 10,
+  "icon": "assets/skills/fishing.png"
+ },
+ {
+  "id": "firemaking",
+  "name": "Firemaking",
+  "stat": 11,
+  "icon": "assets/skills/firemaking.png"
+ },
+ {
+  "id": "crafting",
+  "name": "Crafting",
+  "stat": 12,
+  "icon": "assets/skills/crafting.png"
+ },
+ {
+  "id": "smithing",
+  "name": "Smithing",
+  "stat": 13,
+  "icon": "assets/skills/smithing.png"
+ },
+ {
+  "id": "mining",
+  "name": "Mining",
+  "stat": 14,
+  "icon": "assets/skills/mining.png"
+ },
+ {
+  "id": "herblore",
+  "name": "Herblore",
+  "stat": 15,
+  "icon": "assets/skills/herblore.png"
+ },
+ {
+  "id": "agility",
+  "name": "Agility",
+  "stat": 16,
+  "icon": "assets/skills/agility.png"
+ },
+ {
+  "id": "thieving",
+  "name": "Thieving",
+  "stat": 17,
+  "icon": "assets/skills/thieving.png"
+ },
+ {
+  "id": "runecraft",
+  "name": "Runecraft",
+  "stat": 20,
+  "icon": "assets/skills/runecraft.png"
+ }
+]

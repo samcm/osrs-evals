@@ -1,15 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { RunsPage } from '@/pages/RunsPage';
-import { pageParam, stringParam, type RunsSearch } from '@/lib/search';
+import { defineSearch, int, oneOf, sortParam, text } from '@/lib/search';
+
+export const runsSearch = defineSearch({
+  eval: text(),
+  outcome: oneOf(['finished', 'not_finished', 'scored'], undefined),
+  sort: sortParam(['-started']),
+  page: int(1, { min: 1 }),
+});
 
 export const Route = createFileRoute('/runs/')({
-  validateSearch: (search: Record<string, unknown>): RunsSearch => ({
-    eval: stringParam(search.eval),
-    model: stringParam(search.model),
-    agent: stringParam(search.agent),
-    outcome: stringParam(search.outcome),
-    sort: stringParam(search.sort),
-    page: pageParam(search.page),
-  }),
+  validateSearch: runsSearch.validate,
+  search: { middlewares: runsSearch.middlewares },
   component: RunsPage,
 });

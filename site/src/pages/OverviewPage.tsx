@@ -6,7 +6,8 @@ import clsx from 'clsx';
 import { Card } from '@/components/Card';
 import { DataTable } from '@/components/DataTable';
 import { Stats } from '@/components/Stats';
-import { EvalSprites, PageTitle, VariantLabel, linkClassName } from '@/components/bits';
+import { PageTitle, linkClassName } from '@/components/bits';
+import { EvalMark, VariantLabel } from '@/components/marks';
 import { indexQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
 import { evalArt, hasTarget } from '@/lib/evals';
@@ -84,7 +85,7 @@ export function OverviewPage() {
         header: 'Eval',
         cell: ({ row }) => (
           <span className="flex w-max items-center gap-2">
-            <EvalSprites evalId={row.original.eval.id} size="sm" />
+            <EvalMark evalId={row.original.eval.id} size={24} />
             <Link
               to="/evals/$evalId"
               params={{ evalId: row.original.eval.id }}
@@ -190,7 +191,7 @@ export function OverviewPage() {
                         {stats ? (
                           <Link
                             to="/runs"
-                            search={{ eval: r.eval.id, model: v.model, agent: v.agent }}
+                            search={{ eval: r.eval.id, model: [v.model], agent: [v.agent] }}
                             className="block rounded-xs transition-colors hover:text-primary"
                           >
                             <ResultCell e={r.eval} stats={stats} />
