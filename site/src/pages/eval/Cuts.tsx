@@ -338,7 +338,7 @@ export function AttemptsTable({ e, ranked, legend }: { e: Eval; ranked: RankedVa
   const columns = useMemo(() => {
     const reached = capitalize(e.measure.replace(/^Quest /, ''));
     return [
-      col.display({ id: 'variant', header: 'Variant', cell: ({ row }) => <VariantLabel run={row.original.run} compact /> }),
+      col.display({ id: 'variant', header: 'Pairing', cell: ({ row }) => <VariantLabel run={row.original.run} compact /> }),
       col.accessor(r => r.run.epoch, { id: 'epoch', header: 'Epoch', meta: { numeric: true } }),
       ...Array.from({ length: e.attempts }, (_, i) =>
         col.display({

@@ -41,6 +41,8 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
     col.display({
       id: 'progress',
       header: () => <span className="sr-only">Progress</span>,
+      // Phones keep the result columns in view
+      meta: { className: 'max-md:hidden' },
       cell: ({ row }) => <Spark curve={curves.get(row.original.id)} maxTick={maxTick} top={top} />,
     }),
     col.accessor(r => (r.success ? 1e9 : 0) + (resultValue(r) ?? -1), {
@@ -74,6 +76,7 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
     col.accessor(r => r.ended_by ?? '', {
       id: 'ended',
       header: 'Ended by',
+      meta: { className: 'max-md:hidden' },
       cell: ({ row }) => <span className="text-muted-foreground">{capitalize(row.original.ended_by)}</span>,
     }),
   ] as ColumnDef<Run, unknown>[];

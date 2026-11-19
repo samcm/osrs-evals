@@ -80,7 +80,7 @@ function Strip({ column, groups, labels, labelRoom, lit }: { column: Column; gro
   const ticks = column.measure === 'share' ? [0, 0.5, 1] : roundTicks(max, column.measure, 3);
 
   return (
-    <div className="flex min-w-0 flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-2">
       <h3 className="text-sm text-muted-foreground" style={{ paddingLeft: labels ? labelRoom : 0 }}>
         {column.title}
       </h3>

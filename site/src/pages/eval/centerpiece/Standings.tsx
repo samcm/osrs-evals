@@ -47,9 +47,9 @@ export function Standings({ rows, max, tick, showEpoch, lit }: { rows: Standing[
                   to="/runs/$runId"
                   params={{ runId: run.id }}
                   search={{ t: Math.round(tick) } as never}
-                  className="flex h-full items-center gap-3 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="flex h-full items-center gap-2 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
-                  <span className="relative mx-2.5 h-full flex-1">
+                  <span className="relative mx-2 h-full flex-1">
                     <span aria-hidden className="absolute inset-x-0 top-1/2 border-t" />
                     <span
                       aria-hidden

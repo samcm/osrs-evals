@@ -89,7 +89,7 @@ export function Centerpiece({
   };
 
   return (
-    <section className="flex flex-col gap-4" aria-label="Every run in the game">
+    <section className="flex flex-col gap-stack" aria-label="Every run in the game">
       <div ref={ref} className="relative" onPointerMove={onPointerMove} onPointerLeave={() => setHovered(undefined)}>
         {width === 0 || !grid ? (
           <Skeleton className="w-full rounded-sm" style={{ height: width ? height : 360 }} />
@@ -106,7 +106,7 @@ export function Centerpiece({
           />
         )}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="icon-sm"

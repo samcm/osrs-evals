@@ -4,6 +4,7 @@ import { useQueries, useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Empty, ParamSegmented } from '@/components/bits';
 import { PageHeader, PageSection, PageTabs, PageToolbar, type MetaItem } from '@/components/page';
+import { SeriesLegend } from '@/components/charts';
 import { variantSeries } from '@/lib/chartSeries';
 import { variantKey } from '@/lib/series';
 import { EvalMark } from '@/components/marks';
@@ -13,7 +14,6 @@ import { formatDecimal, formatInt } from '@/lib/format';
 import { useLegend, type LegendState } from '@/lib/legend';
 import { inScope, useDocumentTitle, useScope } from '@/lib/search';
 import { AttemptsTable, CdfChart, ParetoChart } from './Cuts';
-import { PairingKey } from './Controls';
 import { EffortStrips, GROUP_OPTIONS, ToolMix } from './Effort';
 import { buildCurves, callsByTick, rankVariants, totalBudgetTicks, X_OPTIONS, xRange } from './model';
 import { Centerpiece } from './Centerpiece';
@@ -141,9 +141,8 @@ export function EvalPage() {
       {runs.length > 0 && search.tab !== 'runs' && (
         <PageToolbar label="Chart controls">
           {controls}
-          <div className="ml-auto">
-            <PairingKey series={keys} legend={legend} />
-          </div>
+          {/* The page's one key to its pairings: hover lights one everywhere, a click hides it */}
+          <SeriesLegend series={keys} legend={legend} className="ml-auto pt-0" />
         </PageToolbar>
       )}
 
@@ -179,13 +178,13 @@ export function EvalPage() {
               <ParetoChart e={e} ranked={ranked} px={search.px} legend={legend} />
             </PageSection>
             {target && (
-              <PageSection title="Finished within" className="max-xl:border-t max-xl:pt-gutter">
+              <PageSection title="Finished within" className="xl:border-t-0 xl:pt-0">
                 <CdfChart e={e} ranked={ranked} cx={search.px} legend={legend} />
               </PageSection>
             )}
           </div>
           {e.attempts > 1 && (
-            <PageSection title="Ticks to finish each attempt">
+            <PageSection title="Attempts" className="border-t pt-gutter">
               <AttemptsTable e={e} ranked={ranked} legend={legend} />
             </PageSection>
           )}
