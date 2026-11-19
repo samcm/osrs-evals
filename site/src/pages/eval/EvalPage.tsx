@@ -1,24 +1,30 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
 import { useQueries, useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Empty } from '@/components/bits';
+import { Empty, ParamSegmented } from '@/components/bits';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { PageHeader, PageTabs, type MetaItem } from '@/components/page';
+import { variantSeries } from '@/lib/chartSeries';
+import { variantKey } from '@/lib/series';
 import { EvalMark } from '@/components/marks';
 import { evalRunsQuery, indexQuery, runQuery } from '@/data/queries';
 import type { Eval } from '@/data/types';
 import { formatDecimal, formatInt } from '@/lib/format';
 import { useLegend, type LegendState } from '@/lib/legend';
 import { inScope, useDocumentTitle, useScope } from '@/lib/search';
-import { AttemptsCard, ParetoCard, SuccessCdfCard } from './Cuts';
-import { EffortCard } from './Effort';
-import { buildCurves, callsByTick, rankVariants, totalBudgetTicks, xRange } from './model';
+import { AttemptsTable, CdfChart, ParetoChart } from './Cuts';
+import { ControlBar, PairingKey } from './Controls';
+import { EffortStrips, GROUP_OPTIONS, ToolMix } from './Effort';
+import { buildCurves, callsByTick, rankVariants, totalBudgetTicks, X_OPTIONS, xRange } from './model';
 import { Centerpiece } from './Centerpiece';
+import { pickRunners } from './centerpiece/race';
 import { Leaderboard } from './Leaderboard';
-import { ProgressCard, ProgressChart } from './Progress';
+import { ProgressChart } from './Progress';
 import { QuestStrip } from './Quests';
 import { RunsTable } from './RunsTable';
-import { WhereCard } from './Where';
+import { WhereMap } from './Where';
 
 const route = getRouteApi('/evals/$evalId');
 
@@ -48,8 +54,31 @@ const TABS = [
   { value: 'runs', label: 'Runs' },
 ] as const;
 
-const SECTIONS = 'flex flex-col gap-4 md:gap-6';
-const ROW = 'grid gap-4 md:gap-6 xl:grid-cols-2';
+/** One gap between the page's sections */
+const SECTIONS = 'flex flex-col gap-6';
+
+const AGG_OPTIONS = [
+  { value: 'median' as const, label: 'Median', title: "Each pairing's median run" },
+  { value: 'best' as const, label: 'Best', title: "Each pairing's best run" },
+  { value: 'runs' as const, label: 'All runs', title: 'Every run' },
+];
+const PX_OPTIONS = [
+  { value: 'cost' as const, label: 'Cost' },
+  { value: 'seconds' as const, label: 'Time' },
+  { value: 'ticks' as const, label: 'Ticks' },
+];
+
+/** A titled part of the page's one surface; parts are divided by hairlines, never nested cards. */
+function Section({ title, flush, children }: { title: string; flush?: boolean; children: ReactNode }) {
+  return (
+    <>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className={flush ? 'px-0' : undefined}>{children}</CardContent>
+    </>
+  );
+}
 
 export function EvalPage() {
   const { evalId } = route.useParams();
@@ -84,6 +113,12 @@ export function EvalPage() {
     return { ...urlLegend, focus: undefined, visible: id => !urlLegend.hidden.includes(id) };
   }, [ranked, urlLegend]);
   const range = useMemo(() => (e ? xRange(e, curves, search.x) : null), [e, curves, search.x]);
+  // The runs the overview shows, the same in every part of it: every run, or each pairing's median
+  // or best run. A focus keeps the other pairings, faded, so the focused one reads against them
+  const shownCurves = useMemo(
+    () => pickRunners(curves.filter(cv => !legend.hidden.includes(cv.variant.key) || legend.focus === cv.variant.key), search.agg),
+    [curves, legend, search.agg]
+  );
 
   if (!e) {
     return (
@@ -96,54 +131,99 @@ export function EvalPage() {
   const target = e.target != null;
   const quests = e.measure === 'Quest points';
   const pending = search.x === 'calls' && details.some(d => d.isPending);
-  const visibleCurves = curves.filter(cv => legend.visible(cv.variant.key));
   const maxTick = totalBudgetTicks(e);
+
+  const visibleRuns = runs.filter(r => legend.visible(variantKey(r)));
+  const keys = ranked.map(r => variantSeries(r.variant));
+
+  const controls =
+    search.tab === 'overview' ? (
+      <>
+        <ParamSegmented param="x" value={search.x} label="Along" options={X_OPTIONS} />
+        <ParamSegmented param="agg" value={search.agg} label="Runs shown" options={AGG_OPTIONS} />
+      </>
+    ) : search.tab === 'cost' ? (
+      <ParamSegmented param="px" value={search.px} label="Spend" options={PX_OPTIONS} />
+    ) : search.tab === 'behaviour' ? (
+      <ParamSegmented param="by" value={search.by} label="Group by" options={GROUP_OPTIONS} />
+    ) : undefined;
 
   return (
     <div className={SECTIONS}>
       <PageHeader mark={<EvalMark evalId={e.id} size={40} />} title={e.title} description={e.goal} meta={facts(e)} />
-      <PageTabs value={search.tab} tabs={[...TABS]} />
+      <ControlBar
+        tabs={<PageTabs value={search.tab} tabs={[...TABS]} />}
+        controls={runs.length > 0 ? controls : undefined}
+        keys={runs.length > 0 && search.tab !== 'runs' ? <PairingKey series={keys} legend={legend} /> : undefined}
+      />
 
       {runs.length === 0 ? (
         <Empty>No runs in this scope.</Empty>
       ) : search.tab === 'overview' ? (
         <>
-          <Centerpiece curves={curves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} />
-          <ProgressCard
-            e={e}
-            x={search.x}
-            agg={search.agg}
-            chart={
+          <Centerpiece curves={shownCurves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} agg={search.agg} />
+          <Card>
+            <Section title={e.measure}>
               <ProgressChart
                 e={e}
-                curves={curves}
+                curves={shownCurves}
                 ranked={ranked}
                 x={search.x}
                 agg={search.agg}
                 range={range!}
                 legend={legend}
                 pending={pending}
-                below={quests ? frame => <QuestStrip curves={visibleCurves} x={search.x} frame={frame} /> : undefined}
+                t={search.t}
+                below={quests ? frame => <QuestStrip curves={shownCurves} x={search.x} frame={frame} focus={legend.focus} /> : undefined}
               />
-            }
-          />
-          <Leaderboard e={e} ranked={ranked} x={search.x} legend={legend} />
+            </Section>
+            <Separator />
+            <Section title="Leaderboard">
+              <Leaderboard e={e} ranked={ranked} x={search.x} legend={legend} />
+            </Section>
+          </Card>
         </>
       ) : search.tab === 'cost' ? (
-        <>
-          <div className={ROW}>
-            <ParetoCard e={e} ranked={ranked} px={search.px} legend={legend} />
-            {target && <SuccessCdfCard e={e} ranked={ranked} cx={search.cx} legend={legend} />}
+        <Card>
+          <div className={target ? 'grid divide-y xl:grid-cols-2 xl:divide-x xl:divide-y-0' : ''}>
+            <div className="flex flex-col gap-4 pb-4 xl:pb-0">
+              <Section title="What it cost">
+                <ParetoChart e={e} ranked={ranked} px={search.px} legend={legend} />
+              </Section>
+            </div>
+            {target && (
+              <div className="flex flex-col gap-4 pt-4 xl:pt-0">
+                <Section title="Finished within">
+                  <CdfChart e={e} ranked={ranked} cx={search.px} legend={legend} />
+                </Section>
+              </div>
+            )}
           </div>
-          {e.attempts > 1 && <AttemptsCard e={e} ranked={ranked} legend={legend} />}
-        </>
+          {e.attempts > 1 && (
+            <>
+              <Separator />
+              <Section title="Ticks to finish each attempt" flush>
+                <AttemptsTable e={e} ranked={ranked} legend={legend} />
+              </Section>
+            </>
+          )}
+        </Card>
       ) : search.tab === 'behaviour' ? (
-        <>
-          <EffortCard runs={runs} by={search.by} />
-          <WhereCard curves={curves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} />
-        </>
+        <Card>
+          <Section title="Effort per run">
+            <EffortStrips runs={visibleRuns} by={search.by} focus={legend.focus} />
+          </Section>
+          <Separator />
+          <Section title="Tool calls">
+            <ToolMix runs={visibleRuns} by={search.by} />
+          </Section>
+          <Separator />
+          <Section title="Where they spent their time">
+            <WhereMap curves={curves} grid={grid} legend={legend} view={search.map} />
+          </Section>
+        </Card>
       ) : (
-        <RunsTable e={e} runs={runs} sort={search.sort} page={search.page} />
+        <RunsTable e={e} runs={runs} curves={curves} sort={search.sort} page={search.page} />
       )}
     </div>
   );

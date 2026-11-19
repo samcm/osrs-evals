@@ -25,7 +25,7 @@ export interface Track {
   rank: number;
 }
 
-const PIN = 10;
+export const PIN = 10;
 const MARK = 12;
 const DASH: Record<AgentLine, number[]> = { solid: [], dashed: [7, 5], dotted: [0.5, 4.5] };
 
@@ -89,6 +89,13 @@ function spread(points: [number, number][], gap: number): [number, number][] {
   return out;
 }
 
+/** Where a pin was last drawn, in the map's CSS pixels, for hovering it. */
+export interface PlacedPin {
+  x: number;
+  y: number;
+  key: string;
+}
+
 export function RaceMap({
   tracks,
   tick,
@@ -96,9 +103,15 @@ export function RaceMap({
   view,
   onViewChange,
   height,
+  lit,
+  placed,
 }: {
   tracks: Track[];
   tick: number;
+  /** The pairing lit by a hover or focus; the others fade */
+  lit: string | null;
+  /** Filled with where each pin was drawn */
+  placed: { current: PlacedPin[] };
   /** Ticks of trail drawn bold behind each pin */
   trail: number;
   view: MapView | undefined;
@@ -138,8 +151,12 @@ export function RaceMap({
       ctx.lineCap = 'round';
       const surface = (p: PathPoint): boolean => p[2] < UNDERGROUND_Z && p[3] === 0;
 
+      const dim = (t: Track): number => (lit != null && t.curve.variant.key !== lit ? 0.2 : 1);
+      // Lit tracks draw last, over the faded ones
+      const layered = lit ? [...tracks.filter(t => t.curve.variant.key !== lit), ...tracks.filter(t => t.curve.variant.key === lit)] : tracks;
+
       // Trails: faint up to the last stretch, then bold to the pin
-      for (const t of tracks) {
+      for (const t of layered) {
         const color = colors.resolve(t.curve.variant.color.token);
         const faint = new Path2D();
         const bold = new Path2D();
@@ -160,10 +177,10 @@ export function RaceMap({
         }
         ctx.strokeStyle = color;
         ctx.setLineDash(DASH[t.curve.variant.line]);
-        ctx.globalAlpha = 0.3;
+        ctx.globalAlpha = 0.3 * dim(t);
         ctx.lineWidth = 1.5;
         ctx.stroke(faint);
-        ctx.globalAlpha = 0.95;
+        ctx.globalAlpha = 0.95 * dim(t);
         ctx.lineWidth = 2.5;
         ctx.stroke(bold);
       }
@@ -198,15 +215,17 @@ export function RaceMap({
         const p = positionAt(t.points, tick, t.step);
         return p ? { t, p, xy: toScreen(p.x, p.z) } : null;
       });
-      const placed = at.filter(a => a != null);
+      const drawn = at.filter(a => a != null);
       const spot = spread(
-        placed.map(a => a.xy),
+        drawn.map(a => a.xy),
         PIN * 2 + 2
       );
-      const order = placed.map((a, i) => ({ ...a, s: spot[i] })).sort((a, b) => b.t.rank - a.t.rank);
+      const isLit = (t: Track): number => (lit != null && t.curve.variant.key === lit ? 1 : 0);
+      const order = drawn.map((a, i) => ({ ...a, s: spot[i] })).sort((a, b) => isLit(a.t) - isLit(b.t) || b.t.rank - a.t.rank);
+      placed.current = order.map(({ t, s }) => ({ x: s[0], y: s[1], key: t.curve.variant.key }));
       for (const { t, p, xy, s } of order) {
         const color = colors.resolve(t.curve.variant.color.token);
-        ctx.globalAlpha = p.surface ? 1 : 0.45;
+        ctx.globalAlpha = (p.surface ? 1 : 0.45) * (dim(t) < 1 ? 0.35 : 1);
         if (Math.hypot(s[0] - xy[0], s[1] - xy[1]) > PIN * 0.6) {
           ctx.beginPath();
           ctx.moveTo(xy[0], xy[1]);
@@ -235,7 +254,7 @@ export function RaceMap({
       }
       ctx.globalAlpha = 1;
     },
-    [colors, images, tick, trail, tracks]
+    [colors, images, lit, placed, tick, trail, tracks]
   );
 
   return (
@@ -244,7 +263,6 @@ export function RaceMap({
       view={view}
       onViewChange={onViewChange}
       height={height}
-      fitHeight
       overlay={overlay}
       label="Every run on the world map at the playhead, each a pin in its model's colour with its trail"
     />

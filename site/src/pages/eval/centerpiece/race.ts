@@ -4,7 +4,8 @@ import type { PathPoint } from '@/data/types';
 import { indexAt, UNDERGROUND_Z } from '@/lib/map';
 import { resultValue, valueAt, type RunCurve } from '../model';
 
-export type Pick = 'median' | 'best' | 'all';
+/** Each pairing's median or best run, or every run (the page's `agg`) */
+export type Pick = 'median' | 'best' | 'runs';
 
 /** The first tick a run held at least `value`; Infinity if never. */
 export function reachedAt(curve: RunCurve, value: number): number {
@@ -22,7 +23,7 @@ function compareRuns(a: RunCurve, b: RunCurve): number {
 
 /** The runs that race: every run, or one per model + harness pairing (its median or best run). */
 export function pickRunners(curves: RunCurve[], pick: Pick): RunCurve[] {
-  if (pick === 'all') return curves;
+  if (pick === 'runs') return curves;
   const groups = new Map<string, RunCurve[]>();
   for (const cv of curves) groups.set(cv.variant.key, [...(groups.get(cv.variant.key) ?? []), cv]);
   return [...groups.values()].map(group => {

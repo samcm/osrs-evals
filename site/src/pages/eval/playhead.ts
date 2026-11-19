@@ -51,6 +51,12 @@ export function useEvalTick(committed: number | undefined, span: number): number
   return Math.min(span, scrub ?? committed ?? span);
 }
 
+/** The tick to mark: the moving playhead, else `?t=`; null when neither is set (nothing to mark). */
+export function usePlayheadMark(committed: number | undefined): number | null {
+  const { scrub } = useStore();
+  return scrub ?? committed ?? null;
+}
+
 export interface EvalPlayhead {
   tick: number;
   playing: boolean;

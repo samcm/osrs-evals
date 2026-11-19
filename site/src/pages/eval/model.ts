@@ -10,8 +10,8 @@ export { resultValue };
 
 export type XMeasure = 'ticks' | 'seconds' | 'cost' | 'calls';
 export type Agg = 'runs' | 'median' | 'best';
-export type ParetoX = 'cost' | 'seconds' | 'ticks' | 'tokens';
-export type CdfX = 'ticks' | 'seconds' | 'cost';
+export type ParetoX = 'cost' | 'seconds' | 'ticks';
+export type CdfX = ParetoX;
 export type GroupBy = 'variant' | 'model' | 'agent';
 
 export const X_OPTIONS: { value: XMeasure; label: string }[] = [
