@@ -1,3 +1,18 @@
+/**
+ * A TanStack table drawn with shadcn's Table, its sort, page and expanded row bound to the URL.
+ *
+ *   <Card><CardHeader>…</CardHeader><CardContent className="px-0">
+ *     <DataTable data={runs} columns={columns} getRowId={r => r.id}
+ *       sort={search.sort} onSortChange={sort => update({ sort }, { resetPage: true })}
+ *       page={search.page} pageSize={50} onPageChange={page => update({ page })}
+ *       expanded={search.open} onExpandedChange={open => update({ open })} renderExpanded={r => …} />
+ *   </CardContent></Card>
+ *
+ * Its first and last columns pad by the card's spacing, so in a CardContent without side padding the
+ * rows run to the card's edges and line up with the header. Headers never wrap; a table wider than
+ * its card scrolls inside it.
+ */
+
 import { Fragment, type ReactNode } from 'react';
 import {
   flexRender,
@@ -9,7 +24,9 @@ import {
   type RowData,
   type SortingState,
 } from '@tanstack/react-table';
-import clsx from 'clsx';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 declare module '@tanstack/react-table' {
   interface ColumnMeta<TData extends RowData, TValue> {
@@ -45,11 +62,9 @@ export interface DataTableProps<T> {
   empty?: ReactNode;
 }
 
-/**
- * Data table after lab's: about 40px rows, muted 12px column labels on one line, hairline row
- * dividers, no zebra stripes, numbers right-aligned. Inside a flush Card it runs to the card's
- * edges and scrolls sideways within the card when it is wider than its panel.
- */
+/** The card's spacing on the outer columns (shadcn Card sets --card-spacing). */
+const EDGE = 'first:pl-[var(--card-spacing,0.5rem)] last:pr-[var(--card-spacing,0.5rem)]';
+
 export function DataTable<T>({
   data,
   columns,
@@ -93,142 +108,105 @@ export function DataTable<T>({
   });
 
   const columnCount = table.getVisibleLeafColumns().length;
-  const edge = (index: number): string =>
-    clsx(index === 0 ? 'pl-table-inset' : 'pl-3', index === columnCount - 1 ? 'pr-table-inset' : 'pr-3');
-
   const rows = table.getRowModel().rows;
   const expands = renderExpanded != null && onExpandedChange != null;
 
   return (
-    <div className="table-inset inset-from-card">
-      <div className="scrollbar-thin overflow-x-auto">
-        <table className="min-w-full divide-y divide-border">
-          <thead>
-            {table.getHeaderGroups().map(group => (
-              <tr key={group.id}>
-                {group.headers.map((header, index) => {
-                  const meta = header.column.columnDef.meta;
-                  const sorted = header.column.getIsSorted();
-                  const canSort = header.column.getCanSort();
-                  const label = flexRender(header.column.columnDef.header, header.getContext());
-                  return (
-                    <th
-                      key={header.id}
-                      scope="col"
-                      aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}
-                      className={clsx(
-                        'py-2.5 align-bottom text-xs font-medium whitespace-nowrap text-muted',
-                        meta?.numeric ? 'text-right' : 'text-left',
-                        edge(index)
-                      )}
-                    >
-                      {canSort ? (
-                        <button
-                          type="button"
-                          onClick={header.column.getToggleSortingHandler()}
-                          className={clsx(
-                            'inline-flex items-center gap-1 rounded-xs whitespace-nowrap transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary-50',
-                            meta?.numeric && 'flex-row-reverse',
-                            sorted && 'text-foreground'
-                          )}
-                        >
-                          <span>{label}</span>
-                          <span aria-hidden className={clsx('w-2 text-2xs', !sorted && 'invisible')}>
-                            {sorted === 'desc' ? '↓' : '↑'}
-                          </span>
-                        </button>
-                      ) : (
-                        label
-                      )}
-                    </th>
-                  );
-                })}
-              </tr>
-            ))}
-          </thead>
-          <tbody className="divide-y divide-border">
-            {rows.map(row => {
-              const open = expands && expanded === row.id;
-              const click = expands
-                ? () => onExpandedChange(open ? undefined : row.id)
-                : onRowClick
-                  ? () => onRowClick(row.original)
-                  : undefined;
-              return (
-                <Fragment key={row.id}>
-                  <tr
-                    onClick={click}
-                    aria-expanded={expands ? open : undefined}
-                    className={clsx('transition-colors hover:bg-background', click && 'cursor-pointer', open && 'bg-background')}
+    <div className="min-w-0">
+      <Table>
+        <TableHeader>
+          {table.getHeaderGroups().map(group => (
+            <TableRow key={group.id} className="hover:bg-transparent">
+              {group.headers.map(header => {
+                const meta = header.column.columnDef.meta;
+                const sorted = header.column.getIsSorted();
+                const label = flexRender(header.column.columnDef.header, header.getContext());
+                return (
+                  <TableHead
+                    key={header.id}
+                    aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}
+                    className={cn('text-muted-foreground', meta?.numeric && 'text-right', EDGE)}
                   >
-                    {row.getVisibleCells().map((cell, index) => {
-                      const meta = cell.column.columnDef.meta;
-                      return (
-                        <td
-                          key={cell.id}
-                          className={clsx(
-                            'py-2.5 text-sm text-foreground tabular-nums',
-                            meta?.wrap ? 'min-w-56' : 'whitespace-nowrap',
-                            meta?.numeric && 'text-right',
-                            edge(index)
-                          )}
-                        >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                  {open && (
-                    <tr>
-                      <td colSpan={columnCount} className="bg-background pr-table-inset pb-4 pl-table-inset">
-                        {renderExpanded(row.original)}
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {rows.length === 0 && (empty ?? <p className="px-4 py-6 text-center text-sm text-muted">No rows.</p>)}
+                    {header.column.getCanSort() ? (
+                      <button
+                        type="button"
+                        onClick={header.column.getToggleSortingHandler()}
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-sm whitespace-nowrap transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
+                          meta?.numeric && 'flex-row-reverse',
+                          sorted && 'text-foreground'
+                        )}
+                      >
+                        <span>{label}</span>
+                        <span aria-hidden className={cn('w-2 text-xs', !sorted && 'invisible')}>
+                          {sorted === 'desc' ? '↓' : '↑'}
+                        </span>
+                      </button>
+                    ) : (
+                      label
+                    )}
+                  </TableHead>
+                );
+              })}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {rows.map(row => {
+            const open = expands && expanded === row.id;
+            const click = expands
+              ? () => onExpandedChange(open ? undefined : row.id)
+              : onRowClick
+                ? () => onRowClick(row.original)
+                : undefined;
+            return (
+              <Fragment key={row.id}>
+                <TableRow
+                  onClick={click}
+                  aria-expanded={expands ? open : undefined}
+                  data-state={open ? 'selected' : undefined}
+                  className={cn(click && 'cursor-pointer')}
+                >
+                  {row.getVisibleCells().map(cell => {
+                    const meta = cell.column.columnDef.meta;
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        className={cn('tabular-nums', meta?.wrap && 'min-w-56 whitespace-normal', meta?.numeric && 'text-right', EDGE)}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+                {open && (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={columnCount} className={cn('bg-muted/30 whitespace-normal', EDGE)}>
+                      {renderExpanded(row.original)}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
+            );
+          })}
+        </TableBody>
+      </Table>
+      {rows.length === 0 && (empty ?? <p className="py-6 text-center text-sm text-muted-foreground">No rows.</p>)}
       {paging && pageCount > 1 && (
-        <Pager page={pageIndex + 1} pageCount={pageCount} total={data.length} pageSize={pageSize} onPage={onPageChange} />
+        <div className="flex items-center justify-between gap-4 border-t px-[var(--card-spacing,0.5rem)] pt-3 text-xs text-muted-foreground tabular-nums">
+          <span>
+            Rows {pageIndex * pageSize + 1} to {Math.min(data.length, (pageIndex + 1) * pageSize)} of {data.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={pageIndex === 0} onClick={() => onPageChange(pageIndex)}>
+              Previous
+            </Button>
+            <Button variant="outline" size="sm" disabled={pageIndex >= pageCount - 1} onClick={() => onPageChange(pageIndex + 2)}>
+              Next
+            </Button>
+          </div>
+        </div>
       )}
-    </div>
-  );
-}
-
-function Pager({
-  page,
-  pageCount,
-  total,
-  pageSize,
-  onPage,
-}: {
-  page: number;
-  pageCount: number;
-  total: number;
-  pageSize: number;
-  onPage: (page: number) => void;
-}) {
-  const from = (page - 1) * pageSize + 1;
-  const to = Math.min(total, page * pageSize);
-  const buttonClassName =
-    'h-7 rounded-sm px-2.5 text-xs font-medium text-foreground outline -outline-offset-1 outline-border transition-colors hover:bg-background disabled:text-muted-50 disabled:hover:bg-transparent focus-visible:ring-2 focus-visible:ring-primary-50';
-  return (
-    <div className="flex items-center justify-between gap-4 border-t border-border py-2.5 pr-table-inset pl-table-inset text-xs text-muted tabular-nums">
-      <span>
-        Rows {from} to {to} of {total}
-      </span>
-      <div className="flex items-center gap-2">
-        <button type="button" className={buttonClassName} disabled={page <= 1} onClick={() => onPage(page - 1)}>
-          Previous
-        </button>
-        <button type="button" className={buttonClassName} disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
-          Next
-        </button>
-      </div>
     </div>
   );
 }

@@ -1,10 +1,6 @@
-/* The app's stylesheet: fonts, the tokens, the utilities and base styles, and the files Tailwind
- * scans for classes. Tokens and colour literals live only in styles/tokens.css. */
-@import '@fontsource-variable/geist';
-@import '@fontsource-variable/geist-mono';
-
-@import './styles/tokens.css';
-@import './styles/utilities.css';
+/* The app's stylesheet: the theme (shadcn's variables and the data colours), deprecated aliases
+ * for unmigrated pages, base styles, and the files Tailwind scans for classes. */
+@import './styles/theme.css';
 @import './styles/base.css';
 
 @source './';

@@ -1,8 +1,7 @@
-/** Grouping runs by model, vendor, agent or variant, with each group's marks for HTML and canvas. */
+/** Grouping runs by model, vendor, agent or variant, with each group's label. */
 
 import type { Run } from '@/data/types';
-import { AgentLabel, BrandMark, ModelLabel, VariantLabel } from '@/components/marks';
-import { VariantShort } from '@/components/VariantShort';
+import { AgentLabel, BrandMark, HarnessBadge, ModelLabel, VariantLabel } from '@/components/marks';
 import { agentInfo, modelInfo, variantOf, vendorOf } from '@/lib/series';
 
 export type GroupBy = 'model' | 'vendor' | 'agent' | 'variant';
@@ -32,37 +31,30 @@ export function groupRuns(runs: Run[], by: GroupBy): Group[] {
   return [...groups.values()];
 }
 
-/** The group's short name, for chart labels; `narrow` leaves a variant's harness to its mark. */
-export function groupName(sample: Run, by: GroupBy, narrow = false): string {
-  if (by === 'model') return modelInfo(sample.model).short;
+/** The group's name as text, for tooltips. */
+export function groupName(sample: Run, by: GroupBy): string {
+  if (by === 'model') return modelInfo(sample.model).name;
   if (by === 'vendor') return vendorOf(sample.model).name;
   if (by === 'agent') return agentInfo(sample.agent, sample.agent_name).name;
-  const v = variantOf(sample);
-  return narrow && v.vendorSlug !== 'program' ? modelInfo(sample.model).short : v.short;
+  return variantOf(sample).name;
 }
 
-/** Mark slugs for canvas labels, in reading order. */
-export function groupSlugs(sample: Run, by: GroupBy): string[] {
-  const v = variantOf(sample);
-  if (by === 'model' || by === 'vendor') return [v.vendorSlug];
-  if (by === 'agent') return [v.agentSlug];
-  return v.vendorSlug === 'program' ? [v.agentSlug] : [v.vendorSlug, v.agentSlug];
-}
-
-/** The group's marks and name in HTML. */
-export function GroupLabel({ sample, by, size = 16, short }: { sample: Run; by: GroupBy; size?: 14 | 16 | 20; short?: boolean }) {
-  if (by === 'model') return <ModelLabel model={sample.model} size={size} />;
+/**
+ * The group's marks and short name: vendor mark and model, the harness as a badge. `stacked` puts a
+ * variant's badge under its model, for narrow chart labels.
+ */
+export function GroupLabel({ sample, by, size = 16, stacked }: { sample: Run; by: GroupBy; size?: 14 | 16 | 20; stacked?: boolean }) {
+  if (by === 'model') return <ModelLabel model={sample.model} compact size={size} />;
   if (by === 'agent') return <AgentLabel agent={sample.agent} fallback={sample.agent_name} size={size} />;
-  if (by === 'variant' && short) {
-    // On a phone the harness is its mark alone
+  if (by === 'variant' && stacked && agentInfo(sample.agent, sample.agent_name).slug !== 'program') {
     return (
-      <>
-        <VariantShort variant={variantOf(sample)} size={size} className="max-sm:hidden" />
-        <VariantShort variant={variantOf(sample)} size={size} markOnly className="sm:hidden" />
-      </>
+      <span className="flex flex-col items-end gap-0.5">
+        <ModelLabel model={sample.model} compact size={size} />
+        <HarnessBadge agent={sample.agent} fallback={sample.agent_name} />
+      </span>
     );
   }
-  if (by === 'variant') return <VariantLabel run={sample} size={size} />;
+  if (by === 'variant') return <VariantLabel run={sample} compact size={size} />;
   const vendor = vendorOf(sample.model);
   return (
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">

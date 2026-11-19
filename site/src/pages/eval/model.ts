@@ -2,7 +2,11 @@
 
 import type { Eval, EvalRuns, Run, RunDetail } from '@/data/types';
 import { median, stepAbove, stepBelow } from '@/lib/stats';
-import { agentInfo, modelInfo, variantOf, vendorOf, type SeriesColor, type Variant } from '@/lib/series';
+import { variantOf, type Variant } from '@/lib/series';
+import { agentSeries, modelSeries, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
+import { resultValue } from '@/lib/runResult';
+
+export { resultValue };
 
 export type XMeasure = 'ticks' | 'seconds' | 'cost' | 'calls';
 export type Agg = 'runs' | 'median' | 'best';
@@ -34,13 +38,6 @@ export interface RunCurve {
 }
 
 const nonNull = <T>(v: T | null | undefined): v is T => v != null;
-
-/** What a run reached: the target when it finished, else the best value it held (a reset can drop the last one). */
-export function resultValue(run: Run): number | null {
-  if (run.success && run.target != null) return run.target;
-  const values = [run.final_value, ...(run.attempt_results ?? []).map(a => a.best_value)].filter(nonNull);
-  return values.length ? Math.max(...values) : run.score;
-}
 
 /** Total ticks the eval allows: the budget of every attempt. */
 export const totalBudgetTicks = (e: Eval): number => e.budget_ticks * Math.max(1, e.attempts);
@@ -267,48 +264,18 @@ export function rankVariants(e: Eval, runs: Run[], x: XMeasure): RankedVariant[]
 // Groups for the effort cuts
 
 export interface Group {
-  key: string;
-  /** Beside its marks */
-  name: string;
-  /** In full, for tooltips */
-  full: string;
-  /** Brand marks for the group's label */
-  slugs: string[];
-  /** Series colour, where the group has one (agents don't) */
-  color: SeriesColor | null;
+  /** Its series: marks, name and colour (agents have no colour of their own) */
+  spec: SeriesSpec;
   runs: Run[];
 }
 
 export function groupRuns(runs: Run[], by: GroupBy): Group[] {
   const groups = new Map<string, Group>();
   for (const run of runs) {
-    const v = variantOf(run);
-    const program = v.vendorSlug === 'program';
-    let g: Omit<Group, 'runs'>;
-    if (by === 'variant') {
-      g = {
-        key: v.key,
-        name: program ? 'Program' : modelInfo(run.model).short,
-        full: v.name,
-        slugs: program ? ['program'] : [v.vendorSlug, v.agentSlug],
-        color: v.color,
-      };
-    } else if (by === 'model') {
-      const m = modelInfo(run.model);
-      g = {
-        key: run.model,
-        name: program ? 'No model' : m.short,
-        full: m.name,
-        slugs: [program ? 'program' : vendorOf(run.model).slug],
-        color: m.color,
-      };
-    } else {
-      const a = agentInfo(run.agent, run.agent_name);
-      g = { key: run.agent, name: a.name, full: a.name, slugs: [a.slug], color: null };
-    }
-    const group = groups.get(g.key) ?? { ...g, runs: [] };
+    const spec = by === 'variant' ? variantSeries(run) : by === 'model' ? modelSeries(run.model) : agentSeries(run.agent, run.agent_name);
+    const group = groups.get(spec.id) ?? { spec, runs: [] };
     group.runs.push(run);
-    groups.set(g.key, group);
+    groups.set(spec.id, group);
   }
-  return [...groups.values()].sort((a, b) => a.full.localeCompare(b.full));
+  return [...groups.values()].sort((a, b) => a.spec.name.localeCompare(b.spec.name));
 }

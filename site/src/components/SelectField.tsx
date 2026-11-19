@@ -1,16 +1,26 @@
-import clsx from 'clsx';
+/**
+ * A labelled shadcn Select. With `allLabel`, a first option stands for no filter and selecting it
+ * passes undefined. Options with a `group` are listed under it, in first-seen order.
+ *
+ *   <SelectField label="Model" value={scope.model[0]} allLabel="All" options={models} onChange={v => …} />
+ */
+
+import { useId, type ReactNode } from 'react';
+import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export interface SelectOption {
   value: string;
   label: string;
-  /** Options with a group are listed under it (an optgroup), in first-seen order */
+  /** Shown before the label (a BrandMark, an EvalMark …) */
+  mark?: ReactNode;
+  /** Options with a group are listed under it, in first-seen order */
   group?: string;
 }
 
-/**
- * A labelled native select. With `allLabel`, an empty first option stands for no filter and
- * selecting it passes undefined.
- */
+/** Radix Select can't hold an empty value: this stands for "no filter". */
+const ALL = '__all__';
+
 export function SelectField({
   label,
   value,
@@ -26,32 +36,38 @@ export function SelectField({
   allLabel?: string;
   className?: string;
 }) {
+  const id = useId();
   const groups = [...new Set(options.map(o => o.group))];
-  const render = (list: SelectOption[]) =>
+  const items = (list: SelectOption[]) =>
     list.map(o => (
-      <option key={o.value} value={o.value}>
+      <SelectItem key={o.value} value={o.value}>
+        {o.mark}
         {o.label}
-      </option>
+      </SelectItem>
     ));
   return (
-    <label className={clsx('flex min-w-0 flex-col gap-1', className)}>
-      <span className="text-xs font-medium text-muted">{label}</span>
-      <select
-        value={value ?? ''}
-        onChange={event => onChange(event.target.value || undefined)}
-        className="h-8 w-full min-w-0 rounded-sm bg-surface px-2 text-sm text-foreground outline -outline-offset-1 outline-border focus-visible:outline-2 focus-visible:outline-primary"
-      >
-        {allLabel != null && <option value="">{allLabel}</option>}
-        {groups.map(group =>
-          group == null ? (
-            render(options.filter(o => o.group == null))
-          ) : (
-            <optgroup key={group} label={group}>
-              {render(options.filter(o => o.group === group))}
-            </optgroup>
-          )
-        )}
-      </select>
-    </label>
+    <div className={cn('flex min-w-0 flex-col gap-1.5', className)}>
+      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
+        {label}
+      </label>
+      <Select value={value ?? (allLabel != null ? ALL : undefined)} onValueChange={v => onChange(v === ALL ? undefined : v)}>
+        <SelectTrigger id={id} className="w-full min-w-0">
+          <SelectValue placeholder={allLabel ?? label} />
+        </SelectTrigger>
+        <SelectContent>
+          {allLabel != null && <SelectItem value={ALL}>{allLabel}</SelectItem>}
+          {groups.map(group =>
+            group == null ? (
+              items(options.filter(o => o.group == null))
+            ) : (
+              <SelectGroup key={group}>
+                <SelectLabel>{group}</SelectLabel>
+                {items(options.filter(o => o.group === group))}
+              </SelectGroup>
+            )
+          )}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }

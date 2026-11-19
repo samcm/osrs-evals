@@ -1,10 +1,9 @@
-import { TOOL_CATEGORIES as SITE_TOOL_CATEGORIES } from '@/lib/tools';
 /** The measures /compare can rank runs by. Outcome measures need one eval; the rest can pool evals. */
 
 import type { Eval, Run } from '@/data/types';
 import { hasTarget } from '@/lib/evals';
 import { formatCost, formatCostTick, formatDecimal, formatInt, formatPercent, formatSeconds, formatTokens } from '@/lib/format';
-import { formatAxisNumber } from '@/lib/chartChrome';
+import { formatTick } from '@/lib/ticks';
 import { resultValue } from '@/lib/runResult';
 
 export const METRIC_IDS = [
@@ -43,6 +42,8 @@ export interface Metric {
   tick?: (value: number) => string;
   /** Which way is better, for ranking; null ranks highest first without judging */
   better: 'higher' | 'lower' | null;
+  /** Counts: axis ticks on whole numbers */
+  whole?: boolean;
   /** The default scale, and whether log is offered (the values are positive and can span decades) */
   scale: 'log' | 'linear';
   log: boolean;
@@ -53,6 +54,7 @@ const share = (part: number | null | undefined, whole: number | null | undefined
 export const METRICS: Metric[] = [
   {
     id: 'value',
+    whole: true,
     label: 'Result',
     group: 'Outcome',
     outcome: true,
@@ -64,25 +66,27 @@ export const METRICS: Metric[] = [
   },
   {
     id: 'ticks',
+    whole: true,
     label: 'Ticks to finish',
     group: 'Outcome',
     outcome: true,
     applies: hasTarget,
     get: r => r.ticks,
     format: formatInt,
-    tick: formatAxisNumber,
+    tick: formatTick,
     better: 'lower',
     scale: 'linear',
     log: true,
   },
   {
     id: 'first',
+    whole: true,
     label: 'Ticks to first progress',
     group: 'Outcome',
     outcome: true,
     get: r => r.metrics.first_progress_tick,
     format: formatInt,
-    tick: formatAxisNumber,
+    tick: formatTick,
     better: 'lower',
     scale: 'linear',
     log: true,
@@ -101,17 +105,19 @@ export const METRICS: Metric[] = [
   },
   {
     id: 'output',
+    whole: true,
     label: 'Output tokens per run',
     group: 'Cost and tokens',
     get: r => (r.model_calls ? r.output_tokens : null),
     format: formatTokens,
-    tick: formatAxisNumber,
+    tick: formatTick,
     better: null,
     scale: 'log',
     log: true,
   },
   {
     id: 'calls',
+    whole: true,
     label: 'Model calls per run',
     group: 'Cost and tokens',
     get: r => (r.model_calls ? r.model_calls : null),
@@ -132,11 +138,12 @@ export const METRICS: Metric[] = [
   },
   {
     id: 'context',
+    whole: true,
     label: 'Max context',
     group: 'Cost and tokens',
     get: r => r.metrics.max_context_tokens,
     format: formatTokens,
-    tick: formatAxisNumber,
+    tick: formatTick,
     better: null,
     scale: 'log',
     log: true,
@@ -157,6 +164,7 @@ export const METRICS: Metric[] = [
     group: 'Model',
     get: r => r.metrics.latency_p50,
     format: v => `${formatSeconds(v)} s`,
+    tick: v => `${formatTick(v)} s`,
     better: 'lower',
     scale: 'linear',
     log: true,
@@ -167,6 +175,7 @@ export const METRICS: Metric[] = [
     group: 'Model',
     get: r => r.metrics.latency_p90,
     format: v => `${formatSeconds(v)} s`,
+    tick: v => `${formatTick(v)} s`,
     better: 'lower',
     scale: 'linear',
     log: true,
@@ -177,6 +186,7 @@ export const METRICS: Metric[] = [
     group: 'Model',
     get: r => r.metrics.gap_p50,
     format: v => `${formatSeconds(v)} s`,
+    tick: v => `${formatTick(v)} s`,
     better: 'lower',
     scale: 'linear',
     log: true,
@@ -203,11 +213,12 @@ export const METRICS: Metric[] = [
   },
   {
     id: 'tiles',
+    whole: true,
     label: 'Tiles walked',
     group: 'In the game',
     get: r => r.metrics.tiles_walked,
     format: formatInt,
-    tick: formatAxisNumber,
+    tick: formatTick,
     better: null,
     scale: 'linear',
     log: true,
@@ -228,6 +239,3 @@ export const metricById = (id: MetricId): Metric => METRICS.find(m => m.id === i
 
 /** The metric's name, with an eval's measure for its result. */
 export const metricLabel = (m: Metric, e: Eval | undefined): string => (m.id === 'value' && e ? e.measure : m.label);
-
-/** Tool-call categories in the order stacks draw them, with their site-wide colour. */
-export const TOOL_CATEGORIES = SITE_TOOL_CATEGORIES.map(c => ({ id: c.id, label: c.label, token: c.color.token, swatch: c.color.swatchClassName }));

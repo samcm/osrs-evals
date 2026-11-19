@@ -81,3 +81,11 @@ export function capitalize(text: string | null | undefined): string {
   if (!text) return MISSING;
   return text.charAt(0).toUpperCase() + text.slice(1).replace(/_/g, ' ');
 }
+
+/** Axis numbers: compact from 10,000 up ("40K", "1.2M"), grouped digits below. */
+export function formatAxisNumber(value: number): string {
+  if (Math.abs(value) >= 10_000) {
+    return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+  }
+  return value.toLocaleString('en-US', { maximumFractionDigits: 6 });
+}

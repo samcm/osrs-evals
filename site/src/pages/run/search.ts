@@ -1,10 +1,11 @@
 /** The run page's URL state. */
 
 import type { ToolCategory } from '@/data/types';
+import { TOOL_CATEGORIES as TOOLS } from '@/lib/tools';
 import { mapViewParam } from '@/lib/map';
 import { defineSearch, int, legendParams, list, oneOf } from '@/lib/search';
 
-export const TOOL_CATEGORIES: readonly ToolCategory[] = ['write+run', 'run', 'write', 'read', 'state', 'wait', 'stdin', 'plan', 'manage', 'submit', 'other'];
+export const TOOL_CATEGORIES: readonly ToolCategory[] = TOOLS.map(c => c.id);
 
 export const runSearch = defineSearch({
   /** The lanes' x measure and the transcript's clock */

@@ -1,16 +1,16 @@
 /** Where the runs went: every run's coarse path on the world map, coloured by model. */
 
 import { useMemo } from 'react';
-import { Card } from '@/components/Card';
-import { ChartLegend } from '@/components/ChartLegend';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Slider } from '@/components/ui/slider';
 import { WorldMap, type MapPath } from '@/components/WorldMap';
-import { BrandMark } from '@/components/marks';
+import { SeriesLegend } from '@/components/charts';
 import type { EvalRuns } from '@/data/types';
+import { modelSeries } from '@/lib/chartSeries';
 import { formatInt } from '@/lib/format';
 import type { LegendState } from '@/lib/legend';
 import type { MapView } from '@/lib/map';
 import { useSearchUpdate } from '@/lib/search';
-import { modelInfo } from '@/lib/series';
 import type { RunCurve } from './model';
 
 export function WhereCard({
@@ -20,6 +20,7 @@ export function WhereCard({
   view,
   t,
   maxTick,
+  height,
 }: {
   curves: RunCurve[];
   grid: EvalRuns | undefined;
@@ -27,6 +28,8 @@ export function WhereCard({
   view: MapView | undefined;
   t: number | undefined;
   maxTick: number;
+  /** The most the map may take; it takes the paths' shape up to that */
+  height?: number;
 }) {
   const update = useSearchUpdate();
   const shown = curves.filter(cv => legend.visible(cv.variant.key) && grid?.runs[cv.run.id]?.path.length);
@@ -43,45 +46,36 @@ export function WhereCard({
       })),
     [grid, maxTick, shown, t]
   );
-  const models = [...new Map(shown.map(cv => [cv.run.model, modelInfo(cv.run.model)])).entries()];
+  const models = [...new Set(shown.map(cv => cv.run.model))].sort().map(modelSeries);
   const step = grid?.path_every ?? 50;
 
   return (
-    <Card title="Where they went" className="flex flex-col">
-      <WorldMap
-        paths={paths}
-        view={view}
-        onViewChange={v => update({ map: v })}
-        height={360}
-        fitHeight
-        label="Paths of the runs on the world map, coloured by model"
-        className="rounded-sm"
-      />
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-        <ChartLegend
-          items={models.map(([, m]) => ({
-            label: m.short,
-            mark: <BrandMark slug={m.vendor.slug} size={14} />,
-            color: m.color,
-            line: 'solid' as const,
-          }))}
+    <Card>
+      <CardHeader>
+        <CardTitle>Where they went</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col gap-4">
+        <WorldMap
+          paths={paths}
+          view={view}
+          onViewChange={v => update({ map: v })}
+          height={height ?? 440}
+          fitHeight
+          label="Paths of the runs on the world map, coloured by model"
         />
-        <label className="flex min-w-0 flex-1 basis-56 items-center gap-3 text-xs text-muted sm:max-w-80">
-          <input
-            type="range"
+        <div className="flex items-center gap-4 text-sm">
+          <Slider
             min={0}
             max={maxTick}
             step={step}
-            value={t ?? maxTick}
+            value={[t ?? maxTick]}
             aria-label="Tick at which each run is marked"
-            onChange={event => update({ t: Number(event.target.value) >= maxTick ? undefined : Number(event.target.value) })}
-            className="min-w-0 flex-1 accent-primary"
+            onValueChange={([v]) => update({ t: v >= maxTick ? undefined : v })}
           />
-          <span className="w-24 text-right whitespace-nowrap text-foreground tabular-nums">
-            {t == null ? 'End' : `${formatInt(t)} ticks`}
-          </span>
-        </label>
-      </div>
+          <span className="w-24 shrink-0 text-right whitespace-nowrap tabular-nums">{t == null ? 'End' : `${formatInt(t)} ticks`}</span>
+        </div>
+        <SeriesLegend series={models} />
+      </CardContent>
     </Card>
   );
 }

@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
 import { useQueries, useQuery, useSuspenseQuery } from '@tanstack/react-query';
-import { Card } from '@/components/Card';
-import { Empty, PageTitle, ParamSegmented } from '@/components/bits';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Empty, PageTitle } from '@/components/bits';
 import { EvalMark } from '@/components/marks';
 import { evalRunsQuery, indexQuery, runQuery } from '@/data/queries';
 import type { Eval } from '@/data/types';
@@ -11,49 +11,49 @@ import { useLegend, type LegendState } from '@/lib/legend';
 import { inScope, useDocumentTitle, useScope } from '@/lib/search';
 import { AttemptsCard, ParetoCard, SuccessCdfCard } from './Cuts';
 import { EffortCard } from './Effort';
-import { buildCurves, callsByTick, rankVariants, totalBudgetTicks, xRange, X_OPTIONS } from './model';
-import { ProgressChart, RankedPanel } from './Progress';
+import { buildCurves, callsByTick, rankVariants, totalBudgetTicks, xRange } from './model';
+import { ProgressCard, ProgressChart, RankedPanel } from './Progress';
 import { QuestStrip } from './Quests';
 import { RunsTable } from './RunsTable';
 import { ScopeChips } from './ScopeChips';
 import { WhereCard } from './Where';
 
 const route = getRouteApi('/evals/$evalId');
+/** The most the map takes beside another card (which stretches to match). */
+const MAP_BESIDE = 480;
 
-/** The facts a reader needs beside the goal: the budget (minutes on hover), attempts, accounts. */
+/** The facts a reader needs beside the goal: the budget (its minutes on hover), attempts, accounts. */
 function Facts({ e }: { e: Eval }) {
   const minutes = (e.budget_ticks * e.tick_ms) / 60_000;
-  const facts: [string, React.ReactNode][] = [
+  const facts: [string, ReactNode][] = [
     [
       e.attempts > 1 ? 'Budget per attempt' : 'Budget',
-      <span
-        className="cursor-help underline decoration-muted-50 decoration-dotted underline-offset-4"
-        title={`${formatDecimal(minutes).replace(/\.0$/, '')} min at ${formatInt(e.tick_ms)} ms a tick`}
-      >
-        {formatInt(e.budget_ticks)} ticks
-      </span>,
+      <Tooltip>
+        <TooltipTrigger className="cursor-help underline decoration-dotted underline-offset-4">
+          {formatInt(e.budget_ticks)} ticks
+        </TooltipTrigger>
+        <TooltipContent>
+          {formatDecimal(minutes).replace(/\.0$/, '')} min at {formatInt(e.tick_ms)} ms a tick
+        </TooltipContent>
+      </Tooltip>,
     ],
-    ...(e.attempts > 1 ? ([['Attempts', formatInt(e.attempts)]] as [string, React.ReactNode][]) : []),
-    [
-      e.accounts.length === 1 ? 'Account' : 'Accounts',
-      <span className="flex flex-wrap gap-x-2 font-mono text-xs/6">
-        {e.accounts.map(a => (
-          <span key={a}>{a}</span>
-        ))}
-      </span>,
-    ],
+    ...(e.attempts > 1 ? ([['Attempts', formatInt(e.attempts)]] as [string, ReactNode][]) : []),
+    [e.accounts.length === 1 ? 'Account' : 'Accounts', <span className="font-mono">{e.accounts.join(', ')}</span>],
   ];
   return (
-    <dl className="flex shrink-0 flex-wrap gap-x-8 gap-y-2">
+    <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
       {facts.map(([term, value]) => (
-        <div key={term}>
-          <dt className="text-xs/5 text-muted">{term}</dt>
-          <dd className="text-sm/6 text-foreground tabular-nums">{value}</dd>
+        <div key={term} className="flex flex-col gap-1">
+          <dt className="text-muted-foreground">{term}</dt>
+          <dd className="tabular-nums">{value}</dd>
         </div>
       ))}
     </dl>
   );
 }
+
+const SECTIONS = 'flex flex-col gap-4 md:gap-6';
+const ROW = 'grid gap-4 md:gap-6 xl:grid-cols-2';
 
 export function EvalPage() {
   const { evalId } = route.useParams();
@@ -92,7 +92,7 @@ export function EvalPage() {
 
   if (!e) {
     return (
-      <div className="flex flex-col gap-6">
+      <div className={SECTIONS}>
         <PageTitle>{evalId}</PageTitle>
         <Empty>No eval with this id has runs.</Empty>
       </div>
@@ -102,16 +102,19 @@ export function EvalPage() {
   const quests = e.measure === 'Quest points';
   const pending = search.x === 'calls' && details.some(d => d.isPending);
   const visibleCurves = curves.filter(cv => legend.visible(cv.variant.key));
+  const map = (height?: number) => (
+    <WhereCard curves={curves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={totalBudgetTicks(e)} height={height} />
+  );
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-x-10 gap-y-4 xl:flex-row xl:items-end xl:justify-between">
+    <div className={SECTIONS}>
+      <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div className="flex min-w-0 items-start gap-4">
-          <EvalMark evalId={e.id} size={40} className="mt-0.5" />
+          <EvalMark evalId={e.id} size={40} />
           <div className="flex min-w-0 flex-col gap-1">
             <PageTitle>{e.title}</PageTitle>
-            <p className="text-base/6 text-foreground">{e.goal}</p>
-            {why && <p className="max-w-4xl text-sm/6 text-muted">{why}</p>}
+            <p>{e.goal}</p>
+            {why && <p className="text-sm text-muted-foreground">{why}</p>}
           </div>
         </div>
         <Facts e={e} />
@@ -123,25 +126,11 @@ export function EvalPage() {
         <Empty>No runs in this scope.</Empty>
       ) : (
         <>
-          <Card
-            title={e.measure}
-            actions={
-              <div className="flex max-w-xs flex-wrap items-center gap-2 sm:max-w-none">
-                <ParamSegmented param="x" value={search.x} label="Along" options={X_OPTIONS} />
-                <ParamSegmented
-                  param="agg"
-                  value={search.agg}
-                  label="Lines"
-                  options={[
-                    { value: 'runs', label: 'Runs' },
-                    { value: 'median', label: 'Median' },
-                    { value: 'best', label: 'Best' },
-                  ]}
-                />
-              </div>
-            }
-          >
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
+          <ProgressCard
+            e={e}
+            x={search.x}
+            agg={search.agg}
+            chart={
               <ProgressChart
                 e={e}
                 curves={curves}
@@ -151,31 +140,25 @@ export function EvalPage() {
                 range={range!}
                 legend={legend}
                 pending={pending}
-                below={quests ? (g, hover) => <QuestStrip curves={visibleCurves} x={search.x} grid={g} hover={hover} /> : undefined}
+                below={quests ? frame => <QuestStrip curves={visibleCurves} x={search.x} frame={frame} /> : undefined}
               />
-              <div className="min-w-0 border-border max-xl:border-t max-xl:pt-4 xl:border-l xl:pl-6">
-                <RankedPanel e={e} ranked={ranked} x={search.x} legend={legend} />
-              </div>
-            </div>
-          </Card>
+            }
+            panel={<RankedPanel e={e} ranked={ranked} x={search.x} legend={legend} />}
+          />
 
-          <div className="grid gap-6 xl:grid-cols-2">
+          <div className={ROW}>
             <ParetoCard e={e} ranked={ranked} px={search.px} legend={legend} />
-            {target ? (
-              <SuccessCdfCard e={e} ranked={ranked} cx={search.cx} legend={legend} />
-            ) : (
-              <WhereCard curves={curves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={totalBudgetTicks(e)} />
-            )}
+            {target ? <SuccessCdfCard e={e} ranked={ranked} cx={search.cx} legend={legend} /> : map(MAP_BESIDE)}
           </div>
 
           {target &&
             (e.attempts > 1 ? (
-              <div className="grid gap-6 xl:grid-cols-2">
+              <div className={ROW}>
                 <AttemptsCard e={e} ranked={ranked} legend={legend} />
-                <WhereCard curves={curves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={totalBudgetTicks(e)} />
+                {map(MAP_BESIDE)}
               </div>
             ) : (
-              <WhereCard curves={curves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={totalBudgetTicks(e)} />
+              map()
             ))}
 
           <EffortCard runs={runs} by={search.by} />

@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
-import clsx from 'clsx';
-import { Card } from '@/components/Card';
+import { cn } from '@/lib/utils';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/DataTable';
 import { Empty } from '@/components/bits';
 import { VariantLabel } from '@/components/marks';
@@ -27,7 +27,7 @@ function columns(e: Eval): ColumnDef<Run, unknown>[] {
             src={`/data/${row.original.screenshot}`}
             alt=""
             loading="lazy"
-            className="-my-1 h-9 w-16 max-w-none rounded-xs object-cover outline -outline-offset-1 outline-border"
+            className="h-9 w-16 max-w-none rounded-md border object-cover"
           />
         ) : null,
     }),
@@ -43,7 +43,7 @@ function columns(e: Eval): ColumnDef<Run, unknown>[] {
         if (!target) return value;
         return (
           <span className="inline-flex items-center gap-1.5" title={run.success ? 'Finished' : 'Not finished'}>
-            <span aria-hidden className={clsx('size-2 rounded-full', run.success ? 'bg-success' : 'border-2 border-danger')} />
+            <span aria-hidden className={cn('size-2 rounded-full', run.success ? 'bg-success' : 'border-2 border-destructive')} />
             {value}
           </span>
         );
@@ -70,20 +70,25 @@ export function RunsTable({ e, runs, sort, page }: { e: Eval; runs: Run[]; sort:
   const update = useSearchUpdate();
   const cols = useMemo(() => columns(e), [e]);
   return (
-    <Card title="Runs" flush>
-      <DataTable
-        data={runs}
-        columns={cols}
-        getRowId={r => r.id}
-        sort={sort}
-        onSortChange={s => update({ sort: s }, { resetPage: true })}
-        page={page}
-        pageSize={PAGE_SIZE}
-        onPageChange={p => update({ page: p === 1 ? undefined : p })}
-        // Scope rides along by itself (the root retains it); nothing else is carried
-        onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.id }, search: {} as never })}
-        empty={<Empty>No runs in this scope.</Empty>}
-      />
+    <Card>
+      <CardHeader>
+        <CardTitle>Runs</CardTitle>
+      </CardHeader>
+      <CardContent className="px-0">
+        <DataTable
+          data={runs}
+          columns={cols}
+          getRowId={r => r.id}
+          sort={sort}
+          onSortChange={s => update({ sort: s }, { resetPage: true })}
+          page={page}
+          pageSize={PAGE_SIZE}
+          onPageChange={p => update({ page: p === 1 ? undefined : p })}
+          // Scope rides along by itself (the root retains it); nothing else is carried
+          onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.id }, search: {} as never })}
+          empty={<Empty>No runs in this scope.</Empty>}
+        />
+      </CardContent>
     </Card>
   );
 }

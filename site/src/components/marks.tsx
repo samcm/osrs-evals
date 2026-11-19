@@ -1,7 +1,16 @@
-/** Identity marks: game sprites, brand logos, and the model, agent, variant and eval labels built on them. */
+/**
+ * Identity marks: game sprites, vendor logos, and the model, agent, variant and eval labels built on
+ * them. Models carry their vendor's mark; harnesses are a quiet Badge (no logo); the scripted
+ * baseline is its sprite and "Program".
+ *
+ *   <VariantLabel run={run} />            Anthropic mark, "Claude Haiku 5.5", [Claude Code]
+ *   <VariantLabel variant={v} compact />  Anthropic mark, "Haiku 5.5", [Claude Code]
+ *   <ModelLabel model={id} size={20} />   in table rows
+ */
 
 import { useEffect, useRef, useState } from 'react';
-import clsx from 'clsx';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import type { Run } from '@/data/types';
 import { BRAND_SLUGS, brandSrc, itemSrc, loadTrimmedSprite } from '@/lib/assets';
 import { evalArt } from '@/lib/evals';
@@ -79,13 +88,13 @@ export function Sprite({
       title={alt || undefined}
       data-sprite
       data-failed={failed || undefined}
-      className={clsx('inline-block shrink-0', SPRITE_SIZES[size], className)}
+      className={cn('inline-block shrink-0', SPRITE_SIZES[size], className)}
     />
   );
 }
 
 const BRAND_SIZES = { 14: 'size-3.5', 16: 'size-4', 20: 'size-5', 40: 'size-10' } as const;
-const LETTER_SIZES = { 14: 'text-2xs', 16: 'text-2xs', 20: 'text-xs', 40: 'text-xl' } as const;
+const LETTER_SIZES = { 14: 'text-xs', 16: 'text-xs', 20: 'text-xs', 40: 'text-xl' } as const;
 
 export type BrandSize = keyof typeof BRAND_SIZES;
 
@@ -102,8 +111,8 @@ export function BrandMark({ slug, size = 16, title, className }: { slug: string;
     return (
       <span
         {...a11y}
-        className={clsx(
-          'inline-flex shrink-0 items-center justify-center rounded-xs bg-muted-20 font-semibold text-muted',
+        className={cn(
+          'inline-flex shrink-0 items-center justify-center rounded-sm bg-muted font-semibold text-muted-foreground',
           BRAND_SIZES[size],
           LETTER_SIZES[size],
           className
@@ -117,7 +126,7 @@ export function BrandMark({ slug, size = 16, title, className }: { slug: string;
   return (
     <span
       {...a11y}
-      className={clsx('inline-block shrink-0 bg-foreground', BRAND_SIZES[size], className)}
+      className={cn('inline-block shrink-0 bg-foreground', BRAND_SIZES[size], className)}
       style={{
         maskImage: mask,
         WebkitMaskImage: mask,
@@ -134,11 +143,11 @@ export function BrandMark({ slug, size = 16, title, className }: { slug: string;
 
 /** A series colour as a small square: only where the colour is the key for a chart. */
 export function Swatch({ color, className }: { color: SeriesColor; className?: string }) {
-  return <span aria-hidden className={clsx('inline-block size-2.5 shrink-0 rounded-2xs', color.swatchClassName, className)} />;
+  return <span aria-hidden className={cn('inline-block size-2.5 shrink-0 rounded-[2px]', color.swatchClassName, className)} />;
 }
 
 interface LabelProps {
-  /** Marks only, with the name as accessible name and tooltip */
+  /** Short: the model's short name ("Haiku 5.5"), the full name as tooltip */
   compact?: boolean;
   /** Also show the series colour, where it keys a chart */
   swatch?: boolean;
@@ -147,30 +156,52 @@ interface LabelProps {
   className?: string;
 }
 
-/** A model: its vendor's mark and its name. */
-export function ModelLabel({ model, compact, swatch, size = 16, className }: LabelProps & { model: string }) {
-  const info = modelInfo(model);
+const isProgram = (agent: string, fallback?: string): boolean => agentInfo(agent, fallback).slug === 'program';
+
+/** The scripted baseline: its game sprite and "Program". */
+function ProgramLabel({ size, swatch, color, className }: { size: BrandSize; swatch?: boolean; color?: SeriesColor; className?: string }) {
   return (
-    <span className={clsx('inline-flex items-center gap-1.5 whitespace-nowrap', className)} title={compact ? info.name : model}>
-      {swatch && <Swatch color={info.color} />}
-      <BrandMark slug={info.vendor.slug} size={size} title={compact ? info.name : info.vendor.name} />
-      {!compact && <span>{info.name}</span>}
+    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap', className)}>
+      {swatch && color && <Swatch color={color} />}
+      <BrandMark slug="program" size={size} />
+      <span>Program</span>
     </span>
   );
 }
 
-/** An agent harness: its mark and its name. */
-export function AgentLabel({ agent, fallback, compact, size = 16, className }: Omit<LabelProps, 'swatch'> & { agent: string; fallback?: string }) {
+/** An agent harness as a quiet badge with its name; never a logo (AGENTS.md). */
+export function HarnessBadge({ agent, fallback, className }: { agent: string; fallback?: string; className?: string }) {
   const info = agentInfo(agent, fallback);
   return (
-    <span className={clsx('inline-flex items-center gap-1.5 whitespace-nowrap', className)} title={compact ? info.name : agent}>
-      <BrandMark slug={info.slug} size={size} title={info.name} />
-      {!compact && <span>{info.name}</span>}
+    <Badge variant="outline" title={agent} className={cn('font-normal text-muted-foreground', className)}>
+      {info.name}
+    </Badge>
+  );
+}
+
+/** A model: its vendor's mark and its name (compact: the short name). */
+export function ModelLabel({ model, compact, swatch, size = 16, className }: LabelProps & { model: string }) {
+  const info = modelInfo(model);
+  if (info.vendor.slug === 'program') return <ProgramLabel size={size} swatch={swatch} color={info.color} className={className} />;
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap', className)} title={compact ? info.name : model}>
+      {swatch && <Swatch color={info.color} />}
+      <BrandMark slug={info.vendor.slug} size={size} title={info.vendor.name} />
+      <span>{compact ? info.short : info.name}</span>
     </span>
   );
 }
 
-/** A variant (model × agent): model mark and name, then agent mark and name; compact shows the two marks. */
+/** An agent harness: its badge; the scripted baseline shows its sprite and "Program". */
+export function AgentLabel({ agent, fallback, size = 16, className }: Omit<LabelProps, 'swatch' | 'compact'> & { agent: string; fallback?: string; compact?: boolean }) {
+  if (isProgram(agent, fallback)) return <ProgramLabel size={size} className={className} />;
+  return <HarnessBadge agent={agent} fallback={fallback} className={className} />;
+}
+
+/**
+ * A variant (model × agent): the model's vendor mark and name, then the harness badge. Compact uses
+ * the model's short name. The scripted baseline is its sprite and "Program".
+ */
 export function VariantLabel({
   run,
   variant,
@@ -181,20 +212,13 @@ export function VariantLabel({
 }: LabelProps & { run?: Pick<Run, 'model' | 'agent' | 'agent_name'>; variant?: Variant }) {
   const v = variant ?? variantOf(run!);
   const model = modelInfo(v.model);
-  const agent = agentInfo(v.agent, run?.agent_name);
-  const program = v.vendorSlug === 'program';
+  if (isProgram(v.agent, run?.agent_name)) return <ProgramLabel size={size} swatch={swatch} color={v.color} className={className} />;
   return (
-    <span
-      className={clsx('inline-flex items-center whitespace-nowrap', compact ? 'gap-1' : 'gap-1.5', className)}
-      title={compact ? v.name : undefined}
-      role={compact ? 'img' : undefined}
-      aria-label={compact ? v.name : undefined}
-    >
+    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap', className)} title={v.name}>
       {swatch && <Swatch color={v.color} />}
-      {!program && <BrandMark slug={v.vendorSlug} size={size} title={compact ? undefined : model.vendor.name} />}
-      {!program && !compact && <span>{model.name}</span>}
-      <BrandMark slug={v.agentSlug} size={size} title={compact ? undefined : agent.name} className={!program && !compact ? 'ml-1' : undefined} />
-      {!compact && <span>{agent.name}</span>}
+      <BrandMark slug={model.vendor.slug} size={size} title={model.vendor.name} />
+      <span>{compact ? model.short : model.name}</span>
+      <HarnessBadge agent={v.agent} fallback={run?.agent_name} />
     </span>
   );
 }
@@ -202,6 +226,6 @@ export function VariantLabel({
 /** The eval's sprite. */
 export function EvalMark({ evalId, size = 24, title, className }: { evalId: string; size?: SpriteSize; title?: string; className?: string }) {
   const { mark } = evalArt(evalId);
-  if (!mark) return <span aria-hidden className={clsx('inline-block shrink-0', SPRITE_SIZES[size], className)} />;
+  if (!mark) return <span aria-hidden className={cn('inline-block shrink-0', SPRITE_SIZES[size], className)} />;
   return <Sprite src={mark.src} size={size} alt={title ?? mark.name} className={className} />;
 }

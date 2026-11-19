@@ -2,14 +2,13 @@ import { useMemo } from 'react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
-import clsx from 'clsx';
-import { Card } from '@/components/Card';
 import { DataTable } from '@/components/DataTable';
 import { EvalPicker } from '@/components/EvalPicker';
 import { SelectField } from '@/components/SelectField';
 import { Empty, PageTitle, linkClassName } from '@/components/bits';
-import { EvalMark } from '@/components/marks';
-import { VariantShort } from '@/components/VariantShort';
+import { BrandMark, EvalMark, VariantLabel } from '@/components/marks';
+import { Button } from '@/components/ui/button';
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { indexQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
 import { outcomeWord } from '@/lib/evals';
@@ -17,6 +16,7 @@ import { capitalize, formatClock, formatCost, formatInt, MISSING } from '@/lib/f
 import { resultValue } from '@/lib/runResult';
 import { inScope, useDocumentTitle, useScope, useScopeUpdate, useSearchUpdate } from '@/lib/search';
 import { agentInfo, modelInfo, variantOf } from '@/lib/series';
+import { cn } from '@/lib/utils';
 
 const route = getRouteApi('/runs/');
 const PAGE_SIZE = 50;
@@ -55,11 +55,11 @@ function ResultCell({ run, e }: { run: Run; e: Eval | undefined }) {
           role="img"
           aria-label={word}
           title={word}
-          className={clsx('size-2 shrink-0 rounded-full', word === 'Finished' ? 'bg-success' : 'border-2 border-danger')}
+          className={cn('size-2 shrink-0 rounded-full', word === 'Finished' ? 'bg-success' : 'border-2 border-destructive')}
         />
       )}
       <span className="font-medium tabular-nums">{formatInt(value)}</span>
-      {e && <span className="text-xs text-muted">{e.measure.toLowerCase()}</span>}
+      {e && <span className="text-xs text-muted-foreground">{e.measure.toLowerCase()}</span>}
     </span>
   );
 }
@@ -89,7 +89,7 @@ export function RunsPage() {
   );
 
   const models = [...new Set(data.runs.map(r => r.model))]
-    .map(m => ({ value: m, label: modelInfo(m).name }))
+    .map(m => ({ value: m, label: modelInfo(m).name, mark: <BrandMark slug={modelInfo(m).vendor.slug} size={16} /> }))
     .sort((a, b) => a.label.localeCompare(b.label));
   const agents = [...new Map(data.runs.map(r => [r.agent, { value: r.agent, label: agentInfo(r.agent, r.agent_name).name }])).values()].sort((a, b) =>
     a.label.localeCompare(b.label)
@@ -111,10 +111,10 @@ export function RunsPage() {
                   loading="lazy"
                   width={48}
                   height={27}
-                  className="h-7 w-12 max-w-none rounded-xs bg-background object-cover"
+                  className="h-7 w-12 max-w-none rounded-sm bg-muted object-cover"
                 />
               ) : (
-                <span className="block h-7 w-12 rounded-xs bg-background" />
+                <span className="block h-7 w-12 rounded-sm bg-muted" />
               )}
               <EvalMark evalId={row.original.eval} size={24} title={row.original.e?.title} />
             </span>
@@ -123,7 +123,7 @@ export function RunsPage() {
         col.accessor(r => variantOf(r).name, {
           id: 'variant',
           header: 'Variant',
-          cell: ({ row }) => <VariantShort variant={variantOf(row.original)} />,
+          cell: ({ row }) => <VariantLabel run={row.original} compact />,
         }),
         col.accessor(r => (r.success ? 1e9 : 0) + (resultValue(r) ?? -1), {
           id: 'result',
@@ -168,7 +168,7 @@ export function RunsPage() {
             <Link
               to="/runs/$runId"
               params={{ runId: getValue() }}
-              className={clsx(linkClassName, 'font-mono text-xs text-muted')}
+              className={cn(linkClassName, 'font-mono text-xs text-muted-foreground')}
               onClick={event => event.stopPropagation()}
             >
               {getValue()}
@@ -182,12 +182,12 @@ export function RunsPage() {
   const filtered = Boolean(search.eval || search.batch || search.outcome || scope.model.length || scope.agent.length || scope.vendor.length);
 
   return (
-    <div className="flex flex-col gap-6">
+    <>
       <PageTitle>Runs</PageTitle>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         <EvalPicker evals={data.evals} value={search.eval} allLabel="All evals" onChange={v => setSearch({ eval: v }, { resetPage: true })} />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:max-w-4xl">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:max-w-4xl">
           <SelectField label="Model" allLabel="All" value={scope.model[0]} options={models} onChange={v => setScope({ model: v ? [v] : [] })} />
           <SelectField label="Agent" allLabel="All" value={scope.agent[0]} options={agents} onChange={v => setScope({ agent: v ? [v] : [] })} />
           <SelectField
@@ -207,34 +207,32 @@ export function RunsPage() {
         </div>
       </div>
 
-      <Card
-        title={rows.length === 1 ? '1 run' : `${formatInt(rows.length)} runs`}
-        actions={
-          filtered ? (
-            <button
-              type="button"
-              onClick={() => navigate({ to: '/runs', search: { model: [], agent: [], vendor: [] } as never })}
-              className="h-7 rounded-sm px-2.5 text-xs font-medium text-muted outline -outline-offset-1 outline-border transition-colors hover:bg-background hover:text-foreground"
-            >
-              Clear filters
-            </button>
-          ) : undefined
-        }
-        flush
-      >
-        <DataTable
-          data={rows}
-          columns={columns}
-          getRowId={r => r.id}
-          sort={search.sort}
-          onSortChange={sort => setSearch({ sort }, { resetPage: true })}
-          onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.id } })}
-          page={search.page}
-          pageSize={PAGE_SIZE}
-          onPageChange={page => setSearch({ page })}
-          empty={<Empty>No runs match these filters.</Empty>}
-        />
+      <Card>
+        <CardHeader>
+          <CardTitle>{rows.length === 1 ? '1 run' : `${formatInt(rows.length)} runs`}</CardTitle>
+          {filtered && (
+            <CardAction>
+              <Button variant="outline" size="sm" onClick={() => navigate({ to: '/runs', search: { model: [], agent: [], vendor: [] } as never })}>
+                Clear filters
+              </Button>
+            </CardAction>
+          )}
+        </CardHeader>
+        <CardContent className="px-0">
+          <DataTable
+            data={rows}
+            columns={columns}
+            getRowId={r => r.id}
+            sort={search.sort}
+            onSortChange={sort => setSearch({ sort }, { resetPage: true })}
+            onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.id } })}
+            page={search.page}
+            pageSize={PAGE_SIZE}
+            onPageChange={page => setSearch({ page })}
+            empty={<Empty>No runs match these filters.</Empty>}
+          />
+        </CardContent>
       </Card>
-    </div>
+    </>
   );
 }

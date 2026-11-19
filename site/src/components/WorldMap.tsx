@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { loadTrimmedSprite, type TrimmedSprite } from '@/lib/assets';
 import { imageToTile, indexAt, MAP_IMAGE, MAP_IMAGE_2X, mapMetaQuery, onSurface, roundView, tileToImage, type MapMeta, type MapView, type PathPoint } from '@/lib/map';
+import { Button } from '@/components/ui/button';
 import { useThemeColors } from '@/lib/theme';
 
 export interface MapPath {
@@ -244,11 +245,9 @@ export function WorldMap({
     const minSpan = (8 * meta.px_per_tile) / 2;
     const w = Math.max(x1 - x0, minSpan);
     const h = Math.max(y1 - y0, minSpan);
+    // clampScale stops at the map filling the frame: paths at the map's edge give up their padding
     const s = clampScale(meta, size, Math.min((size.w - 2 * padding) / w, (size.h - 2 * padding) / h));
-    // Slide the frame back onto the map where it would show past an edge; the paths stay in view
-    const within = (c: number, half: number, extent: number): number =>
-      half * 2 >= extent ? c : Math.min(extent - half, Math.max(half, c));
-    return { cx: within((x0 + x1) / 2, size.w / 2 / s, meta.width), cy: within((y0 + y1) / 2, size.h / 2 / s, meta.height), s };
+    return clampCentre(meta, { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, s }, size);
   }, [meta, markers, padding, prepared, size]);
 
   const draw = useCallback(() => {
@@ -356,7 +355,7 @@ export function WorldMap({
     if (!meta || size.w === 0) return;
     if (view) {
       const [cx, cy] = tileToImage(meta, view[0], view[1]);
-      camera.current = { cx, cy, s: clampScale(meta, size, view[2] / meta.px_per_tile) };
+      camera.current = clampCentre(meta, { cx, cy, s: clampScale(meta, size, view[2] / meta.px_per_tile) }, size);
     } else {
       camera.current = fitRef.current();
     }
@@ -384,7 +383,7 @@ export function WorldMap({
       const ix = cam.cx + (px - size.w / 2) / cam.s;
       const iy = cam.cy + (py - size.h / 2) / cam.s;
       const s = clampScale(meta, size, cam.s * factor);
-      camera.current = clampCentre(meta, { cx: ix - (px - size.w / 2) / s, cy: iy - (py - size.h / 2) / s, s });
+      camera.current = clampCentre(meta, { cx: ix - (px - size.w / 2) / s, cy: iy - (py - size.h / 2) / s, s }, size);
       requestDraw();
     },
     [meta, requestDraw, size]
@@ -431,7 +430,7 @@ export function WorldMap({
       return;
     }
     if (active.size === 1) {
-      camera.current = clampCentre(meta, { ...cam, cx: cam.cx - (x - previous.x) / cam.s, cy: cam.cy - (y - previous.y) / cam.s });
+      camera.current = clampCentre(meta, { ...cam, cx: cam.cx - (x - previous.x) / cam.s, cy: cam.cy - (y - previous.y) / cam.s }, size);
       active.set(event.pointerId, { x, y });
       moved.current = true;
       requestDraw();
@@ -446,7 +445,7 @@ export function WorldMap({
       const my = (y + other.y) / 2;
       const px = (previous.x + other.x) / 2;
       const py = (previous.y + other.y) / 2;
-      camera.current = clampCentre(meta, { ...cam, cx: cam.cx - (mx - px) / cam.s, cy: cam.cy - (my - py) / cam.s });
+      camera.current = clampCentre(meta, { ...cam, cx: cam.cx - (mx - px) / cam.s, cy: cam.cy - (my - py) / cam.s }, size);
       moved.current = true;
       zoomAt(mx, my, after / before);
     }
@@ -458,15 +457,9 @@ export function WorldMap({
   };
 
   const button = (text: string, title: string, onClick: () => void) => (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      onClick={onClick}
-      className="h-7 min-w-7 bg-surface px-2 text-xs font-medium text-foreground outline -outline-offset-1 outline-border transition-colors not-first:-ml-px first:rounded-l-sm last:rounded-r-sm hover:bg-background focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary-50"
-    >
+    <Button type="button" variant="outline" size="sm" title={title} aria-label={title} onClick={onClick}>
       {text}
-    </button>
+    </Button>
   );
 
   const failed = metaFailed || imageFailed;
@@ -488,9 +481,9 @@ export function WorldMap({
         }}
       />
       {failed ? (
-        <p className="absolute inset-0 flex items-center justify-center text-sm text-muted">The map could not be loaded.</p>
+        <p className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">The map could not be loaded.</p>
       ) : (
-        <div className="absolute top-2 right-2 flex">
+        <div className="absolute top-2 right-2 flex gap-1">
           {button('+', 'Zoom in', () => {
             zoomAt(size.w / 2, size.h / 2, 2);
             commit();
@@ -512,14 +505,17 @@ export function WorldMap({
 
 /** Keep the zoom between a little wider than the whole map and MAX_ZOOM pixels per tile. */
 function clampScale(meta: MapMeta, size: { w: number; h: number }, s: number): number {
-  const min = Math.min(size.w / meta.width, size.h / meta.height) / 2;
+  // Zoomed out no further than the map filling the frame, so the frame never shows past the map
+  const min = Math.max(size.w / meta.width, size.h / meta.height);
   return Math.min(MAX_ZOOM / meta.px_per_tile, Math.max(min, s));
 }
 
-/** Keep the view's centre on the map image, so panning can't lose the map. */
-function clampCentre(meta: MapMeta | undefined, cam: Camera): Camera {
+/** Keep the frame on the map image, so panning never shows past its edges. */
+function clampCentre(meta: MapMeta | undefined, cam: Camera, size: { w: number; h: number }): Camera {
   if (!meta) return cam;
-  return { ...cam, cx: Math.min(meta.width, Math.max(0, cam.cx)), cy: Math.min(meta.height, Math.max(0, cam.cy)) };
+  const within = (c: number, half: number, extent: number): number =>
+    half * 2 >= extent ? extent / 2 : Math.min(extent - half, Math.max(half, c));
+  return { ...cam, cx: within(cam.cx, size.w / 2 / cam.s, meta.width), cy: within(cam.cy, size.h / 2 / cam.s, meta.height) };
 }
 
 function markerHit(meta: MapMeta, cam: Camera, size: { w: number; h: number }, m: MapMarker, sprite: TrimmedSprite | undefined, x: number, y: number): boolean {

@@ -116,22 +116,16 @@ export function useThemeColors(): ThemeColors {
     };
     return {
       theme,
-      primary: resolve('--color-primary'),
-      background: resolve('--color-background'),
-      surface: resolve('--color-surface'),
-      border: resolve('--color-border'),
-      foreground: resolve('--color-foreground'),
-      muted: resolve('--color-muted'),
-      success: resolve('--color-success'),
-      warning: resolve('--color-warning'),
-      danger: resolve('--color-danger'),
+      primary: resolve('--primary'),
+      background: resolve('--background'),
+      surface: resolve('--card'),
+      border: resolve('--border'),
+      foreground: resolve('--foreground'),
+      muted: resolve('--muted-foreground'),
+      success: resolve('--success'),
+      warning: resolve('--warning'),
+      danger: resolve('--destructive'),
       resolve,
     };
   }, [theme]);
-}
-
-/** A colour at part of its strength, for the canvas. */
-export function withAlpha(rgb: string, alpha: number): string {
-  const m = rgb.match(/rgba?\((\d+), (\d+), (\d+)/);
-  return m ? `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${alpha})` : rgb;
 }

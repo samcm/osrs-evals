@@ -1,0 +1,198 @@
+/* The site's theme: shadcn/ui's CSS variables set to the warm palette, light and dark, and the data
+ * colours (models, tool categories, the series palette). The only stylesheet with colour literals.
+ * `npx shadcn add` writes here (components.json → tailwind.css). */
+
+/* No sources here: the entry stylesheet (index.css) says what Tailwind scans. */
+@import 'tailwindcss' source(none);
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+/* The theme is the `dark` class on <html> (set by index.html and lib/theme.ts). */
+@custom-variant dark (&:is(.dark *));
+
+/* Light: cream page, near-white cards, warm hairlines, terracotta primary. */
+:root {
+  color-scheme: light;
+  --radius: 0.5rem;
+
+  --background: #efeee5;
+  --foreground: #2c251e;
+  --card: #fbfaf6;
+  --card-foreground: #2c251e;
+  --popover: #fbfaf6;
+  --popover-foreground: #2c251e;
+  --primary: #c95f3f;
+  --primary-foreground: #ffffff;
+  --secondary: #e6e3d6;
+  --secondary-foreground: #2c251e;
+  --muted: #e9e7dc;
+  --muted-foreground: #7d6b51;
+  --accent: #e9e7dc;
+  --accent-foreground: #2c251e;
+  --destructive: #af3d36;
+  --success: #337344;
+  --warning: #a56217;
+  --border: #dcd7c5;
+  --input: #d4cfbc;
+  --ring: #c95f3f;
+
+  /* The series palette: shadcn's chart-1…5 plus ten more, the same hues in both themes. Never colour
+   * by position: series.ts and tools.ts give every model and tool category a fixed hue. */
+  --chart-0: var(--color-data-blue);
+  --chart-1: var(--color-data-emerald);
+  --chart-2: var(--color-data-amber);
+  --chart-3: var(--color-data-red);
+  --chart-4: var(--color-data-cyan);
+  --chart-5: var(--color-data-lime);
+  --chart-6: var(--color-data-orange);
+  --chart-7: var(--color-data-purple);
+  --chart-8: var(--color-data-pink);
+  --chart-9: var(--color-data-violet);
+  --chart-10: var(--color-data-teal);
+  --chart-11: var(--color-data-indigo);
+  --chart-12: var(--color-data-rose);
+  --chart-13: var(--color-data-fuchsia);
+  --chart-14: var(--color-data-sky);
+
+  --sidebar: #e9e7dd;
+  --sidebar-foreground: #2c251e;
+  --sidebar-primary: #c95f3f;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #dedbcd;
+  --sidebar-accent-foreground: #2c251e;
+  --sidebar-border: #dcd7c5;
+  --sidebar-ring: #c95f3f;
+}
+
+/* Dark: three distinct steps (page, card, border) so panels read without shadows. */
+.dark {
+  color-scheme: dark;
+
+  --background: #0f0f0e;
+  --foreground: #f5f5f4;
+  --card: #181817;
+  --card-foreground: #f5f5f4;
+  --popover: #1c1c1b;
+  --popover-foreground: #f5f5f4;
+  --primary: #e09770;
+  --primary-foreground: #1c130e;
+  --secondary: #2a2a28;
+  --secondary-foreground: #f5f5f4;
+  --muted: #232321;
+  --muted-foreground: #a19f9a;
+  --accent: #262624;
+  --accent-foreground: #f5f5f4;
+  --destructive: #e2726b;
+  --success: #76be86;
+  --warning: #e8a95c;
+  --border: #2c2b29;
+  --input: #3a3936;
+  --ring: #e09770;
+
+  --sidebar: #141413;
+  --sidebar-foreground: #f5f5f4;
+  --sidebar-primary: #e09770;
+  --sidebar-primary-foreground: #1c130e;
+  --sidebar-accent: #252523;
+  --sidebar-accent-foreground: #f5f5f4;
+  --sidebar-border: #2c2b29;
+  --sidebar-ring: #e09770;
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: 'Geist Variable', 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, monospace;
+  /* The game's bold font, for the wordmark only (base.css loads it). */
+  --font-game: 'RuneScape Bold 12', var(--font-sans);
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Data colours as real custom properties (static: always emitted), so ChartConfig colours, the
+ * map's canvas and swatch classes (bg-data-teal, fill-chart-3) all read the same values. Tailwind's
+ * 500 hues at about 60% chroma, so charts sit with the earthy UI. */
+@theme static {
+  --color-data-red: oklch(63.7% 0.147 25.3);
+  --color-data-orange: oklch(70.5% 0.132 47.6);
+  --color-data-amber: oklch(74% 0.117 70.1);
+  --color-data-yellow: oklch(74% 0.114 86);
+  --color-data-lime: oklch(74% 0.144 130.8);
+  --color-data-green: oklch(72.3% 0.136 149.6);
+  --color-data-emerald: oklch(69.6% 0.105 162.5);
+  --color-data-teal: oklch(70.4% 0.1 182.5);
+  --color-data-cyan: oklch(71.5% 0.1 215.2);
+  --color-data-sky: oklch(68.5% 0.105 237.3);
+  --color-data-blue: oklch(62.3% 0.133 259.8);
+  --color-data-indigo: oklch(62% 0.144 277.1);
+  --color-data-violet: oklch(62% 0.15 292.7);
+  --color-data-purple: oklch(62.7% 0.15 303.9);
+  --color-data-fuchsia: oklch(66.7% 0.15 322.1);
+  --color-data-pink: oklch(65.6% 0.149 354.3);
+  --color-data-rose: oklch(64.5% 0.15 16.4);
+  --color-data-slate: oklch(62% 0.03 257.4);
+
+  --color-chart-0: var(--chart-0);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+  --color-chart-9: var(--chart-9);
+  --color-chart-10: var(--chart-10);
+  --color-chart-11: var(--chart-11);
+  --color-chart-12: var(--chart-12);
+  --color-chart-13: var(--chart-13);
+  --color-chart-14: var(--chart-14);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}

@@ -15,7 +15,7 @@ way to dig into that answer.
 
 | Page | Question it answers first |
 | --- | --- |
-| `/` | Which model and agent does best at what? (variant × eval grid, then every eval's progress curves) |
+| `/` | For each goal in the game, which model in which harness does best? (a card per eval: median progress over the budget, then a ranked leaderboard) |
 | `/evals/$evalId` | How did each run progress through the game, and what did it cost? |
 | `/runs/$runId` | What did this agent do, minute by minute, in the game and in its head? |
 | `/compare` | How do models and agents differ on any one measure, cut any way? |
@@ -45,9 +45,17 @@ way to dig into that answer.
 
 React 19, Vite, TypeScript, `@tanstack/react-router` (file routes in `src/routes/`, kept thin; page
 UI in `src/pages/`), `@tanstack/react-query` for loading the JSON (components never call `fetch`
-directly; use the query options in `src/data/`), `@tanstack/react-table` for tables, Tailwind 4 with
-the tokens in `src/styles/tokens.css`, `echarts` + `echarts-for-react` for every chart, Geist and
-Geist Mono via `@fontsource-variable`. No other UI or chart libraries.
+directly; use the query options in `src/data/`), `@tanstack/react-table` for tables, Tailwind 4,
+Geist and Geist Mono via `@fontsource-variable`.
+
+**Use the libraries; don't hand-roll UI.** Every component comes from **shadcn/ui** (Radix
+primitives, in `src/components/ui/`, added with `npx shadcn@latest add <name>`): Card, Button,
+Badge, Table, Tabs, ToggleGroup, Select, Tooltip, Popover, Command, Slider, Sidebar, Breadcrumb,
+Collapsible, Skeleton and so on. Every chart is a **shadcn chart** (`ChartContainer`,
+`ChartTooltip`, `ChartLegend` over Recharts). Use their default spacing, sizes and structure; a
+page composes them and never re-styles their padding, radius or type. When a library component
+almost fits, use it as is; edit the generated file in `components/ui/` only to change the whole
+site's look, never for one page. The only custom-drawn component is the world map.
 
 lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never their code.
 
@@ -68,11 +76,13 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
 
 ## Identity: logos, colours, sprites
 
-- **Models** show their vendor's mark (Anthropic, OpenAI, Google, …) beside the model name.
-  **Agents** show their harness's mark (Claude Code, Codex, OpenCode, Amp; bash for model + bash).
-  The scripted baseline ("Program") uses a game sprite. Marks are in `public/assets/brands/`, drawn
-  by `BrandMark` as a one-colour CSS mask in `foreground`, so they suit both themes. Sizes: 14px in
-  legends and tooltips, 16px inline and in nav, 20px in table rows, 40px in page headers.
+- **Models** show their vendor's mark (Anthropic, OpenAI, Google, …) beside the model name. Marks
+  are in `public/assets/brands/`, drawn by `BrandMark` as a one-colour CSS mask in the text colour,
+  so they suit both themes. Sizes: 14px in legends and tooltips, 16px inline and in nav, 20px in
+  table rows, 40px in page headers.
+- **Agent harnesses** are a quiet `Badge` with the harness's name after the model ("Claude Code",
+  "Codex", "bash"), never a second logo: two marks side by side read as noise. The scripted
+  baseline ("Program") has no model; it shows its game sprite and its name.
 - Logos are trademarks of their owners, used only to name their products. Never recolour them into
   series colours, alter their shape, or use them as decoration. Sources and licences are listed in
   `public/assets/brands/SOURCES.md`.
@@ -90,22 +100,21 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
 
 ## Visual rules
 
-The look follows ethPandaOps lab: a warm, quiet, dense instrument panel. Charts are artifacts, not
-decoration.
+A warm, quiet, dense instrument panel, after ethPandaOps lab, built from shadcn/ui. Charts are
+artifacts, not decoration.
 
-- **Tokens only.** Every colour, size and radius is a token in `tokens.css`, used as a Tailwind
-  class. No hex in components, no raw Tailwind palette, no arbitrary values, no `dark:` variants.
-  Name tokens for their role (`danger`, `muted`), never their look. Chart code resolves tokens
-  through `useThemeColors`.
-- **Three depth steps:** page (`background`), panel (`surface`), hairline (`border`). No shadows,
-  glows, gradients, blur, or lift on hover.
+- **The theme is shadcn's CSS variables** (`--background`, `--card`, `--border`, `--primary`,
+  `--muted-foreground`, `--chart-1…`), set in `src/styles/` to the warm palette (cream page, white
+  cards, terracotta primary) for light and dark. Use the semantic classes (`bg-card`,
+  `text-muted-foreground`, `border`); no hex, no raw Tailwind palette, no arbitrary values, no
+  `dark:` variants in pages. Data colours (models, tool categories) are CSS variables too.
+- **Depth:** page, card, border. No shadows beyond the library's defaults, no glows, gradients, blur
+  or lift on hover.
 - **Type:** Geist for text and numbers, Geist Mono only for identifiers (run ids, model ids, code).
-  Body 14px, page title 24px semibold, card title 14px semibold, column labels 12px muted, nothing
-  under 10px. Numbers use `tabular-nums`. No uppercase-tracked headings.
+  Numbers use `tabular-nums`. No uppercase-tracked headings. Use the library's sizes.
 - **One accent** (terracotta `primary`) marks the selected control. Never navigation.
-- **Status colour carries judgement only** (`success`, `danger`, `warning`) and always comes with a
-  word or a mark. A plain number stays `foreground`. Heat scales use one hue in tint steps.
-- **Radius:** 4px for badges, 6px for every container and control.
+- **Status colour carries judgement only** and always comes with a word or a mark. A plain number
+  stays in the text colour. Heat scales use one hue in tint steps.
 - **Alignment:** cards in a row share a height; no orphan gaps. Column headers never wrap.
 
 ## Copy rules
@@ -125,23 +134,27 @@ decoration.
 
 ## Charts
 
-- ECharts with the registered `site` theme (`src/lib/echarts-theme.ts`): Geist, muted 11px axis
-  labels, value axis without an axis line and with hairline split lines in `border`, category/time
-  axis with its line and no split lines, tooltips on `surface` with a 1px `border` and 6px radius.
-- Lines 1.5px, not smoothed. Counts, scores and CDFs are step lines.
+- shadcn charts: one `ChartContainer` per chart with a `ChartConfig` built from `src/lib/series.ts`
+  (labels, marks and colours), `ChartTooltip` with `ChartTooltipContent` (or a content component
+  built from it), the library's axis and grid look. No hand-made chart chrome.
+- Lines 1.5–2px, not smoothed. Counts, scores and CDFs are step lines (`type="stepAfter"`).
 - Series are named and labelled with their marks: legends and line-end labels carry the logo.
   Legends toggle series (`hide=`) and isolate one on a second click (`focus=`).
-- Charts on one page that share an x axis share the x measure control and a synced crosshair.
+- Charts on one page that share an x axis share the x measure control and a synced crosshair
+  (Recharts `syncId`). Recharts syncs only at identical x values, so sample every synced chart on
+  the same x grid; a chart with no lines draws no synced cursor, so pass the hovered x down as
+  state instead (the eval page's quest strip does).
+- Ticks are round (0, 10K, 20K; whole minutes; 1-2-5 dollars), from `src/lib/ticks.ts` and
+  `src/lib/logAxis.ts`, and one axis never mixes "5,000" with "10K".
+- End labels are the vendor mark and the short model name only; the harness is carried by the
+  line style and the legend, so a label never truncates.
 - The usual cuts: x as game ticks, wall-clock seconds, cost or model calls; group by model, vendor,
   agent or variant; aggregate as runs, median or best; log or linear scale for cost.
 - Cost axes that compare runs are log scale with 1-2-5 ticks formatted `$0.01`, `$0.02`, `$0.05`
   (`src/lib/logAxis.ts`). One run's cumulative spend, stacked by token kind, is linear.
-- Synced crosshairs (`Chart` `group`) only follow when the charts share x min and max, grid left
-  and right, and the same first series: give each chart in a group an identical invisible series
-  first, or pass the hover position through state as the eval page's quest strip does.
 - A Pareto frontier is a faint dashed line drawn under the points, through non-dominated points
   only; frontier points are labelled.
-- Line-end labels never collide; drop or nudge them rather than overlap.
+- Line-end labels never collide; drop or nudge them rather than overlap (`layoutEndLabels`).
 - Axes stop at the budget; a run that ends a few ticks over is clamped, not stretched.
 - Never: pie charts, 3D, dual axes with unrelated scales, smoothed counts, a palette of your own.
 
@@ -150,19 +163,20 @@ decoration.
 `WorldMap` draws the 2004scape world map (`public/assets/map/`) with paths from the run recordings.
 Paths are coloured by model (eval page) or by time (run page). Its view (centre, zoom) and the
 selected time are URL state. Underground positions (z ≥ 6400) are not drawn on the surface map.
-Never letterbox the map: give it `fitHeight` so the frame takes the paths' shape (up to `height`),
-or a height that matches its neighbour; the fitted view slides back onto the map at the edges.
+Never letterbox the map or show past its edges: give it `fitHeight` so the frame takes the paths'
+shape (up to `height`), or a height that matches its neighbour. Zoom stops where the map fills the
+frame, and the view is kept on the map.
 Markers are sprites: quest icons where a quest was done, the hitpoints heart for a death, skill
 icons for level-ups.
 
 ## Layout
 
-- Left sidebar on large screens, a menu button below `lg`. Eval items in the sidebar carry the
-  eval's sprite. Sticky 48px top bar with the breadcrumb, which never loses its last crumb.
-- Container `p-4 sm:p-6 lg:p-8`, max width 2xl screen, `gap-6` grids.
-- Tables: about 40px rows, hairline dividers, no zebra stripes, `hover:bg-background`, numbers
-  right-aligned, headers on one line. The table's most important columns come first; ids come last.
-  Wide tables scroll inside their panel; the page never scrolls sideways.
+- shadcn `Sidebar` (collapsible to a sheet on small screens) with the evals, each with its sprite,
+  and a header with `SidebarTrigger` and the `Breadcrumb`, which never loses its last crumb.
+- One page container with the library's spacing; sections are `Card`s in grids with one gap size.
+- Tables are shadcn `Table` driven by TanStack Table: numbers right-aligned, headers on one line,
+  most important columns first, ids last. Wide tables scroll inside their card; the page never
+  scrolls sideways.
 - Every page works at 375px wide.
 
 ## Data
@@ -191,3 +205,5 @@ everywhere: a faint dashed ring or underline on its icon, "≈" and one line of 
   scroll to each chart and capture the viewport to judge it.
 - Change every control, reload, and check the same view comes back from the URL.
 - Read every string on the page once more and delete the ones that restate something.
+- Grep your files for hand-tuned spacing on library components (`p-*`, `px-*`, `mt-*` on a Card,
+  CardHeader, Table or Button) and remove it: the library's spacing is the site's spacing.

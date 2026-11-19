@@ -1,36 +1,15 @@
-/** What the run page derives from a run: one clock for ticks and seconds, tool category and token colours, turn helpers. */
+/** What the run page derives from a run: one clock for ticks and seconds, round axis ticks, turn helpers, the transient moment. */
 
 import { useSyncExternalStore } from 'react';
 import type { Action, RunDetail, ToolCategory, Turn } from '@/data/types';
-import type { SeriesColor } from '@/lib/series';
 
 export type XMeasure = 'ticks' | 'seconds';
 
-/** Tool categories, keyed by id, with the site-wide label and colour. */
-export { TOOL_CATEGORY as CATEGORIES } from '@/lib/tools';
+/** Activity: ticks walking and running, as CSS colours. */
+export const WALKING = 'var(--color-data-sky)';
+export const RUNNING = 'var(--color-data-blue)';
 
-/** A data hue as a series colour, with literal class names so Tailwind generates them. */
-const colour = (name: string, swatchClassName: string, borderClassName: string, fillClassName: string): SeriesColor => ({
-  token: `--color-${name}`,
-  swatchClassName,
-  borderClassName,
-  fillClassName,
-});
-
-/** Kinds of token, cumulative in series.calls, and the price key of each. */
-export const TOKEN_KINDS = [
-  { id: 'input', label: 'Input', key: 'input_uncached', price: 'input', color: colour('data-blue', 'bg-data-blue', 'border-data-blue', 'fill-data-blue') },
-  { id: 'cache_write', label: 'Cache writes', key: 'cache_write', price: 'input_cache_write', color: colour('data-violet', 'bg-data-violet', 'border-data-violet', 'fill-data-violet') },
-  { id: 'cache_read', label: 'Cache reads', key: 'cache_read', price: 'input_cache_read', color: colour('data-cyan', 'bg-data-cyan', 'border-data-cyan', 'fill-data-cyan') },
-  { id: 'output', label: 'Output', key: 'output', price: 'output', color: colour('data-rose', 'bg-data-rose', 'border-data-rose', 'fill-data-rose') },
-] as const;
-
-export const SDK_OK = colour('data-sky', 'bg-data-sky', 'border-data-sky', 'fill-data-sky');
-export const SDK_FAILED = colour('danger', 'bg-danger', 'border-danger', 'fill-danger');
-export const WALKING = colour('data-sky', 'bg-data-sky', 'border-data-sky', 'fill-data-sky');
-export const RUNNING = colour('data-blue', 'bg-data-blue', 'border-data-blue', 'fill-data-blue');
-
-/** The map's path colours from the run's start to its end; also the scrubber's track. */
+/** The map's path colours from the run's start to its end. */
 export const TIME_RAMP = ['--color-data-cyan', '--color-data-violet', '--color-data-orange'] as const;
 
 const ANIMATIONS: Record<string, string> = {
@@ -201,4 +180,35 @@ export function useMoment(): Moment {
     },
     () => moment
   );
+}
+
+/** A round step for an axis from 0 to `max` in about `count` intervals: 1, 2 or 5 times a power of ten. */
+export function niceStep(max: number, count = 3, integer = false): number {
+  if (!(max > 0)) return 1;
+  const raw = max / count;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 5, 10].map(m => m * power).find(s => s >= raw) ?? 10 * power;
+  return integer ? Math.max(1, Math.round(step)) : step;
+}
+
+/** Round ticks from 0 to at least `max`; the last is the axis top. */
+export function niceTicks(max: number, count = 3, integer = false): number[] {
+  const step = niceStep(max, count, integer);
+  const top = Math.max(step, Math.ceil(max / step - 1e-9) * step);
+  return Array.from({ length: Math.round(top / step) + 1 }, (_, i) => Number((i * step).toPrecision(12)));
+}
+
+/** Round ticks inside 0…max (an axis that stops at the run's end): never past it. */
+export function ticksWithin(max: number, measure: XMeasure): number[] {
+  const step =
+    measure === 'seconds'
+      ? ([30, 60, 120, 300, 600, 900, 1200, 1800, 3600].find(s => max / s <= 7) ?? 3600)
+      : niceStep(max, 6, true);
+  return Array.from({ length: Math.floor(max / step) + 1 }, (_, i) => i * step);
+}
+
+/** An axis count: 0, 500, 5K, 10K, 1.5M. */
+export function formatCompact(value: number): string {
+  if (Math.abs(value) < 1000) return String(Number(value.toPrecision(6)));
+  return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 }

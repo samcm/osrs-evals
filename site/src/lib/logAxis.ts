@@ -1,6 +1,5 @@
 /** A log value axis on 1-2-5 steps, for cost and other quantities that span decades. */
 
-import { valueAxis, type ChartChromeColors } from './chartChrome';
 import { niceSteps, stepAbove, stepBelow } from './stats';
 
 /** The 1-2-5 range around the positive values, or null when there are none. */
@@ -13,21 +12,8 @@ export function logRange(values: number[]): [number, number] | null {
   return [lo, hi];
 }
 
-/** A log axis from lo to hi with labels and split lines on the 1-2-5 steps. */
-export function logAxis(colors: ChartChromeColors, lo: number, hi: number, format: (value: number) => string) {
-  const base = valueAxis(colors);
-  let steps = niceSteps(lo, hi);
-  // Over many decades every 1-2-5 label would crowd: keep the powers of ten
-  if (steps.length > 9) steps = steps.filter(v => Math.abs(Math.log10(v) - Math.round(Math.log10(v))) < 1e-9);
-  return {
-    type: 'log' as const,
-    logBase: 10,
-    min: lo,
-    max: hi,
-    ...base,
-    axisLabel: { ...base.axisLabel, customValues: steps, formatter: (v: number) => format(v), hideOverlap: true },
-    axisTick: { show: false, customValues: steps },
-    splitLine: base.splitLine,
-    minorSplitLine: { show: false },
-  };
+/** The 1-2-5 ticks from lo to hi; over many decades, only the powers of ten so labels don't crowd. */
+export function logTicks(lo: number, hi: number): number[] {
+  const steps = niceSteps(lo, hi);
+  return steps.length > 9 ? steps.filter(v => Math.abs(Math.log10(v) - Math.round(Math.log10(v))) < 1e-9) : steps;
 }

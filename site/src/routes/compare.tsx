@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { ComparePage } from '@/pages/compare/ComparePage';
 import { METRIC_IDS } from '@/pages/compare/metrics';
-import { defineSearch, oneOf, text } from '@/lib/search';
+import { defineSearch, legendParams, oneOf, text } from '@/lib/search';
 
 export const compareSearch = defineSearch({
   metric: oneOf(METRIC_IDS, 'cost'),
@@ -12,6 +12,8 @@ export const compareSearch = defineSearch({
   scale: oneOf(['log', 'linear'], undefined),
   /** The tool-call mix's grouping */
   mix: oneOf(['agent', 'variant', 'model'], 'agent'),
+  /** Hidden or isolated variants' points */
+  ...legendParams,
 });
 
 export const Route = createFileRoute('/compare')({

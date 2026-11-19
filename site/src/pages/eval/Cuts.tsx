@@ -1,24 +1,40 @@
-/** What each variant spent for its result (a Pareto), and how soon runs finished (a success CDF). */
+/** What each variant spent for its result (a Pareto), how soon runs finished (a success CDF), and attempts. */
 
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import type { EChartsOption } from 'echarts';
-import { Card } from '@/components/Card';
-import { Chart } from '@/components/Chart';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
+import { CartesianGrid, ComposedChart, Line, LineChart, Scatter, XAxis, YAxis, usePlotArea, useXAxisScale, useYAxisScale } from 'recharts';
+import { cn } from '@/lib/utils';
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { DataTable } from '@/components/DataTable';
 import { Empty, ParamSegmented } from '@/components/bits';
 import { VariantLabel } from '@/components/marks';
+import {
+  EndLabels,
+  SeriesLabel,
+  SeriesLegend,
+  SeriesTooltip,
+  crosshairCursor,
+  gridProps,
+  lineProps,
+  logAxisProps,
+  showEndLabels,
+  xAxisProps,
+  yAxisProps,
+} from '@/components/charts';
 import type { Eval, Run } from '@/data/types';
-import { getChartTooltipChrome, getChartXAxisName, tooltipRow, tooltipTitle } from '@/lib/chartChrome';
-import { layoutEndLabels, markRich, markText, useBrandImages } from '@/lib/chartKit';
-import { capitalize, formatInt, formatPercent } from '@/lib/format';
+import { scatterShape, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
+import { capitalize, formatInt } from '@/lib/format';
 import type { LegendState } from '@/lib/legend';
-import { median, paretoFrontier, stepAbove, stepBelow } from '@/lib/stats';
-import { useThemeColors, withAlpha } from '@/lib/theme';
+import { median, paretoFrontier } from '@/lib/stats';
 import { useWidth } from '@/lib/useWidth';
-import { LINE_TYPE, formatX, labelWidth, placePointLabels, variantShortText, variantSlugs, xAxisFor, yAxisFor } from './chartBits';
-import { niceMax, type CdfX, type ParetoX, type RankedVariant, type XRange } from './model';
+import { formatTick, formatX, labelWidth, placePointLabels, roundMax, roundTicks, shortSeries } from './chartBits';
+import type { CdfX, ParetoX, RankedVariant } from './model';
 
-const HEIGHT = 360;
+/** Charts grow to their card's height when the card beside is taller. */
+const CHART = 'aspect-auto min-h-72 w-full flex-1';
+const LABEL_ROOM = 136;
 
 const spendOf = (run: Run, px: ParetoX): number | null => {
   if (px === 'cost') return run.cost;
@@ -34,162 +50,209 @@ const PX_NAME: Record<ParetoX, string> = {
   tokens: 'Median tokens per run',
 };
 
-function logRange(values: number[]): XRange | null {
-  const positive = values.filter(v => v > 0);
-  if (positive.length === 0) return null;
-  const lo = stepBelow(Math.min(...positive));
-  let hi = stepAbove(Math.max(...positive));
-  if (hi <= lo) hi = stepAbove(lo * 1.01);
-  return { min: lo, max: hi, log: true, budget: null };
+interface Point {
+  r: RankedVariant;
+  spec: SeriesSpec;
+  x: number;
+  y: number;
+  frontier: boolean;
+}
+
+/** A tooltip of named values, built from shadcn's ChartTooltipContent, titled by a series. */
+function PointTooltip({
+  active,
+  payload,
+  rows,
+}: {
+  active?: boolean;
+  payload?: { payload?: unknown }[];
+  rows: (datum: unknown) => { title: ReactNode; values: [string, string][] } | null;
+}) {
+  const content = active && payload?.length ? rows(payload[0].payload) : null;
+  if (!content) return null;
+  return (
+    <ChartTooltipContent
+      active
+      label="title"
+      labelFormatter={() => content.title}
+      payload={content.values.map(([name, value]) => ({ dataKey: name, name, value, payload: {} })) as never}
+      formatter={(value, name) => (
+        <div className="flex w-full items-center justify-between gap-4">
+          <span className="text-muted-foreground">{name}</span>
+          <span className="font-mono font-medium text-foreground tabular-nums">{value as string}</span>
+        </div>
+      )}
+    />
+  );
+}
+
+/** Labels beside scatter points, placed so they clear each other, the points and the plot's edges. */
+function PointLabels({ points }: { points: Point[] }) {
+  const plot = usePlotArea();
+  const x = useXAxisScale();
+  const y = useYAxisScale();
+  if (!plot || !x || !y) return null;
+  const width = (p: Point) => labelWidth(p.spec.label) + (p.spec.harness ? p.spec.harness.length * 7 + 26 : 0);
+  const placed = points.map(p => ({ p, px: Number(x(p.x)), py: Number(y(p.y)), width: width(p) }));
+  // Labels may run into the chart's margins, not past its edges
+  const positions = placePointLabels(placed, { x: 0, y: plot.y, width: plot.x + plot.width + 16, height: plot.height });
+  return (
+    <g className="pointer-events-none">
+      {placed.map((q, i) => {
+        const [pos, [left, top]] = positions[i];
+        return (
+          <foreignObject key={q.p.spec.key} x={pos.endsWith('left') ? left - 8 : left} y={top} width={q.width + 8} height={20}>
+            <div
+              className={cn(
+                'flex h-full items-center text-xs',
+                q.p.frontier ? 'text-foreground' : 'text-muted-foreground',
+                pos.endsWith('left') && 'justify-end'
+              )}
+            >
+              <SeriesLabel series={q.p.spec} size={14} />
+            </div>
+          </foreignObject>
+        );
+      })}
+    </g>
+  );
 }
 
 /** Each variant's median spend per run against its finish rate (or median result), with the frontier under the points. */
 export function ParetoCard({ e, ranked, px, legend }: { e: Eval; ranked: RankedVariant[]; px: ParetoX; legend: LegendState }) {
-  const c = useThemeColors();
-  const [ref, width] = useWidth();
-  const marks = useBrandImages(
-    ranked.flatMap(r => variantSlugs(r.variant)),
-    c.foreground,
-    14
-  );
   const target = e.target != null;
   const log = px === 'cost' || px === 'tokens';
 
-  const all = ranked.map(r => ({
-    r,
-    x: median(r.runs.map(run => spendOf(run, px))),
-    y: target ? r.finished / r.runs.length : (r.medianResult ?? 0),
-  }));
-  const points = all.filter(p => p.x != null && (!log || p.x > 0)) as { r: RankedVariant; x: number; y: number }[];
-  const left = all.filter(p => !points.includes(p as never));
-
-  const yMax = target
-    ? 1
-    : Math.max(1, ...points.map(p => p.y)) <= 10
-      ? Math.ceil(Math.max(1, ...points.map(p => p.y)))
-      : niceMax(Math.max(...points.map(p => p.y)));
-
-  const option = useMemo<EChartsOption | null>(() => {
-    if (points.length === 0 || width === 0) return null;
-    const range: XRange = log
-      ? logRange(points.map(p => p.x))!
-      : { min: 0, max: niceMax(Math.max(...points.map(p => p.x))), log: false, budget: null };
-    const frontier = paretoFrontier(
-      points,
-      p => p.x,
-      p => p.y
+  const { points, left } = useMemo(() => {
+    const all = ranked.map(r => ({
+      r,
+      spec: variantSeries(r.variant),
+      x: median(r.runs.map(run => spendOf(run, px))),
+      y: target ? r.finished / r.runs.length : (r.medianResult ?? 0),
+      frontier: false,
+    }));
+    const drawable = all.filter((p): p is Point => p.x != null && (!log || p.x > 0));
+    const frontier = new Set(
+      paretoFrontier(
+        drawable,
+        p => p.x,
+        p => p.y
+      )
     );
-    const grid = { left: 44, right: 20, top: 24, bottom: 48 };
-    const plotW = width - grid.left - grid.right;
-    const plotH = HEIGHT - grid.top - grid.bottom;
-    const f = (v: number): number => (log ? Math.log10(v) : v);
-    const positions = placePointLabels(
-      points.map(p => ({
-        px: grid.left + ((f(p.x) - f(range.min)) / (f(range.max) - f(range.min))) * plotW,
-        py: grid.top + (1 - p.y / yMax) * plotH,
-        width: labelWidth(variantSlugs(p.r.variant).length, variantShortText(p.r.variant)),
-      })),
-      { width, height: HEIGHT }
-    );
-    return {
-      animation: false,
-      grid,
-      tooltip: {
-        ...getChartTooltipChrome(c),
-        trigger: 'item',
-        formatter: (p: unknown) => {
-          const point = points[(p as { dataIndex: number }).dataIndex];
-          if (!point) return '';
-          const v = point.r.variant;
-          return (
-            tooltipTitle(v.name) +
-            tooltipRow(c.resolve(v.color.token), PX_NAME[px], formatX(point.x, px)) +
-            (target
-              ? tooltipRow(null, 'Finished', `${point.r.finished} of ${point.r.runs.length}`)
-              : tooltipRow(null, `Median ${e.measure.toLowerCase()}`, formatInt(point.y)))
-          );
-        },
-      },
-      xAxis: xAxisFor(c, range, px, PX_NAME[px]),
-      yAxis: yAxisFor(c, yMax, target ? (v: number) => formatPercent(v) : undefined),
-      series: [
-        {
-          type: 'line',
-          data: frontier.map(p => [p.x, p.y]),
-          symbol: 'none',
-          silent: true,
-          z: 1,
-          lineStyle: { width: 1.25, type: [3, 4], color: withAlpha(c.muted, 0.6) },
-          tooltip: { show: false },
-        },
-        {
-          type: 'scatter',
-          z: 3,
-          symbolSize: 11,
-          data: points.map((p, i) => {
-            const shown = legend.visible(p.r.variant.key);
-            const color = c.resolve(p.r.variant.color.token);
-            return {
-              value: [p.x, p.y],
-              key: p.r.variant.key,
-              symbol: p.r.variant.symbol,
-              itemStyle: { color, opacity: shown ? 1 : 0.25 },
-              label: {
-                show: true,
-                position: positions[i],
-                distance: 7,
-                fontSize: 11,
-                formatter: markText(marks, variantSlugs(p.r.variant), variantShortText(p.r.variant)),
-                rich: markRich(marks),
-                color: frontier.includes(p) ? c.foreground : c.muted,
-                opacity: shown ? 1 : 0.4,
-              },
-            };
-          }),
-        },
-      ],
-    } as EChartsOption;
-  }, [c, e.measure, legend, log, marks, points, px, target, width, yMax]);
+    return { points: drawable.map(p => ({ ...p, frontier: frontier.has(p) })), left: all.filter(p => !drawable.includes(p as Point)) };
+  }, [log, px, ranked, target]);
+
+  const yMax = target ? 1 : roundMax(Math.max(1, ...points.map(p => p.y)));
+  const xMax = log ? 0 : roundMax(Math.max(1, ...points.map(p => p.x)), px === 'seconds' ? 'seconds' : 'count');
+  const xAxis = log
+    ? logAxisProps(
+        points.map(p => p.x),
+        v => formatTick(v, px === 'cost' ? 'cost' : 'tokens'),
+        PX_NAME[px]
+      )
+    : xAxisProps({
+        domain: [0, xMax],
+        ticks: roundTicks(xMax, px === 'seconds' ? 'seconds' : 'count'),
+        format: v => formatTick(v, px),
+        name: PX_NAME[px],
+      });
+  const config = useMemo<ChartConfig>(
+    () => Object.fromEntries(points.map(p => [p.spec.key, { label: p.spec.label, color: p.spec.color }])),
+    [points]
+  );
+  const frontier = points.filter(p => p.frontier).sort((a, b) => a.x - b.x);
 
   return (
-    <Card
-      title="What it cost"
-      className="flex flex-col"
-      actions={
-        <ParamSegmented
-          param="px"
-          value={px}
-          label="Spend"
-          options={[
-            { value: 'cost', label: 'Cost' },
-            { value: 'seconds', label: 'Time' },
-            { value: 'ticks', label: 'Ticks' },
-            { value: 'tokens', label: 'Tokens' },
-          ]}
-        />
-      }
-    >
-      <div ref={ref}>
-        {option ? (
-          <Chart
-            option={option}
-            height={HEIGHT}
-            onEvents={{
-              click: p => {
-                const key = (p as { data?: { key?: string } }).data?.key;
-                if (key) legend.isolate(key);
-              },
-            }}
-          />
-        ) : (
-          <div style={{ height: HEIGHT }} />
-        )}
+    <Card>
+      <CardHeader>
+        <CardTitle>What it cost</CardTitle>
         {left.length > 0 && (
-          <p className="mt-2 text-xs text-muted">
-            {px === 'cost' ? 'No cost' : 'Nothing'} to place: {left.map(p => p.r.variant.name).join(', ')}.
-          </p>
+          <CardDescription>
+            {px === 'cost' ? 'No cost' : 'Nothing'} to place: {left.map(p => p.r.variant.name).join(', ')}
+          </CardDescription>
         )}
-      </div>
+        <CardAction>
+          <ParamSegmented
+            param="px"
+            value={px}
+            label="Spend"
+            options={[
+              { value: 'cost', label: 'Cost' },
+              { value: 'seconds', label: 'Time' },
+              { value: 'ticks', label: 'Ticks' },
+              { value: 'tokens', label: 'Tokens' },
+            ]}
+          />
+        </CardAction>
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col">
+        {points.length && xAxis ? (
+          <ChartContainer config={config} className={CHART}>
+            <ComposedChart margin={{ top: 16, right: 16, bottom: 0, left: 0 }}>
+              <CartesianGrid {...gridProps} />
+              <XAxis {...xAxis} dataKey="x" type="number" height={44} />
+              <YAxis
+                {...yAxisProps({
+                  domain: [0, yMax],
+                  ticks: target ? [0, 0.25, 0.5, 0.75, 1] : roundTicks(yMax),
+                  format: target ? v => `${Math.round(v * 100)}%` : formatInt,
+                })}
+                dataKey="y"
+              />
+              <ChartTooltip
+                cursor={false}
+                content={
+                  <PointTooltip
+                    rows={d => {
+                      const p = points.find(q => q === d || (q.x === (d as Point)?.x && q.y === (d as Point)?.y));
+                      if (!p) return null;
+                      return {
+                        title: <SeriesLabel series={p.spec} />,
+                        values: [
+                          [PX_NAME[px], formatX(p.x, px)],
+                          target
+                            ? ['Finished', `${p.r.finished} of ${p.r.runs.length}`]
+                            : [`Median ${e.measure.toLowerCase()}`, formatInt(p.y)],
+                        ],
+                      };
+                    }}
+                  />
+                }
+              />
+              <Line
+                data={frontier}
+                dataKey="y"
+                type="linear"
+                stroke="var(--muted-foreground)"
+                strokeOpacity={0.6}
+                strokeWidth={1.25}
+                strokeDasharray="3 4"
+                dot={false}
+                activeDot={false}
+                isAnimationActive={false}
+                legendType="none"
+              />
+              {points.map(p => (
+                <Scatter
+                  key={p.spec.key}
+                  data={[p]}
+                  dataKey="y"
+                  fill={p.spec.color}
+                  fillOpacity={legend.visible(p.spec.id) ? 1 : 0.3}
+                  shape={scatterShape(p.spec.symbol)}
+                  isAnimationActive={false}
+                  className="cursor-pointer"
+                  onClick={() => legend.isolate(p.spec.id)}
+                />
+              ))}
+              <PointLabels points={points} />
+            </ComposedChart>
+          </ChartContainer>
+        ) : (
+          <Empty>No variant here has a {px === 'cost' ? 'cost' : 'value'} to place.</Empty>
+        )}
+        <SeriesLegend series={ranked.map(r => variantSeries(r.variant))} legend={legend} kind="symbol" />
+      </CardContent>
     </Card>
   );
 }
@@ -198,207 +261,186 @@ const finishOf = (run: Run, cx: CdfX): number | null => (cx === 'ticks' ? run.ti
 
 /** Share of each variant's runs finished within a budget of ticks, time or cost. Unfinished runs never count. */
 export function SuccessCdfCard({ e, ranked, cx, legend }: { e: Eval; ranked: RankedVariant[]; cx: CdfX; legend: LegendState }) {
-  const c = useThemeColors();
   const navigate = useNavigate();
   const [ref, width] = useWidth();
-  const narrow = width > 0 && width < 420;
-  const marks = useBrandImages(
-    ranked.flatMap(r => variantSlugs(r.variant)),
-    c.foreground,
-    14
-  );
+  const labels = showEndLabels(width);
+  const specs = useMemo(() => ranked.map(r => ({ r, spec: variantSeries(r.variant) })), [ranked]);
+  const shown = specs.filter(s => legend.visible(s.spec.id));
 
-  const option = useMemo<EChartsOption | null>(() => {
-    const shown = ranked.filter(r => legend.visible(r.variant.key));
-    let range: XRange | null;
-    if (cx === 'ticks') range = { min: 0, max: e.budget_ticks, log: false, budget: null };
-    else if (cx === 'seconds') range = { min: 0, max: (e.budget_ticks * e.tick_ms) / 1000, log: false, budget: null };
-    else range = logRange(shown.flatMap(r => r.runs.map(run => run.cost ?? 0)));
-    if (!range || shown.length === 0) return null;
-    const lo = range.min;
-    const hi = range.max;
-
-    const lines = shown.map(r => {
+  const chart = useMemo(() => {
+    const costs = shown.flatMap(s => s.r.runs.map(run => run.cost));
+    const costAxis = cx === 'cost' ? logAxisProps(costs, v => formatTick(v, 'cost')) : null;
+    let lo = 0;
+    let hi: number;
+    if (cx === 'ticks') hi = e.budget_ticks;
+    else if (cx === 'seconds') hi = (e.budget_ticks * e.tick_ms) / 1000;
+    else if (costAxis) [lo, hi] = costAxis.domain as [number, number];
+    else return null;
+    const lines = shown.map(({ r, spec }) => {
       const eligible = r.runs.filter(run => cx !== 'cost' || run.cost != null);
-      const n = eligible.length;
       const finished = eligible
         .filter(run => run.success)
         .map(run => ({ run, x: Math.min(hi, Math.max(lo, finishOf(run, cx) ?? lo)) }))
         .sort((a, b) => a.x - b.x);
-      const data: { value: [number, number]; run?: Run; k?: number; symbol?: string }[] = [
-        { value: [lo, 0], symbol: 'none' },
-        ...finished.map((f, i) => ({ value: [f.x, n ? (i + 1) / n : 0] as [number, number], run: f.run, k: i + 1 })),
-      ];
-      data.push({ value: [hi, data[data.length - 1].value[1]], symbol: 'none' });
-      return { r, n, data };
+      return { spec, n: eligible.length, finished };
     });
-
-    const offsets = narrow
-      ? new Map<string, number | null>()
-      : layoutEndLabels(
-          lines.map(l => ({ id: l.r.variant.key, value: l.data[l.data.length - 1].value[1] })),
-          { min: 0, max: 1, height: HEIGHT - 24 - 32, lineHeight: 17 }
-        );
-    const right = narrow
-      ? 16
-      : Math.max(
-          20,
-          ...lines
-            .filter(l => offsets.get(l.r.variant.key) != null)
-            .map(l => labelWidth(variantSlugs(l.r.variant).length, variantShortText(l.r.variant)) + 12)
-        );
-
-    return {
-      animation: false,
-      grid: { left: 44, right, top: 24, bottom: 32 },
-      tooltip: {
-        ...getChartTooltipChrome(c),
-        trigger: 'item',
-        formatter: (p: unknown) => {
-          const { data, seriesIndex } = p as { data: { run?: Run; k?: number }; seriesIndex: number };
-          const line = lines[seriesIndex];
-          if (!data.run || !line) return '';
-          return (
-            tooltipTitle(line.r.variant.name) +
-            tooltipRow(c.resolve(line.r.variant.color.token), 'Epoch', String(data.run.epoch)) +
-            tooltipRow(null, 'Finished within', formatX(finishOf(data.run, cx), cx)) +
-            tooltipRow(null, 'Finished by then', `${data.k} of ${line.n}`)
-          );
-        },
-      },
-      xAxis: { ...xAxisFor(c, range, cx), ...(cx === 'cost' ? {} : getChartXAxisName(c)) },
-      yAxis: { ...yAxisFor(c, 1, (v: number) => formatPercent(v)), interval: 0.25 },
-      series: lines.map(l => {
-        const color = c.resolve(l.r.variant.color.token);
-        const dy = offsets.get(l.r.variant.key);
-        return {
-          type: 'line',
-          step: 'end',
-          data: l.data,
-          symbol: l.r.variant.symbol,
-          symbolSize: 6,
-          showSymbol: true,
-          color,
-          lineStyle: { width: 1.5, type: LINE_TYPE[l.r.variant.line], color },
-          itemStyle: { color },
-          emphasis: { focus: 'series' },
-          endLabel:
-            dy == null
-              ? { show: false }
-              : {
-                  show: true,
-                  offset: [0, dy],
-                  distance: 8,
-                  formatter: markText(marks, variantSlugs(l.r.variant), variantShortText(l.r.variant)),
-                  rich: markRich(marks),
-                  color,
-                  fontSize: 11,
-                },
-        };
-      }),
-    } as EChartsOption;
-  }, [c, cx, e.budget_ticks, e.tick_ms, legend, marks, narrow, ranked]);
+    const xs = [...new Set([lo, hi, ...lines.flatMap(l => l.finished.map(f => f.x))])].sort((a, b) => a - b);
+    const rows = xs.map(x => {
+      const row: Record<string, number | string> = { x };
+      for (const l of lines) {
+        const k = l.finished.filter(f => f.x <= x).length;
+        row[l.spec.key] = l.n ? k / l.n : 0;
+        const here = l.finished.filter(f => f.x === x);
+        if (here.length) row[`${l.spec.key}_run`] = here[here.length - 1].run.id;
+      }
+      return row;
+    });
+    const xAxis = costAxis
+      ? { ...costAxis, dataKey: 'x' }
+      : xAxisProps({ dataKey: 'x', domain: [lo, hi], ticks: roundTicks(hi, cx), format: v => formatTick(v, cx) });
+    return { lines, rows, xAxis };
+  }, [cx, e.budget_ticks, e.tick_ms, shown]);
 
   return (
-    <Card
-      title="Finished within"
-      className="flex flex-col"
-      actions={
-        <ParamSegmented
-          param="cx"
-          value={cx}
-          label="Budget"
-          options={[
-            { value: 'ticks', label: 'Ticks' },
-            { value: 'seconds', label: 'Time' },
-            { value: 'cost', label: 'Cost' },
-          ]}
-        />
-      }
-    >
-      <div ref={ref}>
-        {option ? (
-          <Chart
-            option={option}
-            height={HEIGHT}
-            onEvents={{
-              click: p => {
-                const run = (p as { data?: { run?: Run } }).data?.run;
-                if (run) navigate({ to: '/runs/$runId', params: { runId: run.id }, search: {} as never });
-              },
-            }}
+    <Card>
+      <CardHeader>
+        <CardTitle>Finished within</CardTitle>
+        <CardAction>
+          <ParamSegmented
+            param="cx"
+            value={cx}
+            label="Budget"
+            options={[
+              { value: 'ticks', label: 'Ticks' },
+              { value: 'seconds', label: 'Time' },
+              { value: 'cost', label: 'Cost' },
+            ]}
           />
+        </CardAction>
+      </CardHeader>
+      <CardContent ref={ref} className="flex flex-1 flex-col">
+        {chart ? (
+          <ChartContainer
+            config={Object.fromEntries(specs.map(s => [s.spec.key, { label: s.spec.label, color: s.spec.color }]))}
+            className={CHART}
+          >
+            <LineChart data={chart.rows} margin={{ top: 16, right: labels ? LABEL_ROOM : 12, bottom: 0, left: 0 }}>
+              <CartesianGrid {...gridProps} />
+              <XAxis {...chart.xAxis} />
+              <YAxis {...yAxisProps({ domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1], format: v => `${Math.round(v * 100)}%` })} />
+              <ChartTooltip
+                cursor={crosshairCursor}
+                content={
+                  <SeriesTooltip
+                    series={chart.lines.map(l => l.spec)}
+                    format={v => formatX(v, 'share')}
+                    labelFormat={v => formatX(Number(v), cx)}
+                  />
+                }
+              />
+              {chart.lines.map(l => (
+                <Line
+                  key={l.spec.key}
+                  {...lineProps(l.spec)}
+                  stroke={l.spec.color}
+                  dot={(props: { index: number; cx?: number; cy?: number; payload?: Record<string, unknown> }) => {
+                    const runId = props.payload?.[`${l.spec.key}_run`] as string | undefined;
+                    if (!runId || props.cx == null || props.cy == null) return <g key={props.index} />;
+                    return (
+                      <circle
+                        key={props.index}
+                        cx={props.cx}
+                        cy={props.cy}
+                        r={3}
+                        fill={l.spec.color}
+                        className="cursor-pointer"
+                        onClick={() => navigate({ to: '/runs/$runId', params: { runId }, search: {} as never })}
+                      />
+                    );
+                  }}
+                />
+              ))}
+              {labels && (
+                <EndLabels
+                  line
+                  items={chart.lines.map((l, i) => ({
+                    series: shortSeries(l.spec),
+                    value: l.n ? l.finished.length / l.n : 0,
+                    priority: chart.lines.length - i,
+                  }))}
+                />
+              )}
+            </LineChart>
+          </ChartContainer>
         ) : (
           <Empty>No run here has a cost.</Empty>
         )}
-      </div>
+        <SeriesLegend series={specs.map(s => s.spec)} legend={legend} />
+      </CardContent>
     </Card>
   );
 }
 
+interface AttemptRow {
+  run: Run;
+}
+
+const col = createColumnHelper<AttemptRow>();
+
 /** For evals with several attempts: each run's attempts, finished in so many ticks or reaching some value. */
 export function AttemptsCard({ e, ranked, legend }: { e: Eval; ranked: RankedVariant[]; legend: LegendState }) {
   const navigate = useNavigate();
-  const runs = ranked.filter(r => legend.visible(r.variant.key)).flatMap(r => r.runs);
-  const attempts = Array.from({ length: e.attempts }, (_, i) => i + 1);
-  return (
-    <Card title="Attempts" subtitle="Ticks to finish each attempt" flush className="flex flex-col">
-      <div className="table-inset inset-from-card scrollbar-thin overflow-x-auto">
-        <table className="min-w-full divide-y divide-border text-sm">
-          <thead>
-            <tr className="text-xs text-muted">
-              <th scope="col" className="py-2.5 pr-3 pl-table-inset text-left font-medium">
-                <span className="sr-only">Run</span>
-              </th>
-              {attempts.map(a => (
-                <th key={a} scope="col" className="w-24 px-3 py-2.5 text-right font-medium whitespace-nowrap last:pr-table-inset">
-                  {a}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {runs.map(run => (
-              <tr
-                key={run.id}
-                onClick={() => navigate({ to: '/runs/$runId', params: { runId: run.id }, search: {} as never })}
-                className="cursor-pointer transition-colors hover:bg-background"
+  const rows = ranked.filter(r => legend.visible(r.variant.key)).flatMap(r => r.runs.map(run => ({ run })));
+  const columns = useMemo(() => {
+    const reached = capitalize(e.measure.replace(/^Quest /, ''));
+    return [
+      col.display({ id: 'variant', header: 'Variant', cell: ({ row }) => <VariantLabel run={row.original.run} compact /> }),
+      col.accessor(r => r.run.epoch, { id: 'epoch', header: 'Epoch', meta: { numeric: true } }),
+      ...Array.from({ length: e.attempts }, (_, i) =>
+        col.display({
+          id: `a${i + 1}`,
+          header: String(i + 1),
+          meta: { numeric: true },
+          cell: ({ row }) => {
+            const result = row.original.run.attempt_results?.find(a => a.attempt === i + 1);
+            if (!result) return null;
+            if (result.ticks != null) {
+              return (
+                <span className="inline-flex items-center gap-1.5" title={`Finished attempt ${i + 1} in ${formatInt(result.ticks)} ticks`}>
+                  <span aria-hidden className="size-2 rounded-full bg-success" />
+                  {formatInt(result.ticks)}
+                </span>
+              );
+            }
+            return (
+              <span
+                className="inline-flex items-center gap-1.5 text-muted-foreground"
+                title={`Not finished: ${e.measure.toLowerCase()} ${formatInt(result.best_value)}`}
               >
-                <td className="py-2.5 pr-3 pl-table-inset whitespace-nowrap">
-                  <span className="inline-flex items-center gap-2">
-                    <VariantLabel run={run} compact />
-                    <span className="text-muted tabular-nums">{run.epoch}</span>
-                  </span>
-                </td>
-                {attempts.map(a => {
-                  const result = run.attempt_results?.find(x => x.attempt === a);
-                  return (
-                    <td key={a} className="px-3 py-2.5 text-right whitespace-nowrap tabular-nums last:pr-table-inset">
-                      {result == null ? null : result.ticks != null ? (
-                        <span
-                          className="inline-flex items-center gap-1.5"
-                          title={`Finished attempt ${a} in ${formatInt(result.ticks)} ticks`}
-                        >
-                          <span aria-hidden className="size-2 rounded-full bg-success" />
-                          {formatInt(result.ticks)}
-                        </span>
-                      ) : (
-                        <span
-                          className="inline-flex items-center gap-1.5 text-muted"
-                          title={`Not finished: ${e.measure.toLowerCase()} ${formatInt(result.best_value)}`}
-                        >
-                          <span aria-hidden className="size-2 rounded-full border-2 border-danger" />
-                          {capitalize(e.measure.replace(/^Quest /, ''))} {formatInt(result.best_value)}
-                        </span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                <span aria-hidden className="size-2 rounded-full border-2 border-destructive" />
+                {reached} {formatInt(result.best_value)}
+              </span>
+            );
+          },
+        })
+      ),
+    ] as ColumnDef<AttemptRow, unknown>[];
+  }, [e.attempts, e.measure]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Attempts</CardTitle>
+        <CardDescription>Ticks to finish each attempt</CardDescription>
+      </CardHeader>
+      <CardContent className="px-0">
+        <DataTable
+          data={rows}
+          columns={columns}
+          getRowId={r => r.run.id}
+          onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.run.id }, search: {} as never })}
+        />
+      </CardContent>
     </Card>
   );
 }
