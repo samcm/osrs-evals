@@ -1,7 +1,8 @@
 /**
- * `/`: which model in which harness is best, across every eval and at each. The centrepiece, one
- * featured eval in the game, as the page's lead band; then the one leaderboard of pairings by their
- * blended score (lib/score.ts). Hovering a pairing anywhere lights it up in both. The scope narrows which pairings show; their scores are always computed over every run.
+ * `/`: which model in which harness is best, across every eval and at each. The answer leads: the
+ * one leaderboard of pairings by their blended score (lib/score.ts), a cell per eval. Then one
+ * featured eval in the game. Hovering a pairing anywhere lights it up in both. The scope narrows
+ * which pairings show; their scores are always computed over every run.
  */
 
 import { useMemo } from 'react';
@@ -36,11 +37,12 @@ export function OverviewPage() {
 
   return (
     <>
-      <PageHeader title="Overview" description="Language models playing 2004scape in agent harnesses, ranked across every eval." />
+      <PageHeader title="Overview" description="Language models playing 2004scape in agent harnesses." />
       {pairings.length === 0 || !featured || !fallback ? (
         <Empty>No runs in this scope.</Empty>
       ) : (
         <>
+          <Leaderboard pairings={pairings} evals={evals} sort={search.sort} onSortChange={sort => update({ sort })} />
           <Featured
             evals={evals}
             featured={featured}
@@ -50,7 +52,6 @@ export function OverviewPage() {
             legend={legend}
             onChange={id => update({ eval: id, hide: undefined, focus: undefined })}
           />
-          <Leaderboard pairings={pairings} evals={evals} sort={search.sort} onSortChange={sort => update({ sort })} />
         </>
       )}
     </>
