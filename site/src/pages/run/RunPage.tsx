@@ -29,15 +29,6 @@ const route = getRouteApi('/runs/$runId');
 
 const headSrc = (id: string): string => `/data/runs/${encodeURIComponent(id)}.head.png`;
 
-/** Where to watch the run: its replay URL, or the live world viewer on this host when a replay was recorded. */
-function replayHref(run: RunDetail): string | null {
-  if (run.replay_url) return run.replay_url;
-  if (!run.has_replay) return null;
-  const ws = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  const live = `${ws}://${window.location.host}/feed/${run.id}`;
-  return `/world/?live=${encodeURIComponent(live)}&follow=${encodeURIComponent(run.account)}`;
-}
-
 /** Each quest the run completed, as its icon; an inferred one is underlined and says why. */
 function QuestIcons({ quests }: { quests: RunDetail['metrics']['quests'] }) {
   return (
@@ -259,7 +250,7 @@ export function RunPage() {
       <div className="grid gap-4 md:gap-6 xl:grid-cols-5">
         <Card className="min-w-0 xl:col-span-3 xl:row-start-1">
           <CardContent>
-            <Player run={run} replay={replayHref(run)} />
+            <Player run={run} head={head} />
           </CardContent>
         </Card>
         <Card ref={mapTop.ref} size="sm" className="sticky top-12 z-10 min-w-0 xl:col-span-5 xl:row-start-2">
