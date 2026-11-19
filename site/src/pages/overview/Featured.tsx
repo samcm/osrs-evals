@@ -68,7 +68,7 @@ function MedianProgress({ e, lines, legend }: { e: Eval; lines: PairLine[]; lege
   const yMax = roundCeil(top, 4);
 
   return (
-    <ChartFrame config={seriesConfig(series)} loading={!data} legend={<SeriesLegend series={series} legend={legend} />}>
+    <ChartFrame config={seriesConfig(series)} loading={!data}>
       <LineChart data={rows} margin={chartMargin()}>
         <CartesianGrid {...gridProps} />
         <XAxis {...xAxisProps({ dataKey: 'tick', domain: [0, end], ticks: roundTicks(end, 4), format: formatTick })} />
@@ -163,27 +163,28 @@ export function Featured({
         )
       }
     >
-      <div className="grid gap-gutter lg:grid-cols-5">
+      {/* On a wide screen the picture keeps 16:9 at the lead chart's height (h-80) beside it; the legend runs under both */}
+      <div className="flex flex-col gap-gutter xl:flex-row">
         {best && (
-          // The picture grows to the chart and its legend, so the two columns end together
-          <figure className="flex min-w-0 flex-col gap-2 lg:col-span-2">
+          <figure className="flex min-w-0 flex-col gap-2 xl:shrink-0">
             <Link
               to="/runs/$runId"
               params={{ runId: best.id }}
               {...hoverProps(variantOf(best).key)}
-              className="block overflow-hidden rounded-md bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:min-h-0 lg:flex-1"
+              className="block overflow-hidden rounded-md bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              <img src={`/data/${best.screenshot}`} alt="The best run's last moment in the game" className="aspect-video w-full animate-fade-in object-cover lg:aspect-auto lg:h-full" />
+              <img src={`/data/${best.screenshot}`} alt="The best run's last moment in the game" className="aspect-video w-full animate-fade-in object-cover xl:h-80 xl:w-auto" />
             </Link>
             <figcaption className="flex min-w-0 text-sm">
               <VariantLabel run={best} compact />
             </figcaption>
           </figure>
         )}
-        <div className="min-w-0 lg:col-span-3">
+        <div className="min-w-0 flex-1">
           <MedianProgress e={featured} lines={lines} legend={legend} />
         </div>
       </div>
+      <SeriesLegend series={lines.map(l => l.series)} legend={legend} />
     </PageSection>
   );
 }
