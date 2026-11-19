@@ -143,19 +143,30 @@ const RUNNERS = new Set(['bun', 'node', 'python', 'python3', 'tsx', 'deno', 'bas
 const QUIET = new Set(['cd', 'echo', 'printf', 'export', 'true', 'false', 'date', 'set', 'clear', 'tr', 'sort', 'uniq', 'for', 'while', 'until', 'done', 'fi', 'esac', 'case', '{', '}', '[', '[[', 'test', 'xargs', 'cp', 'mv', 'mkdir', 'rm', 'chmod', 'touch']);
 /** Words that open a loop or branch body: the command after them is the one that runs */
 const KEYWORDS = new Set(['do', 'then', 'else', 'if', '!', 'time', 'nohup', 'exec']);
-/** Flags whose value is the next word */
-const VALUE_FLAGS = new Set(['-n', '-c', '-m', '-A', '-B', '-C', '-e', '-f', '-maxdepth', '-mindepth', '-type', '-name', '-iname', '-path', '-o', '-d']);
+/** Flags whose value is the next word, by command */
+const VALUE_FLAGS: Record<string, string[]> = {
+  head: ['-n', '-c'],
+  tail: ['-n', '-c'],
+  grep: ['-e', '-f', '-m', '-A', '-B', '-C'],
+  egrep: ['-e', '-f', '-m', '-A', '-B', '-C'],
+  rg: ['-e', '-f', '-m', '-A', '-B', '-C', '-g', '-t', '-T'],
+  ag: ['-A', '-B', '-C', '-G'],
+  sed: ['-e', '-f'],
+  awk: ['-F', '-v', '-f'],
+  find: ['-maxdepth', '-mindepth', '-type', '-name', '-iname', '-path', '-newer'],
+};
 
-/** The words after a command that name files, not flags or a flag's value. */
-function operands(args: string[]): string[] {
+/** The words after a command that name files or patterns, not flags or a flag's value. */
+function operands(cmd: string, args: string[]): string[] {
+  const valued = VALUE_FLAGS[cmd] ?? [];
   const out: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
-    if (a.startsWith('-')) {
-      if (VALUE_FLAGS.has(a)) i++;
+    if (a.startsWith('-') && a.length > 1) {
+      if (valued.includes(a)) i++;
       continue;
     }
-    if (a === '2>&1' || /^\d*>/.test(a) || a.startsWith('<')) continue;
+    if (a === '2>&1' || a === '&' || /^\d*>/.test(a) || a.startsWith('<')) continue;
     out.push(a);
   }
   return out;
@@ -174,21 +185,22 @@ function shellStep(argv: string[]): { kind: Kind; targets: string[] } | { kind: 
     const to = args.find(a => a.length > 2 && a.startsWith('>')) ?? args[args.indexOf('>') + 1] ?? args[args.indexOf('>>') + 1];
     return to ? { kind: 'write', targets: files([to.replace(/^>+/, '')]) } : null;
   }
-  if (cmd === 'tee') return { kind: 'write', targets: files(operands(args)) };
+  if (cmd === 'tee') return { kind: 'write', targets: files(operands(cmd, args)) };
   if (cmd === 'sed' || cmd === 'perl') {
     const inPlace = args.some(a => /^-\w*i/.test(a) || a.startsWith('-0pi'));
-    const rest = operands(args).slice(1);
+    const scripted = args.includes('-e') || args.includes('-f');
+    const rest = operands(cmd, args).slice(scripted ? 0 : 1);
     return { kind: inPlace ? 'edit' : 'read', targets: files(rest) };
   }
-  if (cmd === 'awk') return { kind: 'read', targets: files(operands(args).slice(1)) };
-  if (READERS.has(cmd)) return { kind: 'read', targets: files(operands(args)) };
+  if (cmd === 'awk') return { kind: 'read', targets: files(operands(cmd, args).slice(args.includes('-f') ? 0 : 1)) };
+  if (READERS.has(cmd)) return { kind: 'read', targets: files(operands(cmd, args)) };
   if (SEARCHERS.has(cmd)) {
-    const ops = operands(args);
+    const ops = operands(cmd, args);
     const patterned = args.includes('-e') || args.includes('-f');
     return { kind: 'search', targets: files(patterned ? ops : ops.slice(1)) };
   }
   if (LISTERS.has(cmd)) {
-    const ops = operands(args);
+    const ops = operands(cmd, args);
     return { kind: 'list', targets: files(cmd === 'find' ? ops.slice(0, 1) : ops) };
   }
   if (cmd === 'sleep') return { kind: 'wait', targets: args[0] ? [`${args[0].replace(/s$/, '')} s`] : [] };
@@ -196,7 +208,7 @@ function shellStep(argv: string[]): { kind: Kind; targets: string[] } | { kind: 
   if (cmd === 'curl' || cmd === 'wget') return { kind: 'fetch', targets: [] };
   if (RUNNERS.has(cmd)) {
     if (args.includes('-e') || args.includes('-c')) return { kind: 'run', targets: [] };
-    const script = operands(args).find(a => a !== 'run' && a !== 'x');
+    const script = operands(cmd, args).find(a => a !== 'run' && a !== 'x');
     return { kind: 'run', targets: script ? files([script]) : [] };
   }
   if (cmd.startsWith('./') || cmd.startsWith('/work/')) return { kind: 'run', targets: [baseName(cmd)] };
