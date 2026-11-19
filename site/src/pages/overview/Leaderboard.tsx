@@ -1,6 +1,8 @@
 /**
- * The one ranked list on the overview: every pairing (a model in a harness) by its blended score,
- * with a heat cell per eval so coverage shows as it is (a blank cell is an eval it didn't run).
+ * The overview's lead and its one ranked list: every pairing (a model in a harness) by its blended
+ * score, then a heat cell per eval so coverage shows as it is (a blank cell is an eval it didn't
+ * run). The score comes straight after the name so it stays in view on a phone and with any number
+ * of evals; the eval columns scroll inside the card.
  * Sorting by any column is `?sort=`; a row opens the pairing's runs.
  */
 
@@ -12,6 +14,7 @@ import { Empty } from '@/components/bits';
 import { EvalMark, VariantLabel } from '@/components/marks';
 import { Button } from '@/components/ui/button';
 import { PageSection } from '@/components/page';
+import { Progress } from '@/components/ui/progress';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Eval } from '@/data/types';
@@ -67,7 +70,21 @@ export function Leaderboard({ pairings, evals, sort, onSortChange }: { pairings:
         col.accessor(p => p.variant.name, {
           id: 'pairing',
           header: 'Pairing',
-          cell: ({ row }) => <VariantLabel variant={row.original.variant} run={row.original.sample} compact />,
+          // The name takes the table's spare width, so the numbers sit together on the right
+          meta: { className: 'w-full' },
+          // On a phone a long name truncates (its title has it whole) so the score stays in view
+          cell: ({ row }) => <VariantLabel variant={row.original.variant} run={row.original.sample} compact className="max-md:max-w-52" />,
+        }),
+        col.accessor('score', {
+          header: 'Score',
+          meta: { numeric: true },
+          sortDescFirst: true,
+          cell: ({ getValue }) => (
+            <span className="flex items-center justify-end gap-3">
+              <Progress value={getValue() * 100} aria-hidden className="w-24 max-md:hidden **:data-[slot=progress-indicator]:bg-data-emerald" />
+              <span className="font-medium">{formatScore(getValue())}</span>
+            </span>
+          ),
         }),
         ...evals.map(e =>
           col.accessor(p => p.evals.get(e.id)?.score ?? -1, {
@@ -78,12 +95,6 @@ export function Leaderboard({ pairings, evals, sort, onSortChange }: { pairings:
             cell: ({ row }) => <HeatCell pairing={row.original} e={e} />,
           })
         ),
-        col.accessor('score', {
-          header: 'Score',
-          meta: { numeric: true },
-          sortDescFirst: true,
-          cell: ({ getValue }) => <span className="font-medium">{formatScore(getValue())}</span>,
-        }),
       ] as ColumnDef<Row, unknown>[],
     [evals]
   );

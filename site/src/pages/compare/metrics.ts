@@ -154,6 +154,7 @@ export const METRICS: Metric[] = [
     group: 'Model',
     get: r => r.output_tokens_per_second,
     format: formatDecimal,
+    tick: formatTick,
     better: 'higher',
     scale: 'linear',
     log: true,

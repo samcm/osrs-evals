@@ -45,6 +45,7 @@ export function Segmented<T extends string>({
   value,
   onChange,
   label,
+  size = 'sm',
   className,
 }: {
   options: SegmentedOption<T>[];
@@ -52,13 +53,15 @@ export function Segmented<T extends string>({
   onChange: (value: T) => void;
   /** The group's accessible name */
   label: string;
+  /** `default` matches a Select's height, for a toolbar that mixes them */
+  size?: 'sm' | 'default';
   className?: string;
 }) {
   return (
     <ToggleGroup
       type="single"
       variant="outline"
-      size="sm"
+      size={size}
       spacing={0}
       aria-label={label}
       value={value}
