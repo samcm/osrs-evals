@@ -31,6 +31,11 @@ const ART: Record<string, EvalArt> = {
     ],
     measure: 'Shrimps cooked',
   },
+  dragon_slayer: {
+    mark: { src: questSrc('dragon_slayer'), name: 'Dragon Slayer' },
+    items: [{ id: '1540', name: 'Anti-dragon shield' }],
+    measure: 'Quest stage',
+  },
   quest_points: { mark: { src: uiSrc('quests'), name: 'Quests' }, items: [], measure: 'Quest points' },
   coins: { mark: { src: itemSrc(995), name: 'Coins' }, items: [{ id: '995', name: 'Coins' }], measure: 'Coins' },
   gold: { mark: { src: itemSrc('995-10000'), name: 'Coins' }, items: [{ id: '995-10000', name: 'Coins' }], measure: 'Coins' },

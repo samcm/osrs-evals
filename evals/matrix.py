@@ -1,4 +1,4 @@
-"""Cook's Assistant (one try, and five tries in one run), 500 shrimps and quest points, each played by each agent. The model is not fixed here: give it (or several) at
+"""Cook's Assistant (one try, and five tries in one run), 500 shrimps, quest points and Dragon Slayer, each played by each agent. The model is not fixed here: give it (or several) at
 run time, with the log dir:
 
     PYTHONPATH=. inspect eval-set evals/matrix.py --model anthropic/claude-haiku-5-5 --log-dir <dir>
@@ -15,6 +15,7 @@ from inspect_swe import claude_code, codex_cli
 from harness import command
 
 from cooks_assistant import cooks_assistant
+from dragon_slayer import dragon_slayer
 from quest_points import quest_points
 from shrimps import shrimps
 
@@ -84,3 +85,20 @@ def qp_claude_code():
 @task
 def qp_codex():
     return task_with(quest_points(), solver=agents()["codex"], epochs=2)
+
+
+# Dragon Slayer from a new character: hours of play, so the shell agent compacts its history
+@task
+def ds_bash():
+    return task_with(dragon_slayer(), epochs=2)
+
+
+@task
+def ds_claude_code():
+    return task_with(dragon_slayer(), solver=agents()["claude_code"], epochs=2)
+
+
+@task
+def ds_codex():
+    return task_with(dragon_slayer(), solver=agents()["codex"], epochs=2)
+

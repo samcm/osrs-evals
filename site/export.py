@@ -29,8 +29,8 @@ from inspect_ai.log import list_eval_logs, read_eval_log
 SITE = Path(__file__).resolve().parent
 QUESTS = SITE / "game" / "quests.json"  # written by site/game/quests.py from rs-sdk's content
 AGENT_NAMES = {"react": "Model + bash", "inspect_swe/claude_code": "Claude Code", "inspect_swe/codex_cli": "Codex", "command": "Program"}
-EVAL_NAMES = {"quest_points": "Quest points in 30 minutes", "cooks_assistant": "Cook's Assistant", "shrimps": "Cook 500 shrimps", "coins": "Coins", "gold": "Gold"}
-MEASURES = {"quest_points": "Quest points", "cooks_assistant": "Quest stage", "shrimps": "Shrimps cooked", "coins": "Coins", "gold": "Coins"}
+EVAL_NAMES = {"quest_points": "Quest points in 30 minutes", "cooks_assistant": "Cook's Assistant", "dragon_slayer": "Dragon Slayer", "shrimps": "Cook 500 shrimps", "coins": "Coins", "gold": "Gold"}
+MEASURES = {"quest_points": "Quest points", "cooks_assistant": "Quest stage", "dragon_slayer": "Quest stage", "shrimps": "Shrimps cooked", "coins": "Coins", "gold": "Coins"}
 VENDORS = {"anthropic": "Anthropic", "openai": "OpenAI", "google": "Google", "mistral": "Mistral", "grok": "xAI", "deepseek": "DeepSeek", "openrouter": "OpenRouter"}
 
 BUCKET = 100  # ticks per bucket of the binned series (SDK actions, activity)
@@ -80,7 +80,7 @@ def level_of(xp: float) -> int:
 
 
 def eval_base(task: str) -> str:
-    return "cooks_assistant" if task.startswith("cooks") else "shrimps" if task.startswith("shrimps") else "quest_points" if task.startswith(("qp_", "quest_points")) else task
+    return "cooks_assistant" if task.startswith("cooks") else "shrimps" if task.startswith("shrimps") else "quest_points" if task.startswith(("qp_", "quest_points")) else "dragon_slayer" if task.startswith(("ds_", "dragon_slayer")) else task
 
 
 def eval_of(task: str, attempts: int) -> str:
@@ -98,6 +98,18 @@ def agent_of(steps) -> tuple[str, dict]:
     step = steps[-1]
     params = {k: v for k, v in (step.params or {}).items() if k in ("version", "cmd") and v not in (None, "auto")}
     return step.solver, params
+
+
+# Inspect providers that name a model's maker: a model reached through another provider's API (an
+# OpenAI-compatible gateway serving "anthropic/claude-haiku-5-5" as openai/anthropic/claude-haiku-5-5)
+# is still that maker's model.
+MAKERS = {"anthropic", "google", "mistral", "grok", "deepseek"}
+
+
+def canonical_model(model: str) -> str:
+    """The model a run used, whatever route reached it: openai/anthropic/x -> anthropic/x."""
+    parts = model.split("/")
+    return "/".join(parts[1:]) if len(parts) > 2 and parts[1] in MAKERS else model
 
 
 def vendor_of(model: str) -> str | None:
@@ -122,7 +134,7 @@ def usage_cost(model: str, u, prices: dict) -> dict | None:
 def cost(usage: dict, prices: dict) -> float | None:
     total = 0.0
     for model, u in usage.items():
-        c = usage_cost(model, u, prices)
+        c = usage_cost(canonical_model(model), u, prices)
         if c is None:
             return None
         total += sum(c.values())
@@ -302,13 +314,13 @@ def turns_of(sample, prices: dict, clock: Clock, starts) -> list[dict]:
         nxt = calls[i + 1].timestamp if i + 1 < len(calls) else None
         at = round((e.timestamp - t0).total_seconds(), 1)
         tick = clock.tick(at)
-        c = usage_cost(e.model, u, prices)
+        c = usage_cost(canonical_model(e.model), u, prices)
         harness = stopped_by_harness(e.error)
         turns.append({
             "at": at,
             "tick": tick,
             "attempt": attempt_at(starts, tick),
-            "model": e.model,
+            "model": canonical_model(e.model),
             "model_seconds": round(e.working_time or (done - e.timestamp).total_seconds(), 2),
             "then_seconds": round((nxt - done).total_seconds(), 1) if nxt else None,
             "input_tokens": u and (u.input_tokens + (u.input_tokens_cache_read or 0) + (u.input_tokens_cache_write or 0)),
@@ -724,7 +736,7 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
     cache_read = sum(u.input_tokens_cache_read or 0 for u in usage.values())
     cache_write = sum(u.input_tokens_cache_write or 0 for u in usage.values())
     all_in = in_uncached + cache_read + cache_write
-    costs = [usage_cost(model, u, prices) for model, u in usage.items()]
+    costs = [usage_cost(canonical_model(model), u, prices) for model, u in usage.items()]
     cost_by = {k: round(sum(c[k] for c in costs), 5) for k in ("input", "output", "cache_read", "cache_write")} if costs and all(costs) else None
     first = next((p for p in timeline if p["value"] != timeline[0]["value"]), None) if timeline else None
     buckets = (world or {}).get("buckets", {})
@@ -776,8 +788,8 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
         "agent_name": AGENT_NAMES.get(solver, solver),
         "agent_params": solver_params,
         "agent_version": agent_version,
-        "model": spec.model,
-        "vendor": vendor_of(spec.model),
+        "model": canonical_model(spec.model),
+        "vendor": vendor_of(canonical_model(spec.model)),
         "epoch": s.epoch,
         "started": spec.created,
         "sample_started": str(s.started_at) if s.started_at else None,

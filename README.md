@@ -229,6 +229,7 @@ Run it again on the same log dir and it runs only what is missing or failed.
 | Cook's Assistant, five tries | `cooks_assistant(attempts=5)` | The same, five times in one run: after each try the account is put back at its start save and the agent goes again, keeping its files and context. Scored by the fastest try; every try is recorded. |
 | Cook 500 shrimps | `evals/shrimps.py` | Ticks until none of 500 raw shrimps in the bank are left raw. Any model should finish it, so the result is how fast and how cheaply. |
 | Quest points in 30 minutes | `evals/quest_points.py` | Quest points after 36,000 ticks from a new character, read from the server's quest points variable. The prompt is only the goal; which quests and in what order is up to the agent. |
+| Dragon Slayer | `evals/dragon_slayer.py` | Ticks to complete Dragon Slayer from a new character, within four hours of game time (288,000 ticks). It needs 32 quest points to start and a level-83 dragon to finish; how to get there is up to the agent. The shell agent compacts its history (Inspect's `CompactionAuto`). |
 | Gold | `evals/gold.py` | Four accounts, 100,000 coins between them. |
 
 Ideas for more are in `ideas.yaml`.
