@@ -15,7 +15,8 @@
  *                       pausing commits where it stopped
  *   setSpeed(speed)
  *
- * `tick` is what to show: scrub, then hover, then the committed tick, then the run's end. Playback
+ * `tick` is what to show: scrub, then hover, then the committed tick, then the run's end; `at` is the
+ * same without the hover. Moves the eye follows (a jump, not a drag or playing) take TRANSITION_MS. Playback
  * runs once per page however many components read the playhead; the latest `usePlayhead` given a
  * `write` is the one that commits.
  */
@@ -29,6 +30,9 @@ import { runSearch } from './search';
 
 /** The game's own pace: 20 ticks a second at 50 ms a tick. */
 export const REAL_TIME = 20;
+
+/** How long the page takes to show a jump of the playhead: the map's glide, the game's crossfade */
+export const TRANSITION_MS = 150;
 
 /** Playback speeds, as multiples of the game's own pace */
 export const SPEEDS = [1, 4, 16, 64] as const;
@@ -107,6 +111,8 @@ export const setSpeed = (speed: number): void => setPlayback({ speed });
 export interface Playhead {
   /** What to show now, in game ticks */
   tick: number;
+  /** The playhead itself, without the hover preview */
+  at: number;
   hover: number | null;
   scrub: number | null;
   playing: boolean;
@@ -150,5 +156,6 @@ export function usePlayhead(clock: Clock, committed: number | null, write?: (tic
     };
   }, [drives]);
 
-  return { tick: scrub ?? hover ?? pending ?? committed ?? max, hover, scrub, playing, speed };
+  const at = scrub ?? pending ?? committed ?? max;
+  return { tick: scrub ?? hover ?? at, at, hover, scrub, playing, speed };
 }

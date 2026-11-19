@@ -178,19 +178,17 @@ export function RunPage() {
       {/* The debugger: the game and the agent's thinking side by side, one playhead under both, then
           the lanes and the map on the same playhead. */}
       <div className="grid gap-4 md:gap-6 xl:grid-cols-5">
-        <Card className="min-w-0 xl:col-span-3">
-          <CardContent className="flex flex-col gap-4">
-            <Player run={run} head={head} />
-            <Playback run={run} clock={clock} measure={search.x} />
-          </CardContent>
-        </Card>
+        <div className="min-w-0 xl:col-span-3">
+          <Player run={run} head={head} />
+          <Playback run={run} clock={clock} measure={search.x} />
+        </div>
         <div className="min-w-0 xl:col-span-2">{run.turns.length > 0 && <Transcript run={run} clock={clock} search={search} />}</div>
         <div className="min-w-0 xl:col-span-3">
           <Lanes run={run} clock={clock} search={search} price={index.prices[run.model]} />
         </div>
         <Card className="min-w-0 xl:col-span-2 xl:self-start">
           <CardContent>
-            <RunMap run={run} clock={clock} selected={head.tick} view={search.map} height={420} fitHeight />
+            <RunMap run={run} clock={clock} view={search.map} height={420} fitHeight />
           </CardContent>
         </Card>
       </div>
