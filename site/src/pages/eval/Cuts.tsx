@@ -5,49 +5,44 @@ import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { CartesianGrid, ComposedChart, Line, LineChart, Scatter, XAxis, YAxis, usePlotArea, useXAxisScale, useYAxisScale } from 'recharts';
 import { cn } from '@/lib/utils';
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { DataTable } from '@/components/DataTable';
-import { Empty, ParamSegmented } from '@/components/bits';
 import { VariantLabel } from '@/components/marks';
 import {
-  EndLabels,
+  ChartFrame,
+  chartMargin,
   SeriesLabel,
-  SeriesLegend,
   SeriesTooltip,
   crosshairCursor,
   gridProps,
   lineProps,
   logAxisProps,
-  showEndLabels,
   xAxisProps,
   yAxisProps,
 } from '@/components/charts';
 import type { Eval, Run } from '@/data/types';
 import { scatterShape, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
+import { variantKey } from '@/lib/series';
 import { capitalize, formatInt } from '@/lib/format';
+import { FADED_OPACITY, setHovered } from '@/lib/hover';
+import { faded, useLit } from './lit';
 import type { LegendState } from '@/lib/legend';
 import { median, paretoFrontier } from '@/lib/stats';
-import { useWidth } from '@/lib/useWidth';
-import { formatTick, formatX, labelWidth, placePointLabels, roundMax, roundTicks, shortSeries } from './chartBits';
+import { formatTick, formatX, labelWidth, placePointLabels, roundMax, roundTicks } from './chartBits';
 import type { CdfX, ParetoX, RankedVariant } from './model';
 
 /** Charts grow to their card's height when the card beside is taller. */
-const CHART = 'aspect-auto min-h-72 w-full flex-1';
-const LABEL_ROOM = 136;
 
 const spendOf = (run: Run, px: ParetoX): number | null => {
   if (px === 'cost') return run.cost;
   if (px === 'seconds') return run.game_seconds;
-  if (px === 'ticks') return run.game_ticks;
-  return run.input_tokens + run.output_tokens;
+  return run.game_ticks;
 };
 
 const PX_NAME: Record<ParetoX, string> = {
   cost: 'Median cost per run',
   seconds: 'Median time per run',
   ticks: 'Median ticks per run',
-  tokens: 'Median tokens per run',
 };
 
 interface Point {
@@ -119,9 +114,10 @@ function PointLabels({ points }: { points: Point[] }) {
 }
 
 /** Each variant's median spend per run against its finish rate (or median result), with the frontier under the points. */
-export function ParetoCard({ e, ranked, px, legend }: { e: Eval; ranked: RankedVariant[]; px: ParetoX; legend: LegendState }) {
+export function ParetoChart({ e, ranked, px, legend }: { e: Eval; ranked: RankedVariant[]; px: ParetoX; legend: LegendState }) {
+  const lit = useLit(legend.focus);
   const target = e.target != null;
-  const log = px === 'cost' || px === 'tokens';
+  const log = px === 'cost';
 
   const { points, left } = useMemo(() => {
     const all = ranked.map(r => ({
@@ -147,14 +143,12 @@ export function ParetoCard({ e, ranked, px, legend }: { e: Eval; ranked: RankedV
   const xAxis = log
     ? logAxisProps(
         points.map(p => p.x),
-        v => formatTick(v, px === 'cost' ? 'cost' : 'tokens'),
-        PX_NAME[px]
+        v => formatTick(v, 'cost')
       )
     : xAxisProps({
         domain: [0, xMax],
         ticks: roundTicks(xMax, px === 'seconds' ? 'seconds' : 'count'),
         format: v => formatTick(v, px),
-        name: PX_NAME[px],
       });
   const config = useMemo<ChartConfig>(
     () => Object.fromEntries(points.map(p => [p.spec.key, { label: p.spec.label, color: p.spec.color }])),
@@ -163,34 +157,11 @@ export function ParetoCard({ e, ranked, px, legend }: { e: Eval; ranked: RankedV
   const frontier = points.filter(p => p.frontier).sort((a, b) => a.x - b.x);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>What it cost</CardTitle>
-        {left.length > 0 && (
-          <CardDescription>
-            {px === 'cost' ? 'No cost' : 'Nothing'} to place: {left.map(p => p.r.variant.name).join(', ')}
-          </CardDescription>
-        )}
-        <CardAction>
-          <ParamSegmented
-            param="px"
-            value={px}
-            label="Spend"
-            options={[
-              { value: 'cost', label: 'Cost' },
-              { value: 'seconds', label: 'Time' },
-              { value: 'ticks', label: 'Ticks' },
-              { value: 'tokens', label: 'Tokens' },
-            ]}
-          />
-        </CardAction>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col">
-        {points.length && xAxis ? (
-          <ChartContainer config={config} className={CHART}>
-            <ComposedChart margin={{ top: 16, right: 16, bottom: 0, left: 0 }}>
+    <div className="flex flex-1 flex-col">
+          <ChartFrame config={config} height="lead" empty={points.length && xAxis ? undefined : `No pairing here has a ${px === 'cost' ? 'cost' : 'value'} to place.`}>
+            <ComposedChart margin={chartMargin()}>
               <CartesianGrid {...gridProps} />
-              <XAxis {...xAxis} dataKey="x" type="number" height={44} />
+              <XAxis {...xAxis!} dataKey="x" type="number" />
               <YAxis
                 {...yAxisProps({
                   domain: [0, yMax],
@@ -238,32 +209,34 @@ export function ParetoCard({ e, ranked, px, legend }: { e: Eval; ranked: RankedV
                   data={[p]}
                   dataKey="y"
                   fill={p.spec.color}
-                  fillOpacity={legend.visible(p.spec.id) ? 1 : 0.3}
+                  fillOpacity={legend.visible(p.spec.id) && !faded(lit, p.spec.id) ? 1 : FADED_OPACITY}
+                  onMouseEnter={() => setHovered(p.spec.id)}
+                  onMouseLeave={() => setHovered(undefined)}
                   shape={scatterShape(p.spec.symbol)}
                   isAnimationActive={false}
                   className="cursor-pointer"
                   onClick={() => legend.isolate(p.spec.id)}
                 />
               ))}
-              <PointLabels points={points} />
+              {/* Only the frontier is labelled; any point names itself on hover or focus */}
+              <PointLabels points={frontier} />
             </ComposedChart>
-          </ChartContainer>
-        ) : (
-          <Empty>No variant here has a {px === 'cost' ? 'cost' : 'value'} to place.</Empty>
-        )}
-        <SeriesLegend series={ranked.map(r => variantSeries(r.variant))} legend={legend} kind="symbol" />
-      </CardContent>
-    </Card>
+          </ChartFrame>
+      {left.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {px === 'cost' ? 'No cost for' : 'Nothing to place for'} {left.map(p => p.r.variant.name).join(', ')}.
+        </p>
+      )}
+    </div>
   );
 }
 
 const finishOf = (run: Run, cx: CdfX): number | null => (cx === 'ticks' ? run.ticks : cx === 'seconds' ? run.seconds : run.cost);
 
 /** Share of each variant's runs finished within a budget of ticks, time or cost. Unfinished runs never count. */
-export function SuccessCdfCard({ e, ranked, cx, legend }: { e: Eval; ranked: RankedVariant[]; cx: CdfX; legend: LegendState }) {
+export function CdfChart({ e, ranked, cx, legend }: { e: Eval; ranked: RankedVariant[]; cx: CdfX; legend: LegendState }) {
+  const lit = useLit(legend.focus);
   const navigate = useNavigate();
-  const [ref, width] = useWidth();
-  const labels = showEndLabels(width);
   const specs = useMemo(() => ranked.map(r => ({ r, spec: variantSeries(r.variant) })), [ranked]);
   const shown = specs.filter(s => legend.visible(s.spec.id));
 
@@ -302,47 +275,33 @@ export function SuccessCdfCard({ e, ranked, cx, legend }: { e: Eval; ranked: Ran
   }, [cx, e.budget_ticks, e.tick_ms, shown]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Finished within</CardTitle>
-        <CardAction>
-          <ParamSegmented
-            param="cx"
-            value={cx}
-            label="Budget"
-            options={[
-              { value: 'ticks', label: 'Ticks' },
-              { value: 'seconds', label: 'Time' },
-              { value: 'cost', label: 'Cost' },
-            ]}
-          />
-        </CardAction>
-      </CardHeader>
-      <CardContent ref={ref} className="flex flex-1 flex-col">
-        {chart ? (
-          <ChartContainer
+    <div className="flex flex-1 flex-col">
+          <ChartFrame
             config={Object.fromEntries(specs.map(s => [s.spec.key, { label: s.spec.label, color: s.spec.color }]))}
-            className={CHART}
+            height="lead"
+            empty={chart ? undefined : 'No run here has a cost.'}
           >
-            <LineChart data={chart.rows} margin={{ top: 16, right: labels ? LABEL_ROOM : 12, bottom: 0, left: 0 }}>
+            <LineChart data={chart?.rows} margin={chartMargin()}>
               <CartesianGrid {...gridProps} />
-              <XAxis {...chart.xAxis} />
+              {chart && <XAxis {...chart.xAxis} />}
               <YAxis {...yAxisProps({ domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1], format: v => `${Math.round(v * 100)}%` })} />
               <ChartTooltip
                 cursor={crosshairCursor}
                 content={
                   <SeriesTooltip
-                    series={chart.lines.map(l => l.spec)}
+                    series={chart?.lines.map(l => l.spec) ?? []}
                     format={v => formatX(v, 'share')}
                     labelFormat={v => formatX(Number(v), cx)}
                   />
                 }
               />
-              {chart.lines.map(l => (
+              {chart?.lines.map(l => (
                 <Line
                   key={l.spec.key}
-                  {...lineProps(l.spec)}
+                  {...lineProps(l.spec, { faded: faded(lit, l.spec.id) })}
                   stroke={l.spec.color}
+                  onMouseEnter={() => setHovered(l.spec.id)}
+                  onMouseLeave={() => setHovered(undefined)}
                   dot={(props: { index: number; cx?: number; cy?: number; payload?: Record<string, unknown> }) => {
                     const runId = props.payload?.[`${l.spec.key}_run`] as string | undefined;
                     if (!runId || props.cx == null || props.cy == null) return <g key={props.index} />;
@@ -360,24 +319,9 @@ export function SuccessCdfCard({ e, ranked, cx, legend }: { e: Eval; ranked: Ran
                   }}
                 />
               ))}
-              {labels && (
-                <EndLabels
-                  line
-                  items={chart.lines.map((l, i) => ({
-                    series: shortSeries(l.spec),
-                    value: l.n ? l.finished.length / l.n : 0,
-                    priority: chart.lines.length - i,
-                  }))}
-                />
-              )}
             </LineChart>
-          </ChartContainer>
-        ) : (
-          <Empty>No run here has a cost.</Empty>
-        )}
-        <SeriesLegend series={specs.map(s => s.spec)} legend={legend} />
-      </CardContent>
-    </Card>
+          </ChartFrame>
+    </div>
   );
 }
 
@@ -388,13 +332,13 @@ interface AttemptRow {
 const col = createColumnHelper<AttemptRow>();
 
 /** For evals with several attempts: each run's attempts, finished in so many ticks or reaching some value. */
-export function AttemptsCard({ e, ranked, legend }: { e: Eval; ranked: RankedVariant[]; legend: LegendState }) {
+export function AttemptsTable({ e, ranked, legend }: { e: Eval; ranked: RankedVariant[]; legend: LegendState }) {
   const navigate = useNavigate();
   const rows = ranked.filter(r => legend.visible(r.variant.key)).flatMap(r => r.runs.map(run => ({ run })));
   const columns = useMemo(() => {
     const reached = capitalize(e.measure.replace(/^Quest /, ''));
     return [
-      col.display({ id: 'variant', header: 'Variant', cell: ({ row }) => <VariantLabel run={row.original.run} compact /> }),
+      col.display({ id: 'variant', header: 'Pairing', cell: ({ row }) => <VariantLabel run={row.original.run} compact /> }),
       col.accessor(r => r.run.epoch, { id: 'epoch', header: 'Epoch', meta: { numeric: true } }),
       ...Array.from({ length: e.attempts }, (_, i) =>
         col.display({
@@ -428,19 +372,14 @@ export function AttemptsCard({ e, ranked, legend }: { e: Eval; ranked: RankedVar
   }, [e.attempts, e.measure]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Attempts</CardTitle>
-        <CardDescription>Ticks to finish each attempt</CardDescription>
-      </CardHeader>
-      <CardContent className="px-0">
+    <>
         <DataTable
           data={rows}
           columns={columns}
           getRowId={r => r.run.id}
           onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.run.id }, search: {} as never })}
+          hoverId={r => variantKey(r.run)}
         />
-      </CardContent>
-    </Card>
+    </>
   );
 }

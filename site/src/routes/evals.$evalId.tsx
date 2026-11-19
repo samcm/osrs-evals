@@ -7,12 +7,11 @@ import { defineSearch, int, legendParams, oneOf, sortParam } from '@/lib/search'
 export const evalSearch = defineSearch({
   /** The page's view */
   tab: oneOf(['overview', 'cost', 'behaviour', 'runs'], 'overview'),
-  /** The progress chart's x measure and aggregate */
+  /** The overview's x measure, and which runs it shows: each pairing's median or best run, or every run */
   x: oneOf(['ticks', 'seconds', 'cost', 'calls'], 'ticks'),
-  agg: oneOf(['runs', 'median', 'best'], 'runs'),
-  /** The Pareto's x and the success CDF's x */
-  px: oneOf(['cost', 'seconds', 'ticks', 'tokens'], 'cost'),
-  cx: oneOf(['ticks', 'seconds', 'cost'], 'ticks'),
+  agg: oneOf(['median', 'best', 'runs'], 'median'),
+  /** The cost tab's spend: what the Pareto and the finished-within chart count */
+  px: oneOf(['cost', 'seconds', 'ticks'], 'cost'),
   /** Grouping of the time and effort cuts */
   by: oneOf(['variant', 'model', 'agent'], 'variant'),
   /** The map's view and the tick its dots mark */
