@@ -5,7 +5,6 @@ import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { Line, LineChart, YAxis, XAxis } from 'recharts';
 import { cn } from '@/lib/utils';
-import { Card, CardContent } from '@/components/ui/card';
 import { DataTable } from '@/components/DataTable';
 import { Empty } from '@/components/bits';
 import { VariantLabel } from '@/components/marks';
@@ -13,7 +12,7 @@ import type { Eval, Run } from '@/data/types';
 import { cssColor } from '@/lib/chartSeries';
 import { capitalize, formatCost, formatInt } from '@/lib/format';
 import { useSearchUpdate } from '@/lib/search';
-import { variantOf } from '@/lib/series';
+import { variantKey, variantOf } from '@/lib/series';
 import { resultValue, totalBudgetTicks, type RunCurve } from './model';
 
 const col = createColumnHelper<Run>();
@@ -85,9 +84,6 @@ export function RunsTable({ e, runs, curves, sort, page }: { e: Eval; runs: Run[
   const update = useSearchUpdate();
   const cols = useMemo(() => columns(e, new Map(curves.map(cv => [cv.run.id, cv]))), [e, curves]);
   return (
-    // The tab names it; the card needs no title of its own
-    <Card>
-      <CardContent className="px-0">
         <DataTable
           data={runs}
           columns={cols}
@@ -100,8 +96,7 @@ export function RunsTable({ e, runs, curves, sort, page }: { e: Eval; runs: Run[
           // Scope rides along by itself (the root retains it); nothing else is carried
           onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.id }, search: {} as never })}
           empty={<Empty>No runs in this scope.</Empty>}
+          hoverId={r => variantKey(r)}
         />
-      </CardContent>
-    </Card>
   );
 }

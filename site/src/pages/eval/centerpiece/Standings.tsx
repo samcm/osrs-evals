@@ -7,7 +7,8 @@ import { Link } from '@tanstack/react-router';
 import { BrandMark, VariantLabel } from '@/components/marks';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatInt } from '@/lib/format';
-import { faded, setHot } from '@/lib/hover';
+import { setHovered } from '@/lib/hover';
+import { faded } from '../lit';
 import type { AgentLine } from '@/lib/series';
 import { cn } from '@/lib/utils';
 import type { Standing } from './race';
@@ -37,8 +38,8 @@ export function Standings({ rows, max, tick, showEpoch, lit }: { rows: Standing[
             key={run.id}
             className={cn('absolute inset-x-0 transition duration-150 ease-out', faded(lit, variant.key) && 'opacity-30')}
             style={{ height, transform: `translateY(${row.rank * height}px)` }}
-            onMouseEnter={() => setHot(variant.key)}
-            onMouseLeave={() => setHot(null)}
+            onMouseEnter={() => setHovered(variant.key)}
+            onMouseLeave={() => setHovered(undefined)}
           >
             <Tooltip>
               <TooltipTrigger asChild>

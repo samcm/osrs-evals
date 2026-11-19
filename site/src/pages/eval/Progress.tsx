@@ -7,27 +7,28 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
-import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart';
-import { SeriesTooltip, crosshairCursor, gridProps, lineProps, logAxisProps, xAxisProps, yAxisProps } from '@/components/charts';
+import { ChartTooltip, type ChartConfig } from '@/components/ui/chart';
+import { ChartFrame, chartMargin, SeriesTooltip, Y_AXIS_WIDTH, crosshairCursor, gridProps, lineProps, logAxisProps, xAxisProps, yAxisProps } from '@/components/charts';
 import type { Eval, Run } from '@/data/types';
 import { variantSeries, type SeriesSpec } from '@/lib/chartSeries';
 import { formatInt } from '@/lib/format';
-import { FRAME } from '@/components/charts/frame';
-import { setHot, useLit } from '@/lib/hover';
+import { setHovered } from '@/lib/hover';
+import { faded, useLit } from './lit';
 import type { LegendState } from '@/lib/legend';
-import { cn } from '@/lib/utils';
 import { median } from '@/lib/stats';
 import { useWidth } from '@/lib/useWidth';
 import { formatTick, formatX, roundMax, roundTicks } from './chartBits';
 import { hasX, valueAt, xOf, type Agg, type RankedVariant, type RunCurve, type XMeasure, type XRange } from './model';
 import { usePlayheadMark } from './playhead';
 
-/** The y axis width, shared with the strip under the chart so their x scales line up. */
-export const Y_AXIS_WIDTH = FRAME.gutter;
-const RIGHT = FRAME.margin.right;
-const TOP = FRAME.margin.top;
-const CHART_HEIGHT = FRAME.leadPx;
-const X_AXIS_HEIGHT = FRAME.xAxis;
+/** The y axis width (the site's one), shared with the strip under the chart so their x scales line up. */
+export { Y_AXIS_WIDTH };
+const MARGIN = chartMargin();
+const RIGHT = MARGIN.right;
+const TOP = MARGIN.top;
+/** The lead height (h-80) and Recharts' default x axis height, to keep the playhead off the labels */
+const CHART_HEIGHT = 320;
+const X_AXIS_HEIGHT = 30;
 
 export interface ProgressFrame {
   range: XRange;
@@ -194,53 +195,46 @@ export function ProgressChart({
   return (
     <div className="flex min-w-0 flex-col">
       <div ref={ref} className="relative">
-        <ChartContainer config={config} className={cn('aspect-auto w-full', FRAME.lead)}>
+        <ChartFrame config={config} height="lead" loading={pending}>
           <LineChart
             data={rows}
-            margin={FRAME.margin}
+            margin={MARGIN}
             onMouseMove={state => setHover(state.activeLabel != null ? Number(state.activeLabel) : null)}
             onMouseLeave={() => {
               setHover(null);
-              setHot(null);
+              setHovered(undefined);
             }}
           >
             <CartesianGrid {...gridProps} />
             <XAxis {...xAxis} />
-            <YAxis {...yAxisProps({ domain: [0, yMax], ticks: yTicks })} width={Y_AXIS_WIDTH} />
+            <YAxis {...yAxisProps({ domain: [0, yMax], ticks: yTicks })} />
             <ChartTooltip cursor={crosshairCursor} content={<ProgressTooltip rows={tooltipRows} x={x} agg={agg} target={target} />} />
             {ordered.map(line => {
-              const faded = lit != null && line.spec.id !== lit;
               return (
                 <Line
                   key={line.key}
-                  {...lineProps(line.spec)}
+                  {...lineProps(line.spec, { faded: faded(lit, line.spec.id), width: lit === line.spec.id ? 2.25 : 1.75 })}
                   dataKey={line.key}
                   name={line.key}
                   stroke={line.spec.color}
-                  strokeOpacity={faded ? 0.15 : agg === 'runs' && !lit ? 0.8 : 1}
-                  strokeWidth={lit === line.spec.id ? 2.25 : 1.75}
                   connectNulls
                   activeDot={false}
                   className="cursor-pointer"
-                  onMouseEnter={() => setHot(line.spec.id)}
-                  onMouseLeave={() => setHot(null)}
+                  onMouseEnter={() => setHovered(line.spec.id)}
+                  onMouseLeave={() => setHovered(undefined)}
                   onClick={() => line.run && navigate({ to: '/runs/$runId', params: { runId: line.run.id }, search: {} as never })}
                 />
               );
             })}
           </LineChart>
-        </ChartContainer>
+        </ChartFrame>
         {below?.({ range, ticks: xTicks, right: RIGHT, hover })}
         {x === 'ticks' && <PlayheadMark t={t} range={range} width={width} />}
       </div>
-      {pending ? (
-        <p className="pt-2 text-center text-xs text-muted-foreground">Loading model calls.</p>
-      ) : (
-        missing.length > 0 && (
-          <p className="pt-2 text-center text-xs text-muted-foreground">
-            {x === 'cost' ? 'No cost for' : 'No model calls for'} {missing.map(r => r.variant.name).join(', ')}.
-          </p>
-        )
+      {!pending && missing.length > 0 && (
+        <p className="pt-2 text-center text-xs text-muted-foreground">
+          {x === 'cost' ? 'No cost for' : 'No model calls for'} {missing.map(r => r.variant.name).join(', ')}.
+        </p>
       )}
     </div>
   );

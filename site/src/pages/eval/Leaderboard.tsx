@@ -10,7 +10,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { VariantLabel } from '@/components/marks';
 import type { Eval, Run } from '@/data/types';
 import { formatCost, formatInt } from '@/lib/format';
-import { faded, setHot, useLit } from '@/lib/hover';
+import { setHovered } from '@/lib/hover';
+import { faded, useLit } from './lit';
 import type { LegendState } from '@/lib/legend';
 import { median } from '@/lib/stats';
 import { cn } from '@/lib/utils';
@@ -101,8 +102,8 @@ export function Leaderboard({ e, ranked, x, legend }: { e: Eval; ranked: RankedV
                   key={key}
                   data-state={focused ? 'selected' : undefined}
                   className={cn('cursor-pointer transition-opacity duration-150', (!legend.visible(key) || faded(lit, key)) && 'opacity-40')}
-                  onMouseEnter={() => legend.visible(key) && setHot(key)}
-                  onMouseLeave={() => setHot(null)}
+                  onMouseEnter={() => legend.visible(key) && setHovered(key)}
+                  onMouseLeave={() => setHovered(undefined)}
                   onClick={event => (event.detail >= 2 ? legend.isolate(key) : legend.toggle(key))}
                 >
                   <TableCell>

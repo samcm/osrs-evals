@@ -8,7 +8,7 @@
 import { cn } from '@/lib/utils';
 import type { SeriesSpec } from '@/lib/chartSeries';
 import { Badge } from '@/components/ui/badge';
-import { BrandMark, Sprite, type BrandSize } from '@/components/marks';
+import { BrandMark, harnessBadgeClassName, Sprite, type BrandSize } from '@/components/marks';
 
 export function SeriesLabel({ series, size = 14, className }: { series: SeriesSpec; size?: BrandSize; className?: string }) {
   return (
@@ -16,7 +16,7 @@ export function SeriesLabel({ series, size = 14, className }: { series: SeriesSp
       {series.sprite ? <Sprite src={series.sprite} size={size} alt="" /> : series.vendor ? <BrandMark slug={series.vendor} size={size} /> : null}
       {series.label && <span className="truncate">{series.label}</span>}
       {series.harness && (
-        <Badge variant="outline" className="font-normal text-muted-foreground">
+        <Badge variant="secondary" className={harnessBadgeClassName}>
           {series.harness}
         </Badge>
       )}

@@ -10,7 +10,8 @@ import { BrandMark, Sprite } from '@/components/marks';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { questSrc, uiSrc } from '@/lib/assets';
 import { dashArray, variantSeries } from '@/lib/chartSeries';
-import { faded, setHot, useLit } from '@/lib/hover';
+import { setHovered } from '@/lib/hover';
+import { faded, useLit } from './lit';
 import { useWidth } from '@/lib/useWidth';
 import { cn } from '@/lib/utils';
 import { formatX } from './chartBits';
@@ -62,8 +63,8 @@ export function QuestStrip({ curves, x, frame, focus }: { curves: RunCurve[]; x:
             role="listitem"
             className={cn('flex items-center transition-opacity duration-150', first && row > 0 && 'mt-1 border-t pt-1', faded(lit, cv.variant.key) && 'opacity-30')}
             style={{ height: ROW }}
-            onMouseEnter={() => setHot(cv.variant.key)}
-            onMouseLeave={() => setHot(null)}
+            onMouseEnter={() => setHovered(cv.variant.key)}
+            onMouseLeave={() => setHovered(undefined)}
           >
             <Link
               to="/runs/$runId"

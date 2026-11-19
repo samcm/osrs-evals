@@ -1,43 +1,55 @@
 /**
- * The series under the pointer, shared by everything on a page: hover a pairing in a list, a line,
- * a point or a map marker, and every part of the page lights it and fades the rest. Transient (not
- * in the URL); a legend's `focus=` is the lasting version and wins over a hover.
+ * The page's hover: one series id (a pairing's variant key, a model id, a tool category …) that the
+ * pointer or keyboard focus is on, shared by every table row, legend key and chart on the page.
+ * The hovered thing stays as it is and everything else fades, so a pairing hovered in the
+ * leaderboard lights up its line in every chart. Transient React state, never in the URL; the
+ * layout clears it when the page changes.
  *
- *   const lit = useLit(legend.focus)            // the focused id, else the hovered one, else null
- *   onMouseEnter={() => setHot(spec.id)} onMouseLeave={() => setHot(null)}
- *   className={cn('transition-opacity duration-150', faded(lit, spec.id) && 'opacity-30')}
+ *   const hover = useHover();
+ *   <tr {...hoverProps(pairing.key)} style={{ opacity: hover.opacity(pairing.key) }} />
+ *   <Line {...lineProps(s, { faded: hover.faded(s.id) })} />
  */
 
-import { useEffect, useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
 
-let hot: string | null = null;
+/** Opacity of everything that isn't hovered while something is. */
+export const FADED_OPACITY = 0.25;
+
+let current: string | undefined;
 const listeners = new Set<() => void>();
 
-/** Set (or clear, with null) the hovered series id. */
-export function setHot(id: string | null): void {
-  if (id === hot) return;
-  hot = id;
-  for (const l of listeners) l();
+export function setHovered(id: string | undefined): void {
+  if (id === current) return;
+  current = id;
+  for (const listener of listeners) listener();
 }
 
-/** The hovered series id. */
-export function useHot(): string | null {
-  return useSyncExternalStore(
-    l => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    () => hot
-  );
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }
 
-/** The series to light: the focused one, else the hovered one; null lights everything. */
-export function useLit(focus?: string | null): string | null {
-  const h = useHot();
-  // A page that unmounts mid-hover leaves nothing lit on the next
-  useEffect(() => () => setHot(null), []);
-  return focus ?? h;
+export interface HoverState {
+  /** The hovered id, if any */
+  id: string | undefined;
+  /** Whether this id should fade: something else is hovered */
+  faded: (id: string) => boolean;
+  /** 1, or FADED_OPACITY when faded */
+  opacity: (id: string) => number;
 }
 
-/** Whether a series is faded: something else is lit. */
-export const faded = (lit: string | null, id: string): boolean => lit != null && lit !== id;
+export function useHover(): HoverState {
+  const id = useSyncExternalStore(subscribe, () => current);
+  const faded = (other: string) => id != null && id !== other;
+  return { id, faded, opacity: other => (faded(other) ? FADED_OPACITY : 1) };
+}
+
+/** Handlers that make an element hover (and, focused, highlight) an id. */
+export function hoverProps(id: string) {
+  return {
+    onPointerEnter: () => setHovered(id),
+    onPointerLeave: () => setHovered(undefined),
+    onFocus: () => setHovered(id),
+    onBlur: () => setHovered(undefined),
+  };
+}

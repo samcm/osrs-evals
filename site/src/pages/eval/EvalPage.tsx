@@ -1,11 +1,9 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
 import { useQueries, useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Empty, ParamSegmented } from '@/components/bits';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { PageHeader, PageTabs, type MetaItem } from '@/components/page';
+import { PageHeader, PageSection, PageTabs, PageToolbar, type MetaItem } from '@/components/page';
 import { variantSeries } from '@/lib/chartSeries';
 import { variantKey } from '@/lib/series';
 import { EvalMark } from '@/components/marks';
@@ -15,7 +13,7 @@ import { formatDecimal, formatInt } from '@/lib/format';
 import { useLegend, type LegendState } from '@/lib/legend';
 import { inScope, useDocumentTitle, useScope } from '@/lib/search';
 import { AttemptsTable, CdfChart, ParetoChart } from './Cuts';
-import { ControlBar, PairingKey } from './Controls';
+import { PairingKey } from './Controls';
 import { EffortStrips, GROUP_OPTIONS, ToolMix } from './Effort';
 import { buildCurves, callsByTick, rankVariants, totalBudgetTicks, X_OPTIONS, xRange } from './model';
 import { Centerpiece } from './Centerpiece';
@@ -54,8 +52,8 @@ const TABS = [
   { value: 'runs', label: 'Runs' },
 ] as const;
 
-/** One gap between the page's sections */
-const SECTIONS = 'flex flex-col gap-6';
+/** One gap between the page's sections: the theme's gutter */
+const SECTIONS = 'flex flex-col gap-gutter';
 
 const AGG_OPTIONS = [
   { value: 'median' as const, label: 'Median', title: "Each pairing's median run" },
@@ -67,18 +65,6 @@ const PX_OPTIONS = [
   { value: 'seconds' as const, label: 'Time' },
   { value: 'ticks' as const, label: 'Ticks' },
 ];
-
-/** A titled part of the page's one surface; parts are divided by hairlines, never nested cards. */
-function Section({ title, flush, children }: { title: string; flush?: boolean; children: ReactNode }) {
-  return (
-    <>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent className={flush ? 'px-0' : undefined}>{children}</CardContent>
-    </>
-  );
-}
 
 export function EvalPage() {
   const { evalId } = route.useParams();
@@ -151,79 +137,75 @@ export function EvalPage() {
   return (
     <div className={SECTIONS}>
       <PageHeader mark={<EvalMark evalId={e.id} size={40} />} title={e.title} description={e.goal} meta={facts(e)} />
-      <ControlBar
-        tabs={<PageTabs value={search.tab} tabs={[...TABS]} />}
-        controls={runs.length > 0 ? controls : undefined}
-        keys={runs.length > 0 && search.tab !== 'runs' ? <PairingKey series={keys} legend={legend} /> : undefined}
-      />
+      <PageTabs value={search.tab} tabs={[...TABS]} />
+      {runs.length > 0 && search.tab !== 'runs' && (
+        <PageToolbar label="Chart controls">
+          {controls}
+          <div className="ml-auto">
+            <PairingKey series={keys} legend={legend} />
+          </div>
+        </PageToolbar>
+      )}
 
       {runs.length === 0 ? (
         <Empty>No runs in this scope.</Empty>
       ) : search.tab === 'overview' ? (
         <>
-          <Centerpiece curves={shownCurves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} agg={search.agg} />
-          <Card>
-            <Section title={e.measure}>
-              <ProgressChart
-                e={e}
-                curves={shownCurves}
-                ranked={ranked}
-                x={search.x}
-                agg={search.agg}
-                range={range!}
-                legend={legend}
-                pending={pending}
-                t={search.t}
-                below={quests ? frame => <QuestStrip curves={shownCurves} x={search.x} frame={frame} focus={legend.focus} /> : undefined}
-              />
-            </Section>
-            <Separator />
-            <Section title="Leaderboard">
-              <Leaderboard e={e} ranked={ranked} x={search.x} legend={legend} />
-            </Section>
-          </Card>
+          <PageSection lead>
+            <Centerpiece curves={shownCurves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} agg={search.agg} />
+          </PageSection>
+          <PageSection title={e.measure}>
+            <ProgressChart
+              e={e}
+              curves={shownCurves}
+              ranked={ranked}
+              x={search.x}
+              agg={search.agg}
+              range={range!}
+              legend={legend}
+              pending={pending}
+              t={search.t}
+              below={quests ? frame => <QuestStrip curves={shownCurves} x={search.x} frame={frame} focus={legend.focus} /> : undefined}
+            />
+          </PageSection>
+          <PageSection title="Leaderboard">
+            <Leaderboard e={e} ranked={ranked} x={search.x} legend={legend} />
+          </PageSection>
         </>
       ) : search.tab === 'cost' ? (
-        <Card>
-          <div className={target ? 'grid divide-y xl:grid-cols-2 xl:divide-x xl:divide-y-0' : ''}>
-            <div className="flex flex-col gap-4 pb-4 xl:pb-0">
-              <Section title="What it cost">
-                <ParetoChart e={e} ranked={ranked} px={search.px} legend={legend} />
-              </Section>
-            </div>
+        <>
+          <div className={target ? 'grid gap-gutter xl:grid-cols-2' : undefined}>
+            <PageSection title="What it cost">
+              <ParetoChart e={e} ranked={ranked} px={search.px} legend={legend} />
+            </PageSection>
             {target && (
-              <div className="flex flex-col gap-4 pt-4 xl:pt-0">
-                <Section title="Finished within">
-                  <CdfChart e={e} ranked={ranked} cx={search.px} legend={legend} />
-                </Section>
-              </div>
+              <PageSection title="Finished within" className="max-xl:border-t max-xl:pt-gutter">
+                <CdfChart e={e} ranked={ranked} cx={search.px} legend={legend} />
+              </PageSection>
             )}
           </div>
           {e.attempts > 1 && (
-            <>
-              <Separator />
-              <Section title="Ticks to finish each attempt" flush>
-                <AttemptsTable e={e} ranked={ranked} legend={legend} />
-              </Section>
-            </>
+            <PageSection title="Ticks to finish each attempt">
+              <AttemptsTable e={e} ranked={ranked} legend={legend} />
+            </PageSection>
           )}
-        </Card>
+        </>
       ) : search.tab === 'behaviour' ? (
-        <Card>
-          <Section title="Effort per run">
+        <>
+          <PageSection title="Effort per run">
             <EffortStrips runs={visibleRuns} by={search.by} focus={legend.focus} />
-          </Section>
-          <Separator />
-          <Section title="Tool calls">
+          </PageSection>
+          <PageSection title="Tool calls">
             <ToolMix runs={visibleRuns} by={search.by} />
-          </Section>
-          <Separator />
-          <Section title="Where they spent their time">
+          </PageSection>
+          <PageSection title="Where they spent their time">
             <WhereMap curves={curves} grid={grid} legend={legend} view={search.map} />
-          </Section>
-        </Card>
+          </PageSection>
+        </>
       ) : (
-        <RunsTable e={e} runs={runs} curves={curves} sort={search.sort} page={search.page} />
+        <PageSection>
+          <RunsTable e={e} runs={runs} curves={curves} sort={search.sort} page={search.page} />
+        </PageSection>
       )}
     </div>
   );

@@ -13,7 +13,8 @@ import { Slider } from '@/components/ui/slider';
 import { runQuery } from '@/data/queries';
 import type { EvalRuns, PathPoint } from '@/data/types';
 import { formatInt } from '@/lib/format';
-import { setHot, useLit } from '@/lib/hover';
+import { setHovered } from '@/lib/hover';
+import { useLit } from './lit';
 import type { LegendState } from '@/lib/legend';
 import type { MapView } from '@/lib/map';
 import { useSearchUpdate } from '@/lib/search';
@@ -84,12 +85,12 @@ export function Centerpiece({
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     const hit = placed.current.findLast(p => Math.hypot(p.x - x, p.y - y) <= PIN + 2);
-    setHot(hit?.key ?? null);
+    setHovered(hit?.key);
   };
 
   return (
     <section className="flex flex-col gap-4" aria-label="Every run in the game">
-      <div ref={ref} className="relative" onPointerMove={onPointerMove} onPointerLeave={() => setHot(null)}>
+      <div ref={ref} className="relative" onPointerMove={onPointerMove} onPointerLeave={() => setHovered(undefined)}>
         {width === 0 || !grid ? (
           <Skeleton className="w-full rounded-sm" style={{ height: width ? height : 360 }} />
         ) : (

@@ -7,20 +7,18 @@
 import { useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Bar, BarChart, CartesianGrid, Cell, Scatter, ScatterChart, XAxis, YAxis } from 'recharts';
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
-import { FRAME, gutterFor } from '@/components/charts/frame';
-import { KeyLegend, SeriesLabel, SeriesTooltip, gridProps, xAxisProps } from '@/components/charts';
+import { ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { ChartFrame, chartMargin, KeyLegend, Y_AXIS_WIDTH, SeriesLabel, SeriesTooltip, gridProps, xAxisProps } from '@/components/charts';
 import type { Run } from '@/data/types';
 import { toolSeries } from '@/lib/chartSeries';
-import { faded, setHot, useLit } from '@/lib/hover';
+import { FADED_OPACITY, setHovered } from '@/lib/hover';
+import { faded, useLit } from './lit';
 import { median } from '@/lib/stats';
 import { TOOL_CATEGORIES } from '@/lib/tools';
 import { useWidth } from '@/lib/useWidth';
-import { formatTick, formatX, roundMax, roundTicks, type Measure } from './chartBits';
+import { formatTick, formatX, labelWidth, roundMax, roundTicks, type Measure } from './chartBits';
 import { groupRuns, type Group, type GroupBy } from './model';
 
-const ROW = FRAME.row;
-const AXIS = 24;
 
 interface Column {
   title: string;
@@ -69,7 +67,7 @@ function Strip({ column, groups, labels, labelRoom, lit }: { column: Column; gro
       g.runs.flatMap((run, i) => {
         const v = column.value(run);
         // A little vertical spread by epoch, so runs with the same value don't hide each other
-        return v == null ? [] : [{ x: v, y: row + ((i % 5) - 2) * 0.09, run, g }];
+        return v == null ? [] : [{ x: v, y: row + ((i % 5) - 2) * 0.1, run, g }];
       })
     );
     const medians = groups.flatMap((g, row) => {
@@ -86,10 +84,10 @@ function Strip({ column, groups, labels, labelRoom, lit }: { column: Column; gro
       <h3 className="text-sm text-muted-foreground" style={{ paddingLeft: labels ? labelRoom : 0 }}>
         {column.title}
       </h3>
-      <ChartContainer config={{}} className="aspect-auto w-full" style={{ height: groups.length * ROW + AXIS }}>
-        <ScatterChart margin={{ ...FRAME.margin, top: 4 }}>
+      <ChartFrame config={{}} rows={groups.length}>
+        <ScatterChart margin={chartMargin()}>
           <CartesianGrid {...gridProps} vertical horizontal={false} />
-          <XAxis {...xAxisProps({ dataKey: 'x', domain: [0, max], ticks, format: v => formatTick(v, column.measure) })} height={AXIS} />
+          <XAxis {...xAxisProps({ dataKey: 'x', domain: [0, max], ticks, format: v => formatTick(v, column.measure) })} />
           <YAxis
             dataKey="y"
             type="number"
@@ -134,21 +132,23 @@ function Strip({ column, groups, labels, labelRoom, lit }: { column: Column; gro
               <Cell
                 key={d.run.id}
                 fill={d.g.spec.color}
-                fillOpacity={faded(lit, d.g.spec.id) ? 0.15 : 0.75}
-                onMouseEnter={() => setHot(d.g.spec.id)}
-                onMouseLeave={() => setHot(null)}
+                fillOpacity={faded(lit, d.g.spec.id) ? FADED_OPACITY : 0.8}
+                onMouseEnter={() => setHovered(d.g.spec.id)}
+                onMouseLeave={() => setHovered(undefined)}
               />
             ))}
           </Scatter>
           <Scatter data={medians} shape={<MedianMark />} isAnimationActive={false} />
         </ScatterChart>
-      </ChartContainer>
+      </ChartFrame>
     </div>
   );
 }
 
 const useGroups = (runs: Run[], by: GroupBy) => useMemo(() => groupRuns(runs, by), [runs, by]);
-const roomFor = (groups: Group[]): number => gutterFor(groups.map(g => g.spec));
+/** The row labels' gutter: the widest label (mark, short name, harness badge), at least the y axis width. */
+const roomFor = (groups: Group[]): number =>
+  Math.max(Y_AXIS_WIDTH, ...groups.map(g => labelWidth(g.spec.label) + (g.spec.harness ? g.spec.harness.length * 7 + 26 : 0) + 8));
 
 export function EffortStrips({ runs, by, focus }: { runs: Run[]; by: GroupBy; focus?: string }) {
   const [ref, width] = useWidth();
@@ -186,10 +186,10 @@ export function ToolMix({ runs, by }: { runs: Run[]; by: GroupBy }) {
   const config: ChartConfig = Object.fromEntries(series.map(s => [s.key, { label: s.label, color: s.color }]));
   return (
     <div className="flex flex-col">
-        <ChartContainer config={config} className="aspect-auto w-full" style={{ height: groups.length * ROW + AXIS }}>
-          <BarChart data={rows} layout="vertical" margin={{ ...FRAME.margin, top: 4 }} barCategoryGap={8} maxBarSize={20}>
+        <ChartFrame config={config} rows={groups.length} legend={<KeyLegend items={present.map(cat => ({ label: cat.label, color: cat.color }))} />}>
+          <BarChart data={rows} layout="vertical" margin={chartMargin()} barCategoryGap={12} maxBarSize={20}>
             <CartesianGrid {...gridProps} vertical horizontal={false} />
-            <XAxis {...xAxisProps({ domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1], format: v => `${Math.round(v * 100)}%` })} height={AXIS} />
+            <XAxis {...xAxisProps({ domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1], format: v => `${Math.round(v * 100)}%` })} />
             <YAxis
               type="category"
               dataKey="group"
@@ -221,8 +221,7 @@ export function ToolMix({ runs, by }: { runs: Run[]; by: GroupBy }) {
               <Bar key={s.key} dataKey={s.key} stackId="a" fill={s.color} isAnimationActive={false} radius={i === series.length - 1 ? [0, 4, 4, 0] : 0} />
             ))}
           </BarChart>
-        </ChartContainer>
-        <KeyLegend items={present.map(cat => ({ label: cat.label, color: cat.color }))} />
+        </ChartFrame>
     </div>
   );
 }

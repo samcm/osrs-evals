@@ -5,12 +5,12 @@ import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { CartesianGrid, ComposedChart, Line, LineChart, Scatter, XAxis, YAxis, usePlotArea, useXAxisScale, useYAxisScale } from 'recharts';
 import { cn } from '@/lib/utils';
-import { FRAME } from '@/components/charts/frame';
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { DataTable } from '@/components/DataTable';
-import { Empty } from '@/components/bits';
 import { VariantLabel } from '@/components/marks';
 import {
+  ChartFrame,
+  chartMargin,
   SeriesLabel,
   SeriesTooltip,
   crosshairCursor,
@@ -22,15 +22,16 @@ import {
 } from '@/components/charts';
 import type { Eval, Run } from '@/data/types';
 import { scatterShape, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
+import { variantKey } from '@/lib/series';
 import { capitalize, formatInt } from '@/lib/format';
-import { faded, setHot, useLit } from '@/lib/hover';
+import { FADED_OPACITY, setHovered } from '@/lib/hover';
+import { faded, useLit } from './lit';
 import type { LegendState } from '@/lib/legend';
 import { median, paretoFrontier } from '@/lib/stats';
 import { formatTick, formatX, labelWidth, placePointLabels, roundMax, roundTicks } from './chartBits';
 import type { CdfX, ParetoX, RankedVariant } from './model';
 
 /** Charts grow to their card's height when the card beside is taller. */
-const CHART = cn('aspect-auto w-full', FRAME.lead);
 
 const spendOf = (run: Run, px: ParetoX): number | null => {
   if (px === 'cost') return run.cost;
@@ -157,11 +158,10 @@ export function ParetoChart({ e, ranked, px, legend }: { e: Eval; ranked: Ranked
 
   return (
     <div className="flex flex-1 flex-col">
-        {points.length && xAxis ? (
-          <ChartContainer config={config} className={CHART}>
-            <ComposedChart margin={FRAME.margin}>
+          <ChartFrame config={config} height="lead" empty={points.length && xAxis ? undefined : `No pairing here has a ${px === 'cost' ? 'cost' : 'value'} to place.`}>
+            <ComposedChart margin={chartMargin()}>
               <CartesianGrid {...gridProps} />
-              <XAxis {...xAxis} dataKey="x" type="number" />
+              <XAxis {...xAxis!} dataKey="x" type="number" />
               <YAxis
                 {...yAxisProps({
                   domain: [0, yMax],
@@ -169,7 +169,6 @@ export function ParetoChart({ e, ranked, px, legend }: { e: Eval; ranked: Ranked
                   format: target ? v => `${Math.round(v * 100)}%` : formatInt,
                 })}
                 dataKey="y"
-                width={FRAME.gutter}
               />
               <ChartTooltip
                 cursor={false}
@@ -210,9 +209,9 @@ export function ParetoChart({ e, ranked, px, legend }: { e: Eval; ranked: Ranked
                   data={[p]}
                   dataKey="y"
                   fill={p.spec.color}
-                  fillOpacity={legend.visible(p.spec.id) && !faded(lit, p.spec.id) ? 1 : 0.25}
-                  onMouseEnter={() => setHot(p.spec.id)}
-                  onMouseLeave={() => setHot(null)}
+                  fillOpacity={legend.visible(p.spec.id) && !faded(lit, p.spec.id) ? 1 : FADED_OPACITY}
+                  onMouseEnter={() => setHovered(p.spec.id)}
+                  onMouseLeave={() => setHovered(undefined)}
                   shape={scatterShape(p.spec.symbol)}
                   isAnimationActive={false}
                   className="cursor-pointer"
@@ -222,10 +221,7 @@ export function ParetoChart({ e, ranked, px, legend }: { e: Eval; ranked: Ranked
               {/* Only the frontier is labelled; any point names itself on hover or focus */}
               <PointLabels points={frontier} />
             </ComposedChart>
-          </ChartContainer>
-        ) : (
-          <Empty>No variant here has a {px === 'cost' ? 'cost' : 'value'} to place.</Empty>
-        )}
+          </ChartFrame>
       {left.length > 0 && (
         <p className="text-xs text-muted-foreground">
           {px === 'cost' ? 'No cost for' : 'Nothing to place for'} {left.map(p => p.r.variant.name).join(', ')}.
@@ -280,33 +276,32 @@ export function CdfChart({ e, ranked, cx, legend }: { e: Eval; ranked: RankedVar
 
   return (
     <div className="flex flex-1 flex-col">
-        {chart ? (
-          <ChartContainer
+          <ChartFrame
             config={Object.fromEntries(specs.map(s => [s.spec.key, { label: s.spec.label, color: s.spec.color }]))}
-            className={CHART}
+            height="lead"
+            empty={chart ? undefined : 'No run here has a cost.'}
           >
-            <LineChart data={chart.rows} margin={FRAME.margin}>
+            <LineChart data={chart?.rows} margin={chartMargin()}>
               <CartesianGrid {...gridProps} />
-              <XAxis {...chart.xAxis} />
-              <YAxis {...yAxisProps({ domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1], format: v => `${Math.round(v * 100)}%` })} width={FRAME.gutter} />
+              {chart && <XAxis {...chart.xAxis} />}
+              <YAxis {...yAxisProps({ domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1], format: v => `${Math.round(v * 100)}%` })} />
               <ChartTooltip
                 cursor={crosshairCursor}
                 content={
                   <SeriesTooltip
-                    series={chart.lines.map(l => l.spec)}
+                    series={chart?.lines.map(l => l.spec) ?? []}
                     format={v => formatX(v, 'share')}
                     labelFormat={v => formatX(Number(v), cx)}
                   />
                 }
               />
-              {chart.lines.map(l => (
+              {chart?.lines.map(l => (
                 <Line
                   key={l.spec.key}
-                  {...lineProps(l.spec)}
+                  {...lineProps(l.spec, { faded: faded(lit, l.spec.id) })}
                   stroke={l.spec.color}
-                  strokeOpacity={faded(lit, l.spec.id) ? 0.15 : 1}
-                  onMouseEnter={() => setHot(l.spec.id)}
-                  onMouseLeave={() => setHot(null)}
+                  onMouseEnter={() => setHovered(l.spec.id)}
+                  onMouseLeave={() => setHovered(undefined)}
                   dot={(props: { index: number; cx?: number; cy?: number; payload?: Record<string, unknown> }) => {
                     const runId = props.payload?.[`${l.spec.key}_run`] as string | undefined;
                     if (!runId || props.cx == null || props.cy == null) return <g key={props.index} />;
@@ -325,10 +320,7 @@ export function CdfChart({ e, ranked, cx, legend }: { e: Eval; ranked: RankedVar
                 />
               ))}
             </LineChart>
-          </ChartContainer>
-        ) : (
-          <Empty>No run here has a cost.</Empty>
-        )}
+          </ChartFrame>
     </div>
   );
 }
@@ -386,6 +378,7 @@ export function AttemptsTable({ e, ranked, legend }: { e: Eval; ranked: RankedVa
           columns={columns}
           getRowId={r => r.run.id}
           onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.run.id }, search: {} as never })}
+          hoverId={r => variantKey(r.run)}
         />
     </>
   );
