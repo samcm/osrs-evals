@@ -12,6 +12,8 @@ export interface MapPath {
   color: string;
   /** Colours along the path from its first tick to its last (tokens or CSS colours); overrides `color` */
   ramp?: readonly string[];
+  /** The ticks the ramp runs between; default the path's first and last */
+  rampSpan?: readonly [number, number];
   points: readonly PathPoint[];
   /** Line width in screen pixels; default 1.5 */
   width?: number;
@@ -283,8 +285,8 @@ export function WorldMap({
       if (path.ramp?.length) {
         const stops = path.ramp.map(c => parseRgb(resolve(c)));
         const n = runs.length ? runs[runs.length - 1][1] : 0;
-        const t0 = ticks[0];
-        const span = n ? ticks[n - 1] - t0 || 1 : 1;
+        const t0 = path.rampSpan?.[0] ?? ticks[0];
+        const span = path.rampSpan ? path.rampSpan[1] - t0 || 1 : n ? ticks[n - 1] - t0 || 1 : 1;
         const chunk = Math.max(2, Math.ceil(n / 48));
         for (const [a, b] of runs) {
           for (let i = a; i < b - 1; i += chunk) {
@@ -316,6 +318,17 @@ export function WorldMap({
       const [px, py] = tileToImage(meta, x, z);
       return [ox + px * cam.s, oy + py * cam.s];
     };
+    ctx.imageSmoothingEnabled = false;
+    const k = Math.max(1, Math.floor(dpr));
+    for (const m of markers) {
+      const sprite = sprites.get(m.src);
+      if (!sprite) continue;
+      const [sx, sy] = toScreen(m.x, m.z);
+      const w = (sprite.width * k) / dpr;
+      const h = (sprite.height * k) / dpr;
+      ctx.drawImage(sprite.image, Math.round((sx - w / 2) * dpr) / dpr, Math.round((sy - h / 2) * dpr) / dpr, w, h);
+    }
+    // Time dots over the markers: where each path is now matters most
     for (const { path } of prepared) {
       if (path.at == null) continue;
       const i = indexAt(path.points, path.at);
@@ -329,16 +342,6 @@ export function WorldMap({
       ctx.lineWidth = 2;
       ctx.strokeStyle = colors.surface;
       ctx.stroke();
-    }
-    ctx.imageSmoothingEnabled = false;
-    const k = Math.max(1, Math.floor(dpr));
-    for (const m of markers) {
-      const sprite = sprites.get(m.src);
-      if (!sprite) continue;
-      const [sx, sy] = toScreen(m.x, m.z);
-      const w = (sprite.width * k) / dpr;
-      const h = (sprite.height * k) / dpr;
-      ctx.drawImage(sprite.image, Math.round((sx - w / 2) * dpr) / dpr, Math.round((sy - h / 2) * dpr) / dpr, w, h);
     }
   }, [colors, image, image2x, markers, meta, prepared, size, sprites]);
 

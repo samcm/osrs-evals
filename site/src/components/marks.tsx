@@ -1,11 +1,15 @@
 /**
  * Identity marks: game sprites, vendor logos, and the model, agent, variant and eval labels built on
- * them. Models carry their vendor's mark; harnesses are a quiet Badge (no logo); the scripted
- * baseline is its sprite and "Program".
+ * them. Models carry their vendor's mark; harnesses are a quiet tag (no logo); the scripted
+ * baseline is its sprite and "Program". Marks and sprites sit on the text's middle in inline text
+ * and centre in flex rows; labels shrink by truncating the name, never the mark or the tag.
+ *
+ * Mark sizes beside text: 14 with text-xs (legends, tooltips), 16 with text-sm (inline, nav,
+ * tables), 20 with text-base or larger (an H1's label), 40 for a page header's mark.
  *
  *   <VariantLabel run={run} />            Anthropic mark, "Claude Haiku 5.5", [Claude Code]
  *   <VariantLabel variant={v} compact />  Anthropic mark, "Haiku 5.5", [Claude Code]
- *   <ModelLabel model={id} size={20} />   in table rows
+ *   <ModelLabel model={id} />             in table rows and inline (16)
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -88,7 +92,7 @@ export function Sprite({
       title={alt || undefined}
       data-sprite
       data-failed={failed || undefined}
-      className={cn('inline-block shrink-0', SPRITE_SIZES[size], className)}
+      className={cn('inline-block shrink-0 align-middle', SPRITE_SIZES[size], className)}
     />
   );
 }
@@ -112,7 +116,7 @@ export function BrandMark({ slug, size = 16, title, className }: { slug: string;
       <span
         {...a11y}
         className={cn(
-          'inline-flex shrink-0 items-center justify-center rounded-sm bg-muted font-semibold text-muted-foreground',
+          'inline-flex shrink-0 items-center justify-center rounded-sm bg-muted align-middle font-semibold text-muted-foreground',
           BRAND_SIZES[size],
           LETTER_SIZES[size],
           className
@@ -126,7 +130,7 @@ export function BrandMark({ slug, size = 16, title, className }: { slug: string;
   return (
     <span
       {...a11y}
-      className={cn('inline-block shrink-0 bg-foreground', BRAND_SIZES[size], className)}
+      className={cn('inline-block shrink-0 bg-foreground align-middle', BRAND_SIZES[size], className)}
       style={{
         maskImage: mask,
         WebkitMaskImage: mask,
@@ -169,11 +173,18 @@ function ProgramLabel({ size, swatch, color, className }: { size: BrandSize; swa
   );
 }
 
-/** An agent harness as a quiet badge with its name; never a logo (AGENTS.md). */
+/**
+ * The harness tag's look: a small muted tag, one text line tall at text-xs, so it sits beside a
+ * name at any size (legend, table row, H1) without growing the line. For a harness name drawn
+ * outside HarnessBadge (a chart's SeriesLabel), pass it to `<Badge variant="secondary">`.
+ */
+export const harnessBadgeClassName = 'h-auto rounded-sm px-1.5 py-0 text-xs/4 font-normal text-muted-foreground';
+
+/** An agent harness as a quiet tag with its name; never a logo (AGENTS.md). */
 export function HarnessBadge({ agent, fallback, className }: { agent: string; fallback?: string; className?: string }) {
   const info = agentInfo(agent, fallback);
   return (
-    <Badge variant="outline" title={agent} className={cn('font-normal text-muted-foreground', className)}>
+    <Badge variant="secondary" title={agent} className={cn(harnessBadgeClassName, className)}>
       {info.name}
     </Badge>
   );
@@ -184,10 +195,10 @@ export function ModelLabel({ model, compact, swatch, size = 16, className }: Lab
   const info = modelInfo(model);
   if (info.vendor.slug === 'program') return <ProgramLabel size={size} swatch={swatch} color={info.color} className={className} />;
   return (
-    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap', className)} title={compact ? info.name : model}>
+    <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)} title={compact ? info.name : model}>
       {swatch && <Swatch color={info.color} />}
       <BrandMark slug={info.vendor.slug} size={size} title={info.vendor.name} />
-      <span>{compact ? info.short : info.name}</span>
+      <span className="truncate">{compact ? info.short : info.name}</span>
     </span>
   );
 }
@@ -214,10 +225,10 @@ export function VariantLabel({
   const model = modelInfo(v.model);
   if (isProgram(v.agent, run?.agent_name)) return <ProgramLabel size={size} swatch={swatch} color={v.color} className={className} />;
   return (
-    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap', className)} title={v.name}>
+    <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)} title={v.name}>
       {swatch && <Swatch color={v.color} />}
       <BrandMark slug={model.vendor.slug} size={size} title={model.vendor.name} />
-      <span>{compact ? model.short : model.name}</span>
+      <span className="truncate">{compact ? model.short : model.name}</span>
       <HarnessBadge agent={v.agent} fallback={run?.agent_name} />
     </span>
   );
@@ -226,6 +237,6 @@ export function VariantLabel({
 /** The eval's sprite. */
 export function EvalMark({ evalId, size = 24, title, className }: { evalId: string; size?: SpriteSize; title?: string; className?: string }) {
   const { mark } = evalArt(evalId);
-  if (!mark) return <span aria-hidden className={cn('inline-block shrink-0', SPRITE_SIZES[size], className)} />;
+  if (!mark) return <span aria-hidden className={cn('inline-block shrink-0 align-middle', SPRITE_SIZES[size], className)} />;
   return <Sprite src={mark.src} size={size} alt={title ?? mark.name} className={className} />;
 }

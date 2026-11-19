@@ -90,6 +90,27 @@ export function makeClock(run: RunDetail): Clock {
 /** A turn's tick: its own, or from its seconds. */
 export const turnTick = (turn: Turn, clock: Clock): number => turn.tick ?? Math.round(clock.toTick(turn.at));
 
+/**
+ * The turn running at a tick: the one picked (`?turn=`) when the tick is its start, else the last
+ * that started at or before it; −1 before the first.
+ */
+export function currentTurn(turns: Turn[], clock: Clock, tick: number, picked?: number): number {
+  const t = Math.round(tick);
+  if (picked != null && turns[picked - 1] && turnTick(turns[picked - 1], clock) === t) return picked - 1;
+  if (turns.length === 0 || turnTick(turns[0], clock) > t) return -1;
+  return turnAt(turns, clock, t);
+}
+
+/** Markdown as one plain line: no emphasis, code ticks, heading or list marks, links as their text. */
+export function plainLine(text: string): string {
+  return text
+    .replace(/^\s*(#+|[-*+]|\d+\.|>)\s+/, '')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/(\*\*|__|`)/g, '')
+    .replace(/(^|\W)[*_](\S(?:.*?\S)?)[*_](?=\W|$)/g, '$1$2')
+    .trim();
+}
+
 /** The turn running at a tick: the last that started at or before it (the first before any). */
 export function turnAt(turns: Turn[], clock: Clock, tick: number): number {
   let found = 0;
@@ -110,7 +131,7 @@ export const turnHasError = (turn: Turn): boolean => turn.error != null || turn.
 /** What a turn said, in one line: the model's own words, else the game functions its script called, else its command. */
 export function turnSummary(turn: Turn): { text: string; kind: 'said' | 'sdk' | 'command' } | null {
   const said = turn.text?.split('\n').find(line => line.trim() !== '');
-  if (said) return { text: said.trim().replace(/^#+\s*/, ''), kind: 'said' };
+  if (said) return { text: plainLine(said), kind: 'said' };
   const sdk = [...new Set(turn.actions.flatMap(a => a.sdk_calls))].filter(f => f !== 'getState');
   if (sdk.length) return { text: sdk.join(' '), kind: 'sdk' };
   // Polling a running process (Codex): what the process printed since, not the poll itself
@@ -133,6 +154,12 @@ function processOutput(output: string | null): string | undefined {
     .map(line => line.trim())
     .filter(Boolean)
     .at(-1);
+}
+
+/** What one action did, in one line: the game functions its script called, else its command. */
+export function actionLine(action: Action): string {
+  const sdk = [...new Set(action.sdk_calls)].filter(f => f !== 'getState');
+  return sdk.length ? sdk.join(' ') : commandLine(action) || action.tool;
 }
 
 /** The first line of a command worth reading: without a leading `cd somewhere;`. */

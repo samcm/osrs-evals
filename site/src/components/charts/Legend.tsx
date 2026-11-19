@@ -1,7 +1,7 @@
 /**
  * Legends in the shadcn chart look (centred row under the chart, small keys), bound to the URL:
  * given `legend` (useLegend), a click hides or shows a series (`hide=`, or clears an isolation) and
- * a double click isolates it (`focus=`).
+ * a double click isolates it (`focus=`). Hovering a key hovers its series across the page (lib/hover).
  *
  *   const legend = useLegend();
  *   <SeriesLegend series={series} legend={legend} />                 // keys from specs, with marks
@@ -10,6 +10,7 @@
 
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { hoverProps, useHover } from '@/lib/hover';
 import type { LegendState } from '@/lib/legend';
 import type { SeriesSpec } from '@/lib/chartSeries';
 import type { AgentLine, AgentSymbol, SeriesColor } from '@/lib/series';
@@ -74,6 +75,7 @@ function Key({ item }: { item: LegendItem }) {
 
 /** A row of keys; items with an id toggle their series when `legend` is given. */
 export function KeyLegend({ items, legend, className }: { items: LegendItem[]; legend?: LegendState; className?: string }) {
+  const hover = useHover();
   return (
     <ul className={cn('flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 pt-3 text-xs', className)}>
       {items.map((item, i) => {
@@ -99,9 +101,10 @@ export function KeyLegend({ items, legend, className }: { items: LegendItem[]; l
         const id = item.id;
         const shown = legend.visible(id);
         return (
-          <li key={key}>
+          <li key={key} className="transition-opacity" style={{ opacity: hover.opacity(id) }}>
             <button
               type="button"
+              {...hoverProps(id)}
               aria-pressed={shown}
               aria-label={item.name}
               title={legend.focus === id ? 'Click to show every series' : 'Click to hide; double-click to show only this'}
