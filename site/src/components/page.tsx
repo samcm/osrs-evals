@@ -129,7 +129,7 @@ export function PageSection({
       className={cn(
         'flex min-w-0 flex-col gap-stack [--card-spacing:0px]',
         lead
-          ? '-mx-gutter border-y bg-card p-gutter'
+          ? '-mx-gutter border-y bg-card p-gutter [[role=toolbar]+&]:-mt-gutter [[role=toolbar]+&]:border-t-0'
           : 'border-t pt-gutter first-of-type:border-t-0 first-of-type:pt-0 [[data-lead]+&]:border-t-0 [[data-lead]+&]:pt-0',
         className
       )}
