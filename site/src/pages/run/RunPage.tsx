@@ -25,15 +25,6 @@ const route = getRouteApi('/runs/$runId');
 
 const headSrc = (id: string): string => `/data/runs/${encodeURIComponent(id)}.head.png`;
 
-/** Where to watch the run: its replay URL, or the live world viewer on this host when a replay was recorded. */
-function replayHref(run: RunDetail): string | null {
-  if (run.replay_url) return run.replay_url;
-  if (!run.has_replay) return null;
-  const ws = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  const live = `${ws}://${window.location.host}/feed/${run.id}`;
-  return `/world/?live=${encodeURIComponent(live)}&follow=${encodeURIComponent(run.account)}`;
-}
-
 /** The value an eval counts, as words: "308 of 500 shrimps cooked", "4 quest points". */
 function valuePhrase(evalId: string, measure: string, value: number, target: number | null): string {
   const of = target != null ? ` of ${formatInt(target)}` : '';
@@ -188,7 +179,7 @@ export function RunPage() {
       <div className="grid gap-4 md:gap-6 xl:grid-cols-5">
         <Card className="min-w-0 xl:col-span-3">
           <CardContent className="flex flex-col gap-4">
-            <Player run={run} replay={replayHref(run)} />
+            <Player run={run} head={head} />
             <Scrubber clock={clock} selected={selected} measure={search.x} />
           </CardContent>
         </Card>
