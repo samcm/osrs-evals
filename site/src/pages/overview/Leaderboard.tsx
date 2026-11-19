@@ -82,7 +82,7 @@ export function Leaderboard({ pairings, evals, sort, onSortChange }: { pairings:
           cell: ({ getValue }) => (
             <span className="flex min-w-0 items-center gap-3">
               <span className="w-7 shrink-0 text-right font-medium tabular-nums">{formatScore(getValue())}</span>
-              <Progress value={getValue() * 100} aria-hidden className="w-28 lg:w-36 2xl:w-56 max-md:hidden **:data-[slot=progress-indicator]:bg-data-emerald" />
+              <Progress value={getValue() * 100} aria-hidden className="w-24 xl:w-32 2xl:w-56 max-md:hidden **:data-[slot=progress-indicator]:bg-data-emerald" />
             </span>
           ),
         }),
@@ -90,9 +90,10 @@ export function Leaderboard({ pairings, evals, sort, onSortChange }: { pairings:
           col.accessor(p => p.evals.get(e.id)?.score ?? -1, {
             id: `eval-${e.id}`,
             header: () => (
-              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap" title={e.title}>
                 <EvalMark evalId={e.id} size={16} title="" />
-                {e.title}
+                {/* "Quest points in 30 minutes" → "Quest points": the window is the eval's, not the column's */}
+                {e.title.split(' in ')[0]}
               </span>
             ),
             // Columns other than the score shrink to their content, so the score's bar takes the rest
