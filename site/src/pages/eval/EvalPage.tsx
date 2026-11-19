@@ -7,7 +7,6 @@ import { PageHeader, PageSection, PageTabs, PageToolbar, type MetaItem } from '@
 import { SeriesLegend } from '@/components/charts';
 import { variantSeries } from '@/lib/chartSeries';
 import { variantKey } from '@/lib/series';
-import { EvalMark } from '@/components/marks';
 import { evalRunsQuery, indexQuery, runQuery } from '@/data/queries';
 import type { Eval } from '@/data/types';
 import { formatDecimal, formatInt } from '@/lib/format';
@@ -110,7 +109,6 @@ export function EvalPage() {
   if (!e) {
     return (
       <div className={SECTIONS}>
-        <PageHeader title={evalId} />
         <Empty>No eval with this id has runs.</Empty>
       </div>
     );
@@ -135,7 +133,7 @@ export function EvalPage() {
 
   return (
     <div className={SECTIONS}>
-      <PageHeader mark={<EvalMark evalId={e.id} size={40} />} title={e.title} description={e.goal} meta={facts(e)} />
+      <PageHeader description={e.goal} meta={facts(e)} />
       {/* The views and the controls that drive the open one share a row, as shadcn's dashboards do */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PageTabs value={search.tab} tabs={[...TABS]} />
