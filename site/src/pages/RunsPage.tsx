@@ -3,12 +3,11 @@ import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/DataTable';
-import { EvalPicker } from '@/components/EvalPicker';
 import { SelectField } from '@/components/SelectField';
-import { Empty, PageTitle, linkClassName } from '@/components/bits';
+import { Empty, linkClassName } from '@/components/bits';
+import { PageHeader, PageSection, PageToolbar } from '@/components/page';
 import { BrandMark, EvalMark, VariantLabel } from '@/components/marks';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { indexQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
 import { outcomeWord } from '@/lib/evals';
@@ -111,18 +110,18 @@ export function RunsPage() {
                   loading="lazy"
                   width={48}
                   height={27}
-                  className="h-7 w-12 max-w-none rounded-sm bg-muted object-cover"
+                  className="h-7 w-12 max-w-none rounded-sm bg-muted object-cover max-sm:hidden"
                 />
               ) : (
-                <span className="block h-7 w-12 rounded-sm bg-muted" />
+                <span className="block h-7 w-12 rounded-sm bg-muted max-sm:hidden" />
               )}
-              <EvalMark evalId={row.original.eval} size={24} title={row.original.e?.title} />
+              <EvalMark evalId={row.original.eval} size={20} title={row.original.e?.title} />
             </span>
           ),
         }),
         col.accessor(r => variantOf(r).name, {
           id: 'variant',
-          header: 'Variant',
+          header: 'Pairing',
           cell: ({ row }) => <VariantLabel run={row.original} compact />,
         }),
         col.accessor(r => (r.success ? 1e9 : 0) + (resultValue(r) ?? -1), {
@@ -141,21 +140,27 @@ export function RunsPage() {
         col.accessor(r => r.game_ticks ?? -1, {
           id: 'ticks',
           header: 'Game ticks',
-          meta: { numeric: true },
+          meta: { numeric: true, className: 'max-md:hidden' },
           sortDescFirst: true,
           cell: ({ row }) => formatInt(row.original.game_ticks),
         }),
         col.accessor(r => r.metrics.wall_seconds ?? -1, {
           id: 'wall',
           header: 'Wall time',
-          meta: { numeric: true },
+          meta: { numeric: true, className: 'max-lg:hidden' },
           sortDescFirst: true,
           cell: ({ row }) => (row.original.metrics.wall_seconds == null ? MISSING : formatClock(row.original.metrics.wall_seconds)),
         }),
-        col.accessor(r => r.ended_by ?? '', { id: 'ended', header: 'Ended by', cell: ({ row }) => endedBy(row.original.ended_by) }),
+        col.accessor(r => r.ended_by ?? '', {
+          id: 'ended',
+          header: 'Ended by',
+          meta: { className: 'max-lg:hidden' },
+          cell: ({ row }) => endedBy(row.original.ended_by),
+        }),
         col.accessor(r => r.sample_started ?? r.started, {
           id: 'started',
           header: 'Started (UTC)',
+          meta: { className: 'max-md:hidden' },
           sortDescFirst: true,
           cell: ({ getValue }) => {
             const date = new Date(getValue());
@@ -183,56 +188,76 @@ export function RunsPage() {
 
   return (
     <>
-      <PageTitle>Runs</PageTitle>
+      <PageHeader title="Runs" />
 
-      <div className="flex flex-col gap-4">
-        <EvalPicker evals={data.evals} value={search.eval} allLabel="All evals" onChange={v => setSearch({ eval: v }, { resetPage: true })} />
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:max-w-4xl">
-          <SelectField label="Model" allLabel="All" value={scope.model[0]} options={models} onChange={v => setScope({ model: v ? [v] : [] })} />
-          <SelectField label="Agent" allLabel="All" value={scope.agent[0]} options={agents} onChange={v => setScope({ agent: v ? [v] : [] })} />
-          <SelectField
-            label="Outcome"
-            allLabel="All"
-            value={search.outcome}
-            options={OUTCOMES}
-            onChange={v => setSearch({ outcome: v as OutcomeFilter | undefined }, { resetPage: true })}
-          />
-          <SelectField
-            label="Batch"
-            allLabel="All"
-            value={search.batch}
-            options={batches}
-            onChange={v => setSearch({ batch: v }, { resetPage: true })}
-          />
-        </div>
-      </div>
+      <PageToolbar label="Filters" className="grid grid-cols-2 sm:flex">
+        <SelectField
+          label="Eval"
+          hideLabel
+          allLabel="All evals"
+          className="col-span-2 sm:w-56"
+          value={search.eval}
+          options={data.evals.map(e => ({ value: e.id, label: e.title, mark: <EvalMark evalId={e.id} size={16} title="" /> }))}
+          onChange={v => setSearch({ eval: v }, { resetPage: true })}
+        />
+        <SelectField
+          label="Model"
+          hideLabel
+          allLabel="All models"
+          className="sm:w-48"
+          value={scope.model[0]}
+          options={models}
+          onChange={v => setScope({ model: v ? [v] : [] })}
+        />
+        <SelectField
+          label="Harness"
+          hideLabel
+          allLabel="All harnesses"
+          className="sm:w-44"
+          value={scope.agent[0]}
+          options={agents}
+          onChange={v => setScope({ agent: v ? [v] : [] })}
+        />
+        <SelectField
+          label="Outcome"
+          hideLabel
+          allLabel="All outcomes"
+          className="sm:w-44"
+          value={search.outcome}
+          options={OUTCOMES}
+          onChange={v => setSearch({ outcome: v as OutcomeFilter | undefined }, { resetPage: true })}
+        />
+        <SelectField
+          label="Batch"
+          hideLabel
+          allLabel="All batches"
+          className="sm:w-44"
+          value={search.batch}
+          options={batches}
+          onChange={v => setSearch({ batch: v }, { resetPage: true })}
+        />
+        {filtered && (
+          <Button variant="ghost" onClick={() => navigate({ to: '/runs', search: { model: [], agent: [], vendor: [] } as never })}>
+            Clear
+          </Button>
+        )}
+      </PageToolbar>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{rows.length === 1 ? '1 run' : `${formatInt(rows.length)} runs`}</CardTitle>
-          {filtered && (
-            <CardAction>
-              <Button variant="outline" size="sm" onClick={() => navigate({ to: '/runs', search: { model: [], agent: [], vendor: [] } as never })}>
-                Clear filters
-              </Button>
-            </CardAction>
-          )}
-        </CardHeader>
-        <CardContent className="px-0">
-          <DataTable
-            data={rows}
-            columns={columns}
-            getRowId={r => r.id}
-            sort={search.sort}
-            onSortChange={sort => setSearch({ sort }, { resetPage: true })}
-            onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.id } })}
-            page={search.page}
-            pageSize={PAGE_SIZE}
-            onPageChange={page => setSearch({ page })}
-            empty={<Empty>No runs match these filters.</Empty>}
-          />
-        </CardContent>
-      </Card>
+      <PageSection title={rows.length === 1 ? '1 run' : `${formatInt(rows.length)} runs`}>
+        <DataTable
+          data={rows}
+          columns={columns}
+          getRowId={r => r.id}
+          hoverId={r => variantOf(r).key}
+          sort={search.sort}
+          onSortChange={sort => setSearch({ sort }, { resetPage: true })}
+          onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.id } })}
+          page={search.page}
+          pageSize={PAGE_SIZE}
+          onPageChange={page => setSearch({ page })}
+          empty={<Empty>No runs match these filters.</Empty>}
+        />
+      </PageSection>
     </>
   );
 }

@@ -18,6 +18,7 @@ import type { XAxisProps } from 'recharts';
 import { formatAxisNumber, formatCostTick } from '@/lib/format';
 import { logRange, logTicks } from '@/lib/logAxis';
 import { dashArray, type SeriesSpec } from '@/lib/chartSeries';
+import { FADED_OPACITY } from '@/lib/hover';
 import { seriesColor } from './config';
 
 type AxisDomain = NonNullable<XAxisProps['domain']>;
@@ -63,6 +64,14 @@ interface AxisOptions {
 
 const base = { tickLine: false, axisLine: false, tickMargin: 8, minTickGap: 16 } as const;
 
+/**
+ * Every chart's y axis takes the same width, so charts stacked on a page share their plot's left
+ * edge; one with a rotated axis name takes NAMED_Y_AXIS_WIDTH. Pass `width: 'auto'` only for a chart
+ * that stands alone.
+ */
+export const Y_AXIS_WIDTH = 48;
+export const NAMED_Y_AXIS_WIDTH = 64;
+
 export function xAxisProps({ dataKey, type = 'number', domain, ticks, format = formatAxisNumber, name, clamp = true }: AxisOptions = {}) {
   return {
     ...base,
@@ -75,14 +84,23 @@ export function xAxisProps({ dataKey, type = 'number', domain, ticks, format = f
   };
 }
 
-export function yAxisProps({ dataKey, type = 'number', domain, ticks, format = formatAxisNumber, name, clamp = false }: AxisOptions = {}) {
+export function yAxisProps({
+  dataKey,
+  type = 'number',
+  domain,
+  ticks,
+  format = formatAxisNumber,
+  name,
+  clamp = false,
+  width,
+}: AxisOptions & { width?: number | 'auto' } = {}) {
   return {
     ...base,
     dataKey,
     type,
     ...(type === 'number' ? { domain, tickFormatter: format } : {}),
     ticks,
-    width: 'auto' as const,
+    width: width ?? (name ? NAMED_Y_AXIS_WIDTH : Y_AXIS_WIDTH),
     allowDataOverflow: clamp,
     ...(name
       ? { label: { value: name, angle: -90, position: 'insideLeft' as const, style: { textAnchor: 'middle' as const }, className: 'fill-muted-foreground' } }
@@ -113,9 +131,12 @@ export function logAxisProps(values: (number | null | undefined)[], format: (val
 /**
  * A series' Line: its colour, its agent's dash, 1.75px, no dots, no animation; a step line by
  * default (counts, scores and CDFs step). Hidden series stay mounted but invisible, so colours and
- * the legend don't shift.
+ * the legend don't shift. `faded` (from useHover) dims it while another series is hovered.
  */
-export function lineProps(series: SeriesSpec, { step = true, hidden = false, width = 1.75 }: { step?: boolean; hidden?: boolean; width?: number } = {}) {
+export function lineProps(
+  series: SeriesSpec,
+  { step = true, hidden = false, width = 1.75, faded = false }: { step?: boolean; hidden?: boolean; width?: number; faded?: boolean } = {}
+) {
   return {
     dataKey: series.key,
     name: series.key,
@@ -128,5 +149,6 @@ export function lineProps(series: SeriesSpec, { step = true, hidden = false, wid
     connectNulls: false,
     isAnimationActive: false,
     hide: hidden,
+    strokeOpacity: faded ? FADED_OPACITY : 1,
   };
 }

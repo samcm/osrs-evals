@@ -3,6 +3,7 @@
  * passes undefined. Options with a `group` are listed under it, in first-seen order.
  *
  *   <SelectField label="Model" value={scope.model[0]} allLabel="All" options={models} onChange={v => …} />
+ *   <SelectField label="Model" hideLabel allLabel="All models" … />   in a toolbar
  */
 
 import { useId, type ReactNode } from 'react';
@@ -27,9 +28,12 @@ export function SelectField({
   options,
   onChange,
   allLabel,
+  hideLabel,
   className,
 }: {
   label: string;
+  /** Keep the label for screen readers only, as in a toolbar where the value names itself */
+  hideLabel?: boolean;
   value: string | undefined;
   options: SelectOption[];
   onChange: (value: string | undefined) => void;
@@ -47,7 +51,7 @@ export function SelectField({
     ));
   return (
     <div className={cn('flex min-w-0 flex-col gap-1.5', className)}>
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
+      <label htmlFor={id} className={cn('text-xs font-medium text-muted-foreground', hideLabel && 'sr-only')}>
         {label}
       </label>
       <Select value={value ?? (allLabel != null ? ALL : undefined)} onValueChange={v => onChange(v === ALL ? undefined : v)}>
