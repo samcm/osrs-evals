@@ -1,18 +1,19 @@
 /**
- * The overview's centrepiece: one eval, in the game. Its best run's last moment as the game drew it,
- * and every pairing's median progress over the eval's budget, keyed by a legend. The eval is picked
- * by its sprite (`?eval=`); the default is the eval the most pairings ran.
+ * The overview's second card: one eval, in the game. Its best run's last moment as the game drew
+ * it, and every pairing's median progress over the eval's budget, keyed by a legend. The eval is
+ * picked from a Select (`?eval=`), which holds any number of evals; the default is the eval the
+ * most pairings ran.
  */
 
 import { useMemo } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
-import { Segmented } from '@/components/bits';
 import { ChartFrame, chartMargin, crosshairCursor, gridProps, lineProps, SeriesLegend, seriesConfig, SeriesTooltip, xAxisProps, yAxisProps } from '@/components/charts';
 import { PageSection } from '@/components/page';
 import { EvalMark, VariantLabel } from '@/components/marks';
 import { ChartTooltip } from '@/components/ui/chart';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { evalRunsQuery } from '@/data/queries';
 import type { Eval, EvalRuns, Run } from '@/data/types';
 import { variantSeries, type SeriesSpec } from '@/lib/chartSeries';
@@ -67,7 +68,7 @@ function MedianProgress({ e, lines, legend }: { e: Eval; lines: PairLine[]; lege
   const yMax = roundCeil(top, 4);
 
   return (
-    <ChartFrame config={seriesConfig(series)} loading={!data} legend={<SeriesLegend series={series} legend={legend} />}>
+    <ChartFrame config={seriesConfig(series)} loading={!data}>
       <LineChart data={rows} margin={chartMargin()}>
         <CartesianGrid {...gridProps} />
         <XAxis {...xAxisProps({ dataKey: 'tick', domain: [0, end], ticks: roundTicks(end, 4), format: formatTick })} />
@@ -145,35 +146,45 @@ export function Featured({
       description={`Median ${featured.measure.toLowerCase()} by game tick`}
       actions={
         evals.length > 1 && (
-          <Segmented
-            label="Featured eval"
-            value={featured.id}
-            options={evals.map(e => ({ value: e.id, label: <EvalMark evalId={e.id} size={16} title="" />, title: e.title }))}
-            onChange={id => onChange(id === fallback.id ? undefined : id)}
-          />
+          <Select value={featured.id} onValueChange={id => onChange(id === fallback.id ? undefined : id)}>
+            {/* The title names the eval; the trigger is only the way to switch it */}
+            <SelectTrigger size="sm" aria-label="Featured eval">
+              <EvalMark evalId={featured.id} size={16} title="" />
+            </SelectTrigger>
+            <SelectContent position="popper" align="end">
+              {evals.map(e => (
+                <SelectItem key={e.id} value={e.id}>
+                  <EvalMark evalId={e.id} size={16} title="" />
+                  {e.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )
       }
     >
-      <div className="grid items-start gap-gutter lg:grid-cols-5">
+      {/* On a wide screen the picture keeps 16:9 at the lead chart's height (h-80) beside it; the legend runs under both */}
+      <div className="flex flex-col gap-gutter xl:flex-row">
         {best && (
-          <figure className="flex min-w-0 flex-col gap-2 lg:col-span-2">
+          <figure className="flex min-w-0 flex-col gap-2 xl:shrink-0">
             <Link
               to="/runs/$runId"
               params={{ runId: best.id }}
               {...hoverProps(variantOf(best).key)}
               className="block overflow-hidden rounded-md bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              <img src={`/data/${best.screenshot}`} alt="The best run's last moment in the game" className="aspect-video w-full animate-fade-in object-cover" />
+              <img src={`/data/${best.screenshot}`} alt="The best run's last moment in the game" className="aspect-video w-full animate-fade-in object-cover xl:h-80 xl:w-auto" />
             </Link>
             <figcaption className="flex min-w-0 text-sm">
               <VariantLabel run={best} compact />
             </figcaption>
           </figure>
         )}
-        <div className="min-w-0 lg:col-span-3">
+        <div className="min-w-0 flex-1">
           <MedianProgress e={featured} lines={lines} legend={legend} />
         </div>
       </div>
+      <SeriesLegend series={lines.map(l => l.series)} legend={legend} />
     </PageSection>
   );
 }

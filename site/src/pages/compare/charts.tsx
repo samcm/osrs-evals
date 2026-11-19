@@ -3,12 +3,13 @@
 import { useMemo, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Bar, BarChart, CartesianGrid, Scatter, ScatterChart, XAxis, YAxis } from 'recharts';
-import { ChartFrame, KeyLegend, SeriesLabel, SeriesTooltip, seriesConfig, seriesColor, xAxisProps, logAxisProps } from '@/components/charts';
+import { ChartFrame, KeyLegend, SeriesLabel, SeriesTooltip, seriesConfig, seriesColor, xAxisProps, logAxisProps, type LegendItem } from '@/components/charts';
 import { ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { Eval, Run, ToolCategory } from '@/data/types';
-import { scatterShape, toolSeries, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
+import { agentSeries, modelSeries, scatterShape, toolSeries, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
 import { formatPercent } from '@/lib/format';
 import { useHover } from '@/lib/hover';
+import type { SeriesColor } from '@/lib/series';
 import type { LegendState } from '@/lib/legend';
 import { roundCeil, roundTicks } from '@/lib/ticks';
 import { TOOL_CATEGORIES } from '@/lib/tools';
@@ -21,8 +22,6 @@ export interface RankedGroup {
   sample: Run;
   /** Runs with a value, and the value */
   points: { run: Run; value: number }[];
-  /** Runs in the group, with or without a value */
-  total: number;
   median: number;
 }
 
@@ -36,8 +35,20 @@ function jitter(id: string): number {
   return ((h >>> 0) / 0xffffffff) * 2 - 1;
 }
 
-/** Room for group labels left of the plot. */
-const LABEL_WIDTH = { wide: 196, narrow: 112 };
+/** Room for group labels left of the plot: a pairing's model and badge, or one name. */
+const LABEL_WIDTH = { pairing: 196, wide: 148, narrow: 112 };
+const labelWidthFor = (by: GroupBy, narrow: boolean) => (narrow ? LABEL_WIDTH.narrow : by === 'variant' ? LABEL_WIDTH.pairing : LABEL_WIDTH.wide);
+
+/** Harness keys are shapes in the text colour: colour belongs to models. */
+const SHAPE_KEY_COLOR: SeriesColor = {
+  token: '--foreground',
+  swatchClassName: 'bg-foreground',
+  borderClassName: 'border-foreground',
+  fillClassName: 'fill-foreground',
+};
+
+/** Unique by `key`, in first-seen order. */
+const uniqueBy = <T,>(items: T[], key: (item: T) => string): T[] => [...new Map(items.map(item => [key(item), item])).values()];
 /** Room for each row's median right of the plot. */
 const MEDIAN_WIDTH = 64;
 
@@ -59,10 +70,13 @@ interface Point {
 
 /**
  * Every run as a point on the metric, a group per row (ranked, best at the top), with the group's
- * median as a bar and its value at the row's right end: the chart is its own ranking.
+ * median as a bar and its value at the row's right end: the chart is its own ranking. Points take
+ * their model's colour and their harness's shape; the legend keys each once and hides or isolates
+ * them through `legend` (the page drops hidden runs from `groups`).
  */
 export function StripChart({
   groups,
+  keyed,
   metric,
   by,
   log,
@@ -70,33 +84,56 @@ export function StripChart({
   legend,
 }: {
   groups: RankedGroup[];
+  /** Every run with a value, hidden or not: the legend keys their models and harnesses */
+  keyed: Run[];
   metric: Metric;
   by: GroupBy;
   log: boolean;
-  evals: Eval[];
+  /** When runs pool several evals: each point's tooltip names its eval */
+  evals?: Eval[];
   legend: LegendState;
 }) {
   const navigate = useNavigate();
   const hover = useHover();
   const [ref, width] = useWidth();
   const narrow = width > 0 && width < 520;
-  const labelWidth = narrow ? LABEL_WIDTH.narrow : LABEL_WIDTH.wide;
-  const titles = useMemo(() => new Map(evals.map(e => [e.id, e.title])), [evals]);
+  const labelWidth = labelWidthFor(by, narrow);
+  const titles = useMemo(() => new Map((evals ?? []).map(e => [e.id, e.title])), [evals]);
 
   // One scatter per variant: its model's colour, its agent's point shape
   const variants = useMemo(() => {
-    const byKey = new Map<string, { series: SeriesSpec; points: Point[] }>();
+    const byKey = new Map<string, { series: SeriesSpec; model: string; agent: string; points: Point[] }>();
     groups.forEach((g, i) =>
       g.points.forEach(p => {
         const series = variantSeries(p.run);
-        const entry = byKey.get(series.key) ?? { series, points: [] };
+        const entry = byKey.get(series.key) ?? { series, model: p.run.model, agent: p.run.agent, points: [] };
         entry.points.push({ x: p.value, y: i + jitter(p.run.id) * 0.22, run: p.run });
         byKey.set(series.key, entry);
       })
     );
-    return [...byKey.values()].sort((a, b) => a.series.name.localeCompare(b.series.name));
+    return [...byKey.values()];
   }, [groups]);
   const medians: Point[] = groups.map((g, i) => ({ x: g.median, y: i, group: g }));
+
+  const legendItems = useMemo<LegendItem[]>(() => {
+    const models = uniqueBy(keyed, r => r.model)
+      .map(r => modelSeries(r.model))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const agents = uniqueBy(keyed, r => r.agent)
+      .map(r => agentSeries(r.agent, r.agent_name))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return [
+      { label: 'Median', swatchClassName: 'bg-foreground' },
+      ...models.map(s => ({ id: s.id, name: s.name, label: null, mark: <SeriesLabel series={s} size={14} />, color: s.swatch })),
+      ...agents.map(s => ({ id: s.id, name: s.name, label: null, mark: <SeriesLabel series={s} size={14} />, color: SHAPE_KEY_COLOR, symbol: s.symbol })),
+    ];
+  }, [keyed]);
+
+  // A key is lit while any of its runs is drawn: isolating a harness keeps lit the models it ran
+  const keyLegend = useMemo<LegendState>(() => {
+    const drawn = new Set(groups.flatMap(g => g.points.flatMap(p => [p.run.model, p.run.agent])));
+    return { ...legend, visible: id => drawn.has(id) };
+  }, [groups, legend]);
 
   const values = groups.flatMap(g => g.points.map(p => p.value));
   const tick = metric.tick ?? metric.format;
@@ -105,37 +142,25 @@ export function StripChart({
   const xProps = (log && logAxisProps(values, tick)) || {
     ...xAxisProps({ dataKey: 'x', domain: [0, max], ticks: roundTicks(max, 5, integer), format: tick }),
   };
+  const rowTicks = groups.map((_, i) => i);
 
   return (
     <div ref={ref}>
       <ChartFrame
         config={seriesConfig(variants.map(v => v.series))}
-        rows={groups.length}
-        legend={
-          <KeyLegend
-            legend={legend}
-            items={[
-              { label: 'Median', swatchClassName: 'bg-foreground' },
-              ...variants.map(({ series }) => ({
-                id: series.id,
-                name: series.name,
-                label: null,
-                mark: <SeriesLabel series={series} size={14} />,
-                color: series.swatch,
-                symbol: series.symbol,
-              })),
-            ]}
-          />
-        }
+        rows={Math.max(groups.length, 2)}
+        empty={groups.length === 0 ? 'Every run here is hidden.' : undefined}
+        legend={<KeyLegend legend={keyLegend} items={legendItems} />}
       >
         <ScatterChart margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
           <CartesianGrid horizontal={false} />
-          <XAxis {...xProps} dataKey="x" />
+          {/* Unclipped, so a point at either end of the scale stays whole */}
+          <XAxis {...xProps} dataKey="x" allowDataOverflow={false} />
           <YAxis
             type="number"
             dataKey="y"
             domain={[-0.5, groups.length - 0.5]}
-            ticks={groups.map((_, i) => i)}
+            ticks={rowTicks}
             reversed
             interval={0}
             tickLine={false}
@@ -160,7 +185,7 @@ export function StripChart({
             type="number"
             dataKey="y"
             domain={[-0.5, groups.length - 0.5]}
-            ticks={groups.map((_, i) => i)}
+            ticks={rowTicks}
             reversed
             interval={0}
             tickLine={false}
@@ -184,10 +209,7 @@ export function StripChart({
               const point = (props.payload?.[0]?.payload ?? null) as Point | null;
               if (!point) return null;
               const rows = point.run
-                ? [
-                    ['Eval', titles.get(point.run.eval) ?? point.run.eval],
-                    [metric.label, metric.format(point.x)],
-                  ]
+                ? [...(evals ? [['Eval', titles.get(point.run.eval) ?? point.run.eval]] : []), [metric.label, metric.format(point.x)]]
                 : [
                     ['Median', metric.format(point.x)],
                     ['Runs', String(point.group!.points.length)],
@@ -203,7 +225,7 @@ export function StripChart({
                       {rows.map(([k, v]) => (
                         <div key={k} className="flex justify-between gap-4">
                           <span className="text-muted-foreground">{k}</span>
-                          <span className="font-mono font-medium tabular-nums">{v}</span>
+                          <span className="font-medium tabular-nums">{v}</span>
                         </div>
                       ))}
                     </div>
@@ -212,15 +234,15 @@ export function StripChart({
               );
             }}
           />
-          {variants.map(({ series, points }) => (
+          {variants.map(({ series, model, agent, points }) => (
             <Scatter
               key={series.key}
               name={series.key}
               data={points}
               shape={scatterShape(series.symbol)}
               fill={seriesColor(series)}
-              fillOpacity={hover.faded(series.id) ? 0.15 : 0.75}
-              hide={!legend.visible(series.id)}
+              // A hovered legend key names a model or a harness
+              fillOpacity={hover.id != null && hover.id !== model && hover.id !== agent && hover.id !== series.id ? 0.15 : 0.75}
               isAnimationActive={false}
               className="cursor-pointer"
               onClick={(d: { payload?: Point }) => d.payload?.run && navigate({ to: '/runs/$runId', params: { runId: d.payload.run.id } })}
@@ -232,7 +254,7 @@ export function StripChart({
             data={medians}
             isAnimationActive={false}
             shape={(props: { cx?: number; cy?: number }) => (
-              <rect x={(props.cx ?? 0) - 1.5} y={(props.cy ?? 0) - 13} width={3} height={26} rx={1} className="fill-foreground" />
+              <rect x={(props.cx ?? 0) - 1} y={(props.cy ?? 0) - 12} width={2} height={24} rx={1} className="fill-foreground" />
             )}
           />
         </ScatterChart>
@@ -252,7 +274,7 @@ export interface MixGroup {
 export function ToolMixChart({ groups, by }: { groups: MixGroup[]; by: GroupBy }) {
   const [ref, width] = useWidth();
   const narrow = width > 0 && width < 520;
-  const labelWidth = narrow ? LABEL_WIDTH.narrow : LABEL_WIDTH.wide;
+  const labelWidth = labelWidthFor(by, narrow);
   const used = TOOL_CATEGORIES.filter(c => groups.some(g => g.counts.get(c.id)));
   const series = used.map(c => toolSeries(c.id as ToolCategory));
   const rows = groups.map(g => ({

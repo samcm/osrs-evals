@@ -15,7 +15,7 @@ way to dig into that answer.
 
 | Page | Question it answers first |
 | --- | --- |
-| `/` | Which model in which harness is best, across every eval and at each? (one blended leaderboard that scales to many evals, then a featured eval) |
+| `/` (Home) | Which model in which harness is best, across every eval and at each? (one blended leaderboard that scales to many evals, then a featured eval) |
 | `/evals/$evalId` | How did each run progress through the game, and what did it cost? |
 | `/runs/$runId` | What did this agent do, minute by minute, in the game and in its head? |
 | `/compare` | How do models and agents differ on any one measure, cut any way? |
@@ -26,12 +26,14 @@ way to dig into that answer.
 Sam's words: "why are we reinventing structure and hierarchy in all these weird different angles?"
 Every page has the same skeleton, and nothing on a page invents its own.
 
-- **Skeleton:** `PageHeader` (`src/components/page.tsx`), then `PageTabs` when the page has more
-  than one view (`?tab=`), then sections, each a `Card` with `CardHeader` (`CardTitle`, controls in
-  `CardAction`) and `CardContent`.
-- **Type has four levels and no others:** the page title (H1, `PageHeader`), its description
-  (muted, one line), meta (small, term and value), then card titles. A page's result is meta, not a
-  second headline; nothing on a page is the same size as the title. No `text-lg`/`text-xl` in pages.
+- **shadcn's dashboard, nothing bespoke.** The inset `Sidebar`; the header bar names the page with
+  the `Breadcrumb` (the landing page is "Home"); the content never repeats the page's name and has no
+  H1. Content is a column of shadcn `Card`s.
+- **Skeleton:** `PageHeader` (a one-line description and facts, optional), `PageTabs` when the page
+  has more than one view (`?tab=`), `PageToolbar` (a plain row of controls), then `PageSection`s,
+  each a `Card` with `CardHeader` (`CardTitle`, controls in `CardAction`) and `CardContent`.
+- **Type comes from the library:** card titles, descriptions and table text at their shadcn sizes;
+  meta is small, term and value. No `text-lg`/`text-xl` in pages.
 - **One centrepiece.** Each detail page opens with one thing that grabs you and shows the game: the
   eval page shows every run together in the game; the run page is a game player. Everything else
   hangs off it, in tabs or below it.
@@ -40,16 +42,13 @@ Every page has the same skeleton, and nothing on a page invents its own.
   or badges that only restate names already on the page.
 - **Icons on a grid.** Sprites mark real events and sit in lanes, rows or table cells with a fixed
   size and spacing, never scattered.
-- **A page is** `PageHeader`, `PageTabs` (if it has views), `PageToolbar` (sticky, if it has
-  shared controls), then `PageSection`s. The centrepiece is `<PageSection lead>`, full bleed. Use a
-  `Card` only for a thing that stands apart from the page's flow: never a card per chart, never a
-  card inside a section or another card. Controls that drive several charts live in the toolbar,
-  not repeated on each chart.
+- **Never a card inside a card.** Controls that drive several cards live in the toolbar, not
+  repeated on each card.
 - **Every chart is a `ChartFrame`** (`@/components/charts`) at `lead` or `compact` height, or
   `rows` for one row per group. Never size a chart by hand; y axes keep the fixed default width so
   stacked charts line up.
-- **Space comes from the theme only:** `gutter` between sections and around the page, `stack`
-  within a section, `gap-2` between controls. No `p-*`/`m-*` on library components.
+- **Space comes from the library and the theme:** the layout's gap between cards, the card's own
+  padding inside it, `gap-2` between controls. No `p-*`/`m-*` on library components.
 - **One hover per page** (`src/lib/hover.ts`): anything that names a pairing (table row via
   `hoverId`, legend key, line via `lineProps(…, { faded })`, map character) joins it; the hovered
   pairing stays at full strength and the rest fade.
@@ -57,7 +56,7 @@ Every page has the same skeleton, and nothing on a page invents its own.
   size with a skeleton. Nothing jumps.
 - **Marks beside text:** 14 with `text-xs`, 16 with `text-sm`, 20 with `text-base` or larger, 40
   only as the `PageHeader` mark. The harness is always `HarnessBadge`.
-- **The breadcrumb's last crumb and the H1 name the page the same way.**
+- **A page's name appears once in the content area: in the header bar.**
 - **Only model-driven runs.** The scripted baseline ("Program") is not on the site; the export skips
   it. There is no ideas page.
 
@@ -173,7 +172,7 @@ artifacts, not decoration.
 
 ## Copy rules
 
-- A page names itself once in its content, in the H1. No card, caption or "Goal" box restates it.
+- A page names itself once, in the header bar. No card, caption or "Goal" box restates it.
 - No subtitle under a heading unless it states a unit, scope or window that the chart does not.
   Never a subtitle that repeats an axis name.
 - No caption under a value that the label already implies ("Cost" needs no "at list price"; prices

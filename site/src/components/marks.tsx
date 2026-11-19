@@ -36,7 +36,8 @@ export type SpriteSize = keyof typeof SPRITE_SIZES;
 /**
  * A game sprite in a square box: cropped to its opaque pixels, then drawn at the largest whole
  * number of device pixels per sprite pixel that fits (never smoothed, never a fractional scale).
- * A sprite larger than its box at one device pixel per pixel is centred and cropped.
+ * A sprite larger than its box at one device pixel per pixel (a 16px mark on a 1x screen) shrinks
+ * by a whole factor, averaged, rather than losing its edges.
  */
 export function Sprite({
   src,
@@ -69,11 +70,15 @@ export function Sprite({
       sprite => {
         if (!live) return;
         const ctx = canvas.getContext('2d')!;
-        const k = Math.max(1, Math.floor(box / Math.max(sprite.width, sprite.height)));
-        const w = sprite.width * k;
-        const h = sprite.height * k;
+        const side = Math.max(sprite.width, sprite.height);
+        // Whole device pixels per sprite pixel; a sprite too big for its box (a 16px mark on a 1x
+        // screen) shrinks by a whole factor instead, averaged so its outline survives
+        const k = side <= box ? Math.floor(box / side) : 1 / Math.ceil(side / box);
+        const w = Math.round(sprite.width * k);
+        const h = Math.round(sprite.height * k);
         ctx.clearRect(0, 0, box, box);
-        ctx.imageSmoothingEnabled = false;
+        ctx.imageSmoothingEnabled = k < 1;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(sprite.image, Math.floor((box - w) / 2), Math.floor((box - h) / 2), w, h);
       },
       () => live && setFailed(true)

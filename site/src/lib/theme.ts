@@ -8,7 +8,7 @@ import { useMemo, useSyncExternalStore } from 'react';
 
 export type Theme = 'light' | 'dark';
 
-const THEME_COLORS: Record<Theme, string> = { light: '#efeee5', dark: '#0f0f0e' };
+const THEME_COLORS: Record<Theme, string> = { light: '#efeee5', dark: '#11100e' };
 
 /** The theme from the URL, when a link sets one */
 let override: Theme | undefined;

@@ -1,7 +1,9 @@
 /**
- * `/compare`: how models and harnesses differ on any one measure, cut any way. One toolbar (measure,
- * eval, grouping, scale), then tabs: the measure as every run on a strip chart that is its own
- * ranking (rows best first, each with its median), the tool-call mix, and list prices.
+ * `/compare`: how models and harnesses differ on any one measure, cut any way. Tabs, one toolbar
+ * (measure, eval, grouping, scale), then one card: the measure as every run on a strip chart that is
+ * its own ranking (rows best first, each with its median), the tool-call mix, or list prices. The
+ * strip chart's legend keys models (colour) and harnesses (shape) once each, so it stays short at
+ * any number of pairings; hiding or isolating one drops its runs from the ranking.
  */
 
 import { useMemo } from 'react';
@@ -12,9 +14,9 @@ import { DataTable } from '@/components/DataTable';
 import { SelectField } from '@/components/SelectField';
 import { Empty, Segmented } from '@/components/bits';
 import { EvalMark, ModelLabel } from '@/components/marks';
-import { PageHeader, PageSection, PageTabs, PageToolbar } from '@/components/page';
+import { PageSection, PageTabs, PageToolbar } from '@/components/page';
 import { indexQuery } from '@/data/queries';
-import type { Eval, Price } from '@/data/types';
+import type { Eval, Price, Run } from '@/data/types';
 import { useLegend } from '@/lib/legend';
 import { inScope, useDocumentTitle, useScope, useSearchUpdate } from '@/lib/search';
 import { modelInfo, vendorOf } from '@/lib/series';
@@ -59,19 +61,29 @@ export function ComparePage() {
 
   const log = metric.log && (search.scale ?? metric.scale) === 'log';
 
+  // Every run with a value on the measure (a log scale has no place for zero): the legend keys
+  // their models and harnesses, hidden or not
+  const valued = useMemo(
+    () =>
+      runs
+        .map(run => ({ run, value: metric.get(run) }))
+        .filter((p): p is { run: Run; value: number } => p.value != null && Number.isFinite(p.value) && (!log || p.value > 0)),
+    [runs, metric, log]
+  );
+
+  const { hidden, focus } = legend;
   const ranked = useMemo<RankedGroup[]>(() => {
-    const groups = groupRuns(runs, search.by)
-      .map(g => {
-        const points = g.runs
-          .map(run => ({ run, value: metric.get(run) }))
-          // A log scale has no place for zero
-          .filter((p): p is { run: typeof p.run; value: number } => p.value != null && Number.isFinite(p.value) && (!log || p.value > 0));
-        return { key: g.key, sample: g.sample, points, total: g.runs.length, median: median(points.map(p => p.value)) ?? NaN };
-      })
-      .filter(g => g.points.length > 0);
+    // A run is shown unless its model or harness is hidden, or, with one isolated, when it is that one
+    const shown = (run: Run) => (focus ? focus === run.model || focus === run.agent : !hidden.includes(run.model) && !hidden.includes(run.agent));
+    const values = new Map(valued.map(p => [p.run, p.value]));
+    const groups = groupRuns(valued.map(p => p.run).filter(shown), search.by).map(g => {
+      const points = g.runs.map(run => ({ run, value: values.get(run)! }));
+      return { key: g.key, sample: g.sample, points, median: median(points.map(p => p.value)) ?? NaN };
+    });
+    // Lower-is-better measures lowest first; the rest highest first
     const dir = metric.better === 'lower' ? 1 : -1;
     return groups.sort((a, b) => dir * (a.median - b.median));
-  }, [runs, search.by, metric, log]);
+  }, [valued, search.by, metric, hidden, focus]);
 
   const mix = useMemo<MixGroup[]>(
     () =>
@@ -103,7 +115,6 @@ export function ComparePage() {
 
   return (
     <>
-      <PageHeader title="Compare" description="Every run on one measure, grouped by model, vendor, harness or pairing." />
       <PageTabs value={search.tab} tabs={[...TABS]} />
 
       {search.tab !== 'prices' && (
@@ -127,15 +138,13 @@ export function ComparePage() {
             options={evalOptions}
             onChange={id => update({ eval: id })}
           />
-          <Segmented label="Group by" value={search.by} options={BY_OPTIONS} onChange={by => update({ by })} />
+          <Segmented size="default" label="Group by" value={search.by} options={BY_OPTIONS} onChange={by => update({ by })} />
           {search.tab === 'measure' && metric.log && (
             <Segmented
+              size="default"
               label="Scale"
               value={log ? 'log' : 'linear'}
-              options={[
-                { value: 'linear', label: 'Linear' },
-                { value: 'log', label: 'Log' },
-              ]}
+              options={SCALE_OPTIONS}
               onChange={scale => update({ scale: scale === metric.scale ? undefined : scale })}
             />
           )}
@@ -144,27 +153,25 @@ export function ComparePage() {
 
       {search.tab === 'measure' ? (
         <PageSection
-          lead
           title={
             <>
-              {evalShown && <EvalMark evalId={evalShown.id} size={20} title="" />}
+              {evalShown && <EvalMark evalId={evalShown.id} size={16} title="" />}
               {name}
             </>
           }
-          description={metric.better ? 'Best first, by median' : undefined}
+          description={metric.better === 'lower' ? 'Lowest first, by median' : 'Highest first, by median'}
         >
-          {ranked.length === 0 ? (
+          {valued.length === 0 ? (
             <Empty>No runs have this measure.</Empty>
           ) : (
-            <StripChart groups={ranked} metric={metric} by={search.by} log={log} evals={data.evals} legend={legend} />
+            <StripChart groups={ranked} keyed={valued.map(p => p.run)} metric={metric} by={search.by} log={log} evals={evalShown ? undefined : data.evals} legend={legend} />
           )}
         </PageSection>
       ) : search.tab === 'tools' ? (
         <PageSection
-          lead
           title={
             <>
-              {evalShown && <EvalMark evalId={evalShown.id} size={20} title="" />}
+              {evalShown && <EvalMark evalId={evalShown.id} size={16} title="" />}
               Tool calls by kind
             </>
           }
@@ -179,6 +186,11 @@ export function ComparePage() {
     </>
   );
 }
+
+const SCALE_OPTIONS: { value: 'linear' | 'log'; label: string }[] = [
+  { value: 'linear', label: 'Linear' },
+  { value: 'log', label: 'Log' },
+];
 
 const usd = (v: number) => `$${v < 1 ? v.toFixed(3).replace(/0$/, '') : v.toFixed(2)}`;
 const priceCol = createColumnHelper<Price & { model: string }>();
