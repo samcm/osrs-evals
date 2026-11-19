@@ -516,7 +516,7 @@ export function RunScatter({ e, runs }: { e: Eval; runs: Run[] }) {
 
   if (!option) return null;
   return (
-    <Card title="Every run" subtitle="Ticks to finish, or ticks played when not finished">
+    <Card title="Every run" subtitle={e.target == null ? 'Ticks played' : 'Ticks to finish, or ticks played when not finished'}>
       {option ? (
         <>
           <Chart

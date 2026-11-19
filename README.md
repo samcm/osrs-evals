@@ -339,6 +339,17 @@ shrimps wrote cooking loops that worked but were slow, then waited them out (one
 in a 600 s tool); the scripted baseline cooks one shrimp at a time and gets about 300 in 30,000
 ticks. Three runs per variant is too few to rank variants; these numbers show the evals work.
 
+Quest points in 30 minutes, first look at Claude Sonnet 5.5 (two runs per agent, same machine):
+
+| Agent | Quest points per run | Ended by | Cost per run | Model calls | Output tok/s | Time waiting on model |
+| --- | --- | --- | --- | --- | --- | --- |
+| model + bash | 4, 3 | agent, agent | $1.98, $1.02 | 111, 72 | 107 | 19–24% |
+| Claude Code | 3, 2 | agent, budget | $1.62, $1.33 | 120, 102 | 91–101 | 27–33% |
+
+The agents chose Sheep Shearer, Cook's Assistant, Rune Mysteries and The Restless Ghost; both bash
+runs started Romeo & Juliet without finishing it. The quests each agent said it finished match
+the server's quest points.
+
 Also checked: score over time on every run; recordings replayed in rs-world, live view, screenshots
 from recordings; four accounts in one world (Gold); parallel samples on free ports; runs written to
 S3 (against a local S3 server); a sample errors when its model is never reached; agents run as an
