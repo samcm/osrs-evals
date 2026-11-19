@@ -24,6 +24,7 @@ import {
   type RowData,
   type SortingState,
 } from '@tanstack/react-table';
+import { FADED_OPACITY, hoverProps, useHover } from '@/lib/hover';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -34,6 +35,8 @@ declare module '@tanstack/react-table' {
     numeric?: boolean;
     /** Let the cell wrap instead of keeping one line */
     wrap?: boolean;
+    /** Classes for the column's header and cells, such as `max-md:hidden` for a column phones skip */
+    className?: string;
   }
 }
 
@@ -59,6 +62,8 @@ export interface DataTableProps<T> {
   renderExpanded?: (row: T) => ReactNode;
   /** Row click, when rows don't expand */
   onRowClick?: (row: T) => void;
+  /** The series id a row stands for: hovering the row hovers it across the page (lib/hover), and rows fade while another is hovered */
+  hoverId?: (row: T) => string;
   empty?: ReactNode;
 }
 
@@ -78,8 +83,10 @@ export function DataTable<T>({
   onExpandedChange,
   renderExpanded,
   onRowClick,
+  hoverId,
   empty,
 }: DataTableProps<T>) {
+  const hover = useHover();
   const paging = pageSize != null && onPageChange != null;
   const pageCount = paging ? Math.max(1, Math.ceil(data.length / pageSize)) : 1;
   // A page past the end, as from an old link, shows the last page
@@ -125,7 +132,7 @@ export function DataTable<T>({
                   <TableHead
                     key={header.id}
                     aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}
-                    className={cn('text-muted-foreground', meta?.numeric && 'text-right', EDGE)}
+                    className={cn('text-muted-foreground', meta?.numeric && 'text-right', EDGE, meta?.className)}
                   >
                     {header.column.getCanSort() ? (
                       <button
@@ -159,20 +166,23 @@ export function DataTable<T>({
               : onRowClick
                 ? () => onRowClick(row.original)
                 : undefined;
+            const hid = hoverId?.(row.original);
             return (
               <Fragment key={row.id}>
                 <TableRow
+                  {...(hid != null ? hoverProps(hid) : {})}
+                  style={hid != null && hover.faded(hid) ? { opacity: FADED_OPACITY + 0.25 } : undefined}
                   onClick={click}
                   aria-expanded={expands ? open : undefined}
                   data-state={open ? 'selected' : undefined}
-                  className={cn(click && 'cursor-pointer')}
+                  className={cn('transition-opacity', click && 'cursor-pointer')}
                 >
                   {row.getVisibleCells().map(cell => {
                     const meta = cell.column.columnDef.meta;
                     return (
                       <TableCell
                         key={cell.id}
-                        className={cn('tabular-nums', meta?.wrap && 'min-w-56 whitespace-normal', meta?.numeric && 'text-right', EDGE)}
+                        className={cn('tabular-nums', meta?.wrap && 'min-w-56 whitespace-normal', meta?.numeric && 'text-right', EDGE, meta?.className)}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>

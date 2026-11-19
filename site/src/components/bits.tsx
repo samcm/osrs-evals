@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import type { Run } from '@/data/types';
 import { outcomeWord } from '@/lib/evals';
 import { useSearchUpdate } from '@/lib/search';
+import { PageHeader } from './page';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
@@ -141,18 +142,16 @@ export function CodeBlock({ children, tone = 'default' }: { children: ReactNode;
 }
 
 /** What is missing, in one short sentence. */
-export function Empty({ children }: { children: ReactNode }) {
-  return <p className="py-6 text-center text-sm text-muted-foreground">{children}</p>;
+export function Empty({ children, className }: { children: ReactNode; className?: string }) {
+  return <p className={cn('py-6 text-center text-sm text-pretty text-muted-foreground', className)}>{children}</p>;
 }
 
-/** The page's one H1, with optional controls beside it. */
+/**
+ * The page's one H1, with optional controls beside it.
+ * @deprecated Use PageHeader, which this now draws, so the title has one look everywhere.
+ */
 export function PageTitle({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <h1 className="text-2xl font-semibold tracking-tight">{children}</h1>
-      {aside}
-    </div>
-  );
+  return <PageHeader title={children} actions={aside} />;
 }
 
 /** Text that reads as a link, for in-table links and inline links. */

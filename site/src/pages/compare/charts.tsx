@@ -3,11 +3,12 @@
 import { useMemo, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Bar, BarChart, CartesianGrid, Scatter, ScatterChart, XAxis, YAxis } from 'recharts';
-import { KeyLegend, SeriesLabel, SeriesTooltip, seriesConfig, seriesColor, xAxisProps, logAxisProps } from '@/components/charts';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { ChartFrame, KeyLegend, SeriesLabel, SeriesTooltip, seriesConfig, seriesColor, xAxisProps, logAxisProps } from '@/components/charts';
+import { ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { Eval, Run, ToolCategory } from '@/data/types';
 import { scatterShape, toolSeries, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
 import { formatPercent } from '@/lib/format';
+import { useHover } from '@/lib/hover';
 import type { LegendState } from '@/lib/legend';
 import { roundCeil, roundTicks } from '@/lib/ticks';
 import { TOOL_CATEGORIES } from '@/lib/tools';
@@ -37,6 +38,8 @@ function jitter(id: string): number {
 
 /** Room for group labels left of the plot. */
 const LABEL_WIDTH = { wide: 196, narrow: 112 };
+/** Room for each row's median right of the plot. */
+const MEDIAN_WIDTH = 64;
 
 /** A y-axis tick drawn as the group's label with its marks, right-aligned against the plot. */
 function GroupTick({ x, y, width, height = 24, children }: { x: number; y: number; width: number; height?: number; children: ReactNode }) {
@@ -54,7 +57,10 @@ interface Point {
   group?: RankedGroup;
 }
 
-/** Every run as a point on the metric, a group per row (ranked, best at the top), with the group's median as a bar. */
+/**
+ * Every run as a point on the metric, a group per row (ranked, best at the top), with the group's
+ * median as a bar and its value at the row's right end: the chart is its own ranking.
+ */
 export function StripChart({
   groups,
   metric,
@@ -71,6 +77,7 @@ export function StripChart({
   legend: LegendState;
 }) {
   const navigate = useNavigate();
+  const hover = useHover();
   const [ref, width] = useWidth();
   const narrow = width > 0 && width < 520;
   const labelWidth = narrow ? LABEL_WIDTH.narrow : LABEL_WIDTH.wide;
@@ -101,8 +108,27 @@ export function StripChart({
 
   return (
     <div ref={ref}>
-      <ChartContainer config={seriesConfig(variants.map(v => v.series))} className="aspect-auto w-full" style={{ height: groups.length * 44 + 40 }}>
-        <ScatterChart margin={{ top: 8, right: 24, bottom: 0, left: 0 }}>
+      <ChartFrame
+        config={seriesConfig(variants.map(v => v.series))}
+        rows={groups.length}
+        legend={
+          <KeyLegend
+            legend={legend}
+            items={[
+              { label: 'Median', swatchClassName: 'bg-foreground' },
+              ...variants.map(({ series }) => ({
+                id: series.id,
+                name: series.name,
+                label: null,
+                mark: <SeriesLabel series={series} size={14} />,
+                color: series.swatch,
+                symbol: series.symbol,
+              })),
+            ]}
+          />
+        }
+      >
+        <ScatterChart margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
           <CartesianGrid horizontal={false} />
           <XAxis {...xProps} dataKey="x" />
           <YAxis
@@ -122,6 +148,31 @@ export function StripChart({
                 <GroupTick x={x} y={y} width={labelWidth} height={narrow ? 42 : 24}>
                   <GroupLabel sample={g.sample} by={by} size={14} stacked={narrow} />
                 </GroupTick>
+              ) : (
+                <g />
+              );
+            }}
+          />
+          {/* The ranking: each row's median, read off the right edge */}
+          <YAxis
+            yAxisId="median"
+            orientation="right"
+            type="number"
+            dataKey="y"
+            domain={[-0.5, groups.length - 0.5]}
+            ticks={groups.map((_, i) => i)}
+            reversed
+            interval={0}
+            tickLine={false}
+            axisLine={false}
+            width={MEDIAN_WIDTH}
+            tick={(props: unknown) => {
+              const { x, y, payload } = props as { x: number; y: number; payload: { value: number } };
+              const g = groups[payload.value];
+              return g ? (
+                <text x={x + MEDIAN_WIDTH - 4} y={y} dy="0.35em" textAnchor="end" className="fill-foreground text-xs font-medium tabular-nums">
+                  {metric.format(g.median)}
+                </text>
               ) : (
                 <g />
               );
@@ -168,7 +219,7 @@ export function StripChart({
               data={points}
               shape={scatterShape(series.symbol)}
               fill={seriesColor(series)}
-              fillOpacity={0.75}
+              fillOpacity={hover.faded(series.id) ? 0.15 : 0.75}
               hide={!legend.visible(series.id)}
               isAnimationActive={false}
               className="cursor-pointer"
@@ -184,21 +235,7 @@ export function StripChart({
             )}
           />
         </ScatterChart>
-      </ChartContainer>
-      <KeyLegend
-        legend={legend}
-        items={[
-          { label: 'Median', swatchClassName: 'bg-foreground' },
-          ...variants.map(({ series }) => ({
-            id: series.id,
-            name: series.name,
-            label: null,
-            mark: <SeriesLabel series={series} size={14} />,
-            color: series.swatch,
-            symbol: series.symbol,
-          })),
-        ]}
-      />
+      </ChartFrame>
     </div>
   );
 }
@@ -225,7 +262,7 @@ export function ToolMixChart({ groups, by }: { groups: MixGroup[]; by: GroupBy }
 
   return (
     <div ref={ref}>
-      <ChartContainer config={seriesConfig(series)} className="aspect-auto w-full" style={{ height: groups.length * 44 + 40 }}>
+      <ChartFrame config={seriesConfig(series)} rows={groups.length} legend={<KeyLegend items={series.map(s => ({ label: s.label, color: s.swatch }))} />}>
         <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
           <CartesianGrid horizontal={false} />
           <XAxis {...xAxisProps({ domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1], format: v => formatPercent(v) })} />
@@ -266,8 +303,7 @@ export function ToolMixChart({ groups, by }: { groups: MixGroup[]; by: GroupBy }
             <Bar key={s.key} dataKey={s.key} stackId="mix" fill={seriesColor(s)} barSize={18} isAnimationActive={false} />
           ))}
         </BarChart>
-      </ChartContainer>
-      <KeyLegend items={series.map(s => ({ label: s.label, color: s.swatch }))} />
+      </ChartFrame>
     </div>
   );
 }
