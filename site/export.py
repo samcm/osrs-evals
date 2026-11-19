@@ -27,7 +27,6 @@ import yaml
 from inspect_ai.log import list_eval_logs, read_eval_log
 
 SITE = Path(__file__).resolve().parent
-IDEAS = SITE.parent / "ideas.yaml"
 QUESTS = SITE / "game" / "quests.json"  # written by site/game/quests.py from rs-sdk's content
 AGENT_NAMES = {"react": "Model + bash", "inspect_swe/claude_code": "Claude Code", "inspect_swe/codex_cli": "Codex", "command": "Program"}
 EVAL_NAMES = {"quest_points": "Quest points in 30 minutes", "cooks_assistant": "Cook's Assistant", "shrimps": "Cook 500 shrimps", "coins": "Coins", "gold": "Gold"}
@@ -859,6 +858,8 @@ def export(log_dirs: list[str], prices: dict, out: Path):
             if log.status != "success" or not log.samples:
                 continue  # failed logs are retried by eval-set; their samples have no scores
             solver, solver_params = agent_of(log.plan.steps)
+            if solver == "command":
+                continue  # scripted programs play without a model; the site is about models
             for s in log.samples:
                 if s.error or not s.scores:
                     continue
@@ -882,9 +883,8 @@ def export(log_dirs: list[str], prices: dict, out: Path):
     for f in (out / "evals").iterdir():
         if f.suffix == ".json" and f.stem not in evals:
             f.unlink()
-    ideas = yaml.safe_load(open(IDEAS)) if IDEAS.exists() else []
     vendors = {v: VENDORS.get(v, v.capitalize()) for v in sorted({r["vendor"] for r in runs if r["vendor"]})}
-    (out / "index.json").write_text(json.dumps({"evals": sorted(evals.values(), key=lambda e: e["id"]), "runs": runs, "prices": prices, "vendors": vendors, "ideas": ideas}))
+    (out / "index.json").write_text(json.dumps({"evals": sorted(evals.values(), key=lambda e: e["id"]), "runs": runs, "prices": prices, "vendors": vendors}))
     print(f"{len(runs)} runs, {len(evals)} evals:", dict(Counter((r['eval'], r['model'], r['agent_name']) for r in runs)))
 
 

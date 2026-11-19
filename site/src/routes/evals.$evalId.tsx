@@ -5,6 +5,8 @@ import { mapViewParam } from '@/lib/map';
 import { defineSearch, int, legendParams, oneOf, sortParam } from '@/lib/search';
 
 export const evalSearch = defineSearch({
+  /** The page's view */
+  tab: oneOf(['overview', 'cost', 'behaviour', 'runs'], 'overview'),
   /** The progress chart's x measure and aggregate */
   x: oneOf(['ticks', 'seconds', 'cost', 'calls'], 'ticks'),
   agg: oneOf(['runs', 'median', 'best'], 'runs'),

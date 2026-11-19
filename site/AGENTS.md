@@ -15,12 +15,48 @@ way to dig into that answer.
 
 | Page | Question it answers first |
 | --- | --- |
-| `/` | For each goal in the game, which model in which harness does best? (a card per eval: median progress over the budget, then a ranked leaderboard) |
+| `/` | Which model in which harness is best, across every eval and at each? (one blended leaderboard that scales to many evals, then a featured eval) |
 | `/evals/$evalId` | How did each run progress through the game, and what did it cost? |
 | `/runs/$runId` | What did this agent do, minute by minute, in the game and in its head? |
 | `/compare` | How do models and agents differ on any one measure, cut any way? |
 | `/runs` | Every run, filterable and sortable. |
-| `/ideas` | Evals we have built and want to build. |
+
+## Structure and hierarchy
+
+Sam's words: "why are we reinventing structure and hierarchy in all these weird different angles?"
+Every page has the same skeleton, and nothing on a page invents its own.
+
+- **Skeleton:** `PageHeader` (`src/components/page.tsx`), then `PageTabs` when the page has more
+  than one view (`?tab=`), then sections, each a `Card` with `CardHeader` (`CardTitle`, controls in
+  `CardAction`) and `CardContent`.
+- **Type has four levels and no others:** the page title (H1, `PageHeader`), its description
+  (muted, one line), meta (small, term and value), then card titles. A page's result is meta, not a
+  second headline; nothing on a page is the same size as the title. No `text-lg`/`text-xl` in pages.
+- **One centrepiece.** Each detail page opens with one thing that grabs you and shows the game: the
+  eval page shows every run together in the game; the run page is a game player. Everything else
+  hangs off it, in tabs or below it.
+- **Each thing is listed once.** A page lists its model + harness pairings in one place (the
+  leaderboard); charts key their lines with a compact legend, never a second ranked list. No chips
+  or badges that only restate names already on the page.
+- **Icons on a grid.** Sprites mark real events and sit in lanes, rows or table cells with a fixed
+  size and spacing, never scattered.
+- **Only model-driven runs.** The scripted baseline ("Program") is not on the site; the export skips
+  it. There is no ideas page.
+
+### Eval page
+
+`PageHeader` (sprite, title, the goal, budget), then tabs: **Overview** (`Centerpiece`: every run
+together in the game, on one playhead; `Progress`: the eval's measure over time; `Leaderboard`:
+the one ranked list), **Cost** (cost against result, finished within a budget, attempts),
+**Behaviour** (time and tool mix, where they went), **Runs** (the table). Files: `src/pages/eval/`.
+
+### Run page
+
+A debugger. `PageHeader` (the character, model and harness, eval and epoch, the result as meta,
+previous and next). Then the game player and the agent's thinking side by side on one playhead,
+the playback bar under them, then the timeline lanes and the map on the same playhead. Every part
+reads and moves the playhead through `src/pages/run/playhead.ts` (`?t=` when settled). Files:
+`src/pages/run/`.
 
 ## The five rules that matter most
 

@@ -183,20 +183,12 @@ export interface Price {
   input_cache_read: number;
 }
 
-export interface Idea {
-  title: string;
-  status: 'built' | 'idea' | string;
-  eval?: string | null;
-  why: string;
-}
-
 export interface Index {
   evals: Eval[];
   runs: Run[];
   prices: Record<string, Price>;
   /** Vendor slug -> display name */
   vendors: Record<string, string>;
-  ideas?: Idea[];
 }
 
 /** The harness's sample of the eval's value (every 100 ticks); only the points where the value, a

@@ -1,25 +1,29 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo } from 'react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { CodeBlock, PageTitle } from '@/components/bits';
-import { EvalMark, Sprite, VariantLabel } from '@/components/marks';
+import { PageHeader } from '@/components/page';
+import { Sprite, VariantLabel } from '@/components/marks';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { indexQuery, runQuery } from '@/data/queries';
 import type { Eval, Run, RunDetail } from '@/data/types';
-import { avatarSrc, questSrc, uiSrc } from '@/lib/assets';
+import { questSrc, uiSrc } from '@/lib/assets';
 import { evalBase } from '@/lib/evals';
-import { formatClock, formatDate, formatDuration, formatInt } from '@/lib/format';
-import { useDocumentTitle } from '@/lib/search';
-import { useWidth } from '@/lib/useWidth';
+import { formatDuration, formatInt } from '@/lib/format';
+import { useDocumentTitle, useSearchUpdate } from '@/lib/search';
 import { cn } from '@/lib/utils';
 import { Lanes } from './Lanes';
-import { makeClock, turnTick, type Clock, type XMeasure } from './model';
+import { makeClock, turnTick, type XMeasure } from './model';
+import { usePlayhead } from './playhead';
+import { Player } from './Player';
 import { RunMap, Scrubber } from './RunMap';
+import { runSearch } from './search';
 import { Transcript } from './Transcript';
 
 const route = getRouteApi('/runs/$runId');
+
+const headSrc = (id: string): string => `/data/runs/${encodeURIComponent(id)}.head.png`;
 
 /** Where to watch the run: its replay URL, or the live world viewer on this host when a replay was recorded. */
 function replayHref(run: RunDetail): string | null {
@@ -59,7 +63,7 @@ function Headline({ run, evalInfo, measure }: { run: RunDetail; evalInfo: Eval |
   }
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <p className="text-xl font-semibold tabular-nums">{text}</p>
+      <span className="font-medium tabular-nums">{text}</span>
       {quests.length > 0 && evalBase(run.eval) === 'quest_points' && (
         <ul className="flex items-center gap-1.5">
           {quests.map(q => {
@@ -70,7 +74,7 @@ function Headline({ run, evalInfo, measure }: { run: RunDetail; evalInfo: Eval |
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span tabIndex={0} className={cn('inline-flex rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50', inferred && 'border-b border-dashed border-muted-foreground')}>
-                      <Sprite src={q.quest ? questSrc(q.quest) : uiSrc('quests')} size={32} alt={inferred ? `≈ ${name}` : name} />
+                      <Sprite src={q.quest ? questSrc(q.quest) : uiSrc("quests")} size={20} alt={inferred ? `≈ ${name}` : name} />
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>{inferred ? `≈ ${name}: guessed from the quest-points jump` : name}</TooltipContent>
@@ -138,100 +142,21 @@ function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure
 }
 
 function Header({ run, evalInfo, runs, measure }: { run: RunDetail; evalInfo: Eval | undefined; runs: Run[]; measure: XMeasure }) {
-  const [avatar, setAvatar] = useState(true);
-  const replay = replayHref(run);
   return (
-    <header className="flex flex-wrap items-end justify-between gap-4">
-      <div className="flex min-w-0 items-end gap-6">
-        {avatar && <img src={avatarSrc(run.id)} alt="The run's character" onError={() => setAvatar(false)} className="hidden h-32 w-auto shrink-0 sm:block" />}
-        <div className="flex min-w-0 flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <EvalMark evalId={run.eval} size={32} />
-            <PageTitle>
-              <Link to="/evals/$evalId" params={{ evalId: run.eval }} className="transition-colors hover:text-primary">
-                {evalInfo?.title ?? run.eval}
-              </Link>
-            </PageTitle>
-          </div>
-          <VariantLabel run={run} size={40} className="flex-wrap gap-y-2 text-lg font-medium" />
-          <Headline run={run} evalInfo={evalInfo} measure={measure} />
-        </div>
-      </div>
-      <div className="flex items-center gap-4">
-        <Siblings run={run} runs={runs} measure={measure} />
-        {replay && (
-          <Button asChild>
-            <a href={replay} target="_blank" rel="noopener noreferrer">
-              Watch in 3D
-            </a>
-          </Button>
-        )}
-      </div>
-    </header>
-  );
-}
-
-/** The map with its scrubber, and the end-of-run screenshot: the same height when side by side. */
-function World({ run, clock, selected, search }: { run: RunDetail; clock: Clock; selected: number | null; search: ReturnType<typeof route.useSearch> }) {
-  const [ref, width] = useWidth();
-  const [gridRef, gridWidth] = useWidth();
-  const shot = run.screenshot ? `/data/${run.screenshot}` : null;
-  const sideBySide = shot != null && gridWidth > width * 1.5;
-  const shotHeight = Math.round((width || 400) * (9 / 16));
-  const end = search.x === 'ticks' ? formatInt(clock.maxTicks) : formatClock(clock.maxSeconds);
-  return (
-    <div ref={gridRef} className={cn('grid gap-4 md:gap-6', shot && 'md:grid-cols-2 xl:grid-cols-1')}>
-      <Card>
-        <CardContent className="flex flex-col gap-4">
-          <div ref={ref} className="min-w-0 overflow-hidden rounded-lg">
-            {/* Beside the screenshot the map matches its height; stacked, it takes the path's shape */}
-            <RunMap run={run} clock={clock} selected={selected} view={search.map} height={sideBySide ? shotHeight : Math.round((width || 400) * 0.75)} fitHeight={!sideBySide} />
-          </div>
-          <Scrubber clock={clock} selected={selected} measure={search.x} />
-        </CardContent>
-      </Card>
-      {shot && (
-        <Card>
-          <CardContent className="flex flex-col gap-4">
-            <a href={shot} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg bg-muted" style={{ height: shotHeight }}>
-              <img src={shot} alt="The game at the end of the run" className="size-full object-cover" />
-            </a>
-            <div className="flex h-8 items-center justify-between gap-3 text-xs text-muted-foreground">
-              <span>End of the run</span>
-              <span className="tabular-nums">{end}</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-function Details({ run }: { run: RunDetail }) {
-  const mono = (text: string) => <span className="font-mono text-xs break-all">{text}</span>;
-  const facts: [string, ReactNode][] = [['Run', mono(run.id)]];
-  if (run.model_calls > 0) facts.push(['Model', mono(run.model)]);
-  if (run.agent_version) facts.push([`${run.agent_name} version`, mono(run.agent_version)]);
-  if (run.agent_params.cmd) facts.push(['Command', mono(run.agent_params.cmd)]);
-  facts.push(['Started', `${formatDate(run.sample_started ?? run.started)} UTC`]);
-  facts.push(['Account', mono(run.account)]);
-  if (run.ended_by) facts.push(['Ended by', run.ended_by.charAt(0).toUpperCase() + run.ended_by.slice(1)]);
-  if (run.commit) facts.push(['Commit', mono(run.commit)]);
-  facts.push(['Batch', mono(run.batch)]);
-  facts.push(['Log', mono(run.log)]);
-  return (
-    <Card>
-      <CardContent>
-        <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {facts.map(([term, value]) => (
-            <div key={term} className="flex min-w-0 flex-col gap-1">
-              <dt className="text-xs text-muted-foreground">{term}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </CardContent>
-    </Card>
+    <PageHeader
+      mark={<img src={headSrc(run.id)} alt="" className="size-10 object-contain" />}
+      title={<VariantLabel run={run} size={20} className="gap-2" />}
+      description={
+        <>
+          <Link to="/evals/$evalId" params={{ evalId: run.eval }} className="hover:text-foreground">
+            {evalInfo?.title ?? run.eval}
+          </Link>
+          , epoch {formatInt(run.epoch)}
+        </>
+      }
+      meta={[{ term: 'Result', value: <Headline run={run} evalInfo={evalInfo} measure={measure} /> }]}
+      actions={<Siblings run={run} runs={runs} measure={measure} />}
+    />
   );
 }
 
@@ -252,32 +177,31 @@ export function RunPage() {
   const selectedTurn = search.turn != null ? run.turns[search.turn - 1] : undefined;
   const selected = search.t ?? (selectedTurn ? turnTick(selectedTurn, clock) : null);
 
+  const update = useSearchUpdate(runSearch);
+  const head = usePlayhead(clock, selected, tick => update({ t: tick }));
+
   return (
     <>
       <Header run={run} evalInfo={evalInfo} runs={index.runs} measure={search.x} />
+      {/* The debugger: the game and the agent's thinking side by side, one playhead under both, then
+          the lanes and the map on the same playhead. */}
       <div className="grid gap-4 md:gap-6 xl:grid-cols-5">
+        <Card className="min-w-0 xl:col-span-3">
+          <CardContent className="flex flex-col gap-4">
+            <Player run={run} replay={replayHref(run)} />
+            <Scrubber clock={clock} selected={selected} measure={search.x} />
+          </CardContent>
+        </Card>
+        <div className="min-w-0 xl:col-span-2">{run.turns.length > 0 && <Transcript run={run} clock={clock} search={search} />}</div>
         <div className="min-w-0 xl:col-span-3">
           <Lanes run={run} clock={clock} search={search} price={index.prices[run.model]} />
         </div>
-        {/* Beside the lanes on wide screens, and kept in view, so the map follows the crosshair */}
-        <div className="min-w-0 xl:sticky xl:top-18 xl:col-span-2 xl:col-start-4 xl:row-span-2 xl:row-start-1 xl:self-start">
-          <World run={run} clock={clock} selected={selected} search={search} />
-        </div>
-        <div className="flex min-w-0 flex-col gap-4 md:gap-6 xl:col-span-3">
-          {run.turns.length > 0 && <Transcript run={run} clock={clock} search={search} />}
-          {run.program_output && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Program output</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CodeBlock>{run.program_output}</CodeBlock>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+        <Card className="min-w-0 xl:col-span-2 xl:self-start">
+          <CardContent>
+            <RunMap run={run} clock={clock} selected={head.tick} view={search.map} height={420} fitHeight />
+          </CardContent>
+        </Card>
       </div>
-      <Details run={run} />
     </>
   );
 }

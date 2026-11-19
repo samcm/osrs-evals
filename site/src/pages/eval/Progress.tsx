@@ -391,7 +391,7 @@ export function RankedPanel({ e, ranked, x, legend }: { e: Eval; ranked: RankedV
 }
 
 /** The progress card: the chart with its cuts, and the ranked variants beside it. */
-export function ProgressCard({ e, x, agg, chart, panel }: { e: Eval; x: XMeasure; agg: Agg; chart: ReactNode; panel: ReactNode }) {
+export function ProgressCard({ e, x, agg, chart }: { e: Eval; x: XMeasure; agg: Agg; chart: ReactNode }) {
   return (
     <Card>
       <CardHeader>
@@ -410,10 +410,7 @@ export function ProgressCard({ e, x, agg, chart, panel }: { e: Eval; x: XMeasure
           />
         </CardAction>
       </CardHeader>
-      <CardContent className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_28rem]">
-        {chart}
-        {panel}
-      </CardContent>
+      <CardContent>{chart}</CardContent>
     </Card>
   );
 }

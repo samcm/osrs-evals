@@ -1,6 +1,6 @@
 /**
  * The app shell on shadcn's Sidebar: the wordmark, Overview, the evals with their sprites, Compare,
- * Runs and Ideas; on small screens the sidebar is a sheet behind SidebarTrigger. The header holds
+ * Runs; on small screens the sidebar is a sheet behind SidebarTrigger. The header holds
  * the trigger, the Breadcrumb (which never loses its last crumb) and the theme toggle.
  */
 
@@ -95,7 +95,6 @@ function AppSidebar() {
             <SidebarMenu>
               <NavItem to="/compare">Compare</NavItem>
               <NavItem to="/runs">Runs</NavItem>
-              <NavItem to="/ideas">Ideas</NavItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -153,7 +152,7 @@ function useCrumbs(): Crumb[] {
       { label: parts[1], mono: true },
     ];
   }
-  const names: Record<string, string> = { runs: 'Runs', compare: 'Compare', ideas: 'Ideas' };
+  const names: Record<string, string> = { runs: 'Runs', compare: 'Compare' };
   return [{ label: names[parts[0]] ?? parts[0] }];
 }
 

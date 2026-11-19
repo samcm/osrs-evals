@@ -1,8 +1,9 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
 import { useQueries, useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Empty, PageTitle } from '@/components/bits';
+import { Empty } from '@/components/bits';
+import { PageHeader, PageTabs, type MetaItem } from '@/components/page';
 import { EvalMark } from '@/components/marks';
 import { evalRunsQuery, indexQuery, runQuery } from '@/data/queries';
 import type { Eval } from '@/data/types';
@@ -12,45 +13,40 @@ import { inScope, useDocumentTitle, useScope } from '@/lib/search';
 import { AttemptsCard, ParetoCard, SuccessCdfCard } from './Cuts';
 import { EffortCard } from './Effort';
 import { buildCurves, callsByTick, rankVariants, totalBudgetTicks, xRange } from './model';
-import { ProgressCard, ProgressChart, RankedPanel } from './Progress';
+import { Centerpiece } from './Centerpiece';
+import { Leaderboard } from './Leaderboard';
+import { ProgressCard, ProgressChart } from './Progress';
 import { QuestStrip } from './Quests';
 import { RunsTable } from './RunsTable';
-import { ScopeChips } from './ScopeChips';
 import { WhereCard } from './Where';
 
 const route = getRouteApi('/evals/$evalId');
-/** The most the map takes beside another card (which stretches to match). */
-const MAP_BESIDE = 480;
 
 /** The facts a reader needs beside the goal: the budget (its minutes on hover), attempts, accounts. */
-function Facts({ e }: { e: Eval }) {
+function facts(e: Eval): MetaItem[] {
   const minutes = (e.budget_ticks * e.tick_ms) / 60_000;
-  const facts: [string, ReactNode][] = [
-    [
-      e.attempts > 1 ? 'Budget per attempt' : 'Budget',
-      <Tooltip>
-        <TooltipTrigger className="cursor-help underline decoration-dotted underline-offset-4">
-          {formatInt(e.budget_ticks)} ticks
-        </TooltipTrigger>
-        <TooltipContent>
-          {formatDecimal(minutes).replace(/\.0$/, '')} min at {formatInt(e.tick_ms)} ms a tick
-        </TooltipContent>
-      </Tooltip>,
-    ],
-    ...(e.attempts > 1 ? ([['Attempts', formatInt(e.attempts)]] as [string, ReactNode][]) : []),
-    [e.accounts.length === 1 ? 'Account' : 'Accounts', <span className="font-mono">{e.accounts.join(', ')}</span>],
+  return [
+    {
+      term: e.attempts > 1 ? 'Budget per attempt' : 'Budget',
+      value: (
+        <Tooltip>
+          <TooltipTrigger className="cursor-help underline decoration-dotted underline-offset-4">{formatInt(e.budget_ticks)} ticks</TooltipTrigger>
+          <TooltipContent>
+            {formatDecimal(minutes).replace(/\.0$/, '')} min at {formatInt(e.tick_ms)} ms a tick
+          </TooltipContent>
+        </Tooltip>
+      ),
+    },
+    ...(e.attempts > 1 ? [{ term: 'Attempts', value: formatInt(e.attempts) }] : []),
   ];
-  return (
-    <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-      {facts.map(([term, value]) => (
-        <div key={term} className="flex flex-col gap-1">
-          <dt className="text-muted-foreground">{term}</dt>
-          <dd className="tabular-nums">{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
 }
+
+const TABS = [
+  { value: 'overview', label: 'Overview' },
+  { value: 'cost', label: 'Cost' },
+  { value: 'behaviour', label: 'Behaviour' },
+  { value: 'runs', label: 'Runs' },
+] as const;
 
 const SECTIONS = 'flex flex-col gap-4 md:gap-6';
 const ROW = 'grid gap-4 md:gap-6 xl:grid-cols-2';
@@ -67,7 +63,6 @@ export function EvalPage() {
 
   const all = useMemo(() => data.runs.filter(r => r.eval === evalId), [data, evalId]);
   const runs = useMemo(() => all.filter(r => inScope(r, scope)), [all, scope]);
-  const why = data.ideas?.find(i => i.eval === evalId)?.why;
 
   // Model calls as x need each run's calls, from its detail: loaded only when asked for
   const details = useQueries({
@@ -93,7 +88,7 @@ export function EvalPage() {
   if (!e) {
     return (
       <div className={SECTIONS}>
-        <PageTitle>{evalId}</PageTitle>
+        <PageHeader title={evalId} />
         <Empty>No eval with this id has runs.</Empty>
       </div>
     );
@@ -102,30 +97,18 @@ export function EvalPage() {
   const quests = e.measure === 'Quest points';
   const pending = search.x === 'calls' && details.some(d => d.isPending);
   const visibleCurves = curves.filter(cv => legend.visible(cv.variant.key));
-  const map = (height?: number) => (
-    <WhereCard curves={curves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={totalBudgetTicks(e)} height={height} />
-  );
+  const maxTick = totalBudgetTicks(e);
 
   return (
     <div className={SECTIONS}>
-      <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="flex min-w-0 items-start gap-4">
-          <EvalMark evalId={e.id} size={40} />
-          <div className="flex min-w-0 flex-col gap-1">
-            <PageTitle>{e.title}</PageTitle>
-            <p>{e.goal}</p>
-            {why && <p className="text-sm text-muted-foreground">{why}</p>}
-          </div>
-        </div>
-        <Facts e={e} />
-      </header>
-
-      <ScopeChips runs={all} />
+      <PageHeader mark={<EvalMark evalId={e.id} size={40} />} title={e.title} description={e.goal} meta={facts(e)} />
+      <PageTabs value={search.tab} tabs={[...TABS]} />
 
       {runs.length === 0 ? (
         <Empty>No runs in this scope.</Empty>
-      ) : (
+      ) : search.tab === 'overview' ? (
         <>
+          <Centerpiece curves={curves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} />
           <ProgressCard
             e={e}
             x={search.x}
@@ -143,27 +126,24 @@ export function EvalPage() {
                 below={quests ? frame => <QuestStrip curves={visibleCurves} x={search.x} frame={frame} /> : undefined}
               />
             }
-            panel={<RankedPanel e={e} ranked={ranked} x={search.x} legend={legend} />}
           />
-
+          <Leaderboard e={e} ranked={ranked} x={search.x} legend={legend} />
+        </>
+      ) : search.tab === 'cost' ? (
+        <>
           <div className={ROW}>
             <ParetoCard e={e} ranked={ranked} px={search.px} legend={legend} />
-            {target ? <SuccessCdfCard e={e} ranked={ranked} cx={search.cx} legend={legend} /> : map(MAP_BESIDE)}
+            {target && <SuccessCdfCard e={e} ranked={ranked} cx={search.cx} legend={legend} />}
           </div>
-
-          {target &&
-            (e.attempts > 1 ? (
-              <div className={ROW}>
-                <AttemptsCard e={e} ranked={ranked} legend={legend} />
-                {map(MAP_BESIDE)}
-              </div>
-            ) : (
-              map()
-            ))}
-
-          <EffortCard runs={runs} by={search.by} />
-          <RunsTable e={e} runs={runs} sort={search.sort} page={search.page} />
+          {e.attempts > 1 && <AttemptsCard e={e} ranked={ranked} legend={legend} />}
         </>
+      ) : search.tab === 'behaviour' ? (
+        <>
+          <EffortCard runs={runs} by={search.by} />
+          <WhereCard curves={curves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} />
+        </>
+      ) : (
+        <RunsTable e={e} runs={runs} sort={search.sort} page={search.page} />
       )}
     </div>
   );
