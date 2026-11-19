@@ -129,6 +129,7 @@ export function WorldMap({
   onViewChange,
   height = 360,
   fitHeight = false,
+  fitKey,
   padding = 24,
   label,
   className,
@@ -142,6 +143,8 @@ export function WorldMap({
   height?: number;
   /** Shrink the frame to the paths' shape at its width, up to `height`, so the map fills it */
   fitHeight?: boolean;
+  /** What the fitted view depends on, when not every path's length (a trail that grows with time) */
+  fitKey?: string;
   /** Space around the paths when fitting, in CSS pixels */
   padding?: number;
   /** Accessible description of what the map shows */
@@ -200,7 +203,7 @@ export function WorldMap({
 
   const prepared = useMemo(() => (meta ? paths.map(path => ({ path, ...prepare(meta, path.points) })) : []), [meta, paths]);
   // What the fitted view depends on: which paths and markers, not their time dots or styles
-  const geometryKey = `${paths.map(p => `${p.id}:${p.points.length}`).join('|')}#${markers.map(m => `${m.x},${m.z}`).join('|')}`;
+  const geometryKey = fitKey ?? `${paths.map(p => `${p.id}:${p.points.length}`).join('|')}#${markers.map(m => `${m.x},${m.z}`).join('|')}`;
 
   /** The frame's height: the fitted paths' shape at the frame's width, so the map fills it; `height` is the most. */
   const frameHeight = useMemo(() => {

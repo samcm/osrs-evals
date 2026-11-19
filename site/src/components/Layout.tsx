@@ -1,21 +1,20 @@
 /**
- * The app shell on shadcn's Sidebar: the wordmark, Overview, the evals with their sprites (variants
- * of one eval nested under it, and a filter once the list is long), Compare, Runs; on small screens
+ * The app shell on shadcn's Sidebar: the wordmark, then Overview, Compare and Runs, then the evals
+ * with their sprites (and a filter once the list is long); on small screens
  * the sidebar is a sheet behind SidebarTrigger. The header holds the trigger, the Breadcrumb (which
  * names the page as its H1 does and never loses its last crumb) and the theme toggle.
  */
 
-import { Fragment, useEffect, useState, type ReactNode } from 'react';
-import { Link, useMatchRoute, useRouter, useRouterState } from '@tanstack/react-router';
+import { useEffect, useState, type ReactNode } from 'react';
+import { ChartScatter, ListVideo, Trophy } from 'lucide-react';
+import { Link, useRouter, useRouterState } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { indexQuery } from '@/data/queries';
 import type { Eval } from '@/data/types';
-import { evalBase } from '@/lib/evals';
 import { setHovered } from '@/lib/hover';
 import { useSearchUpdate } from '@/lib/search';
 import { variantOf } from '@/lib/series';
-import { groupBy } from '@/lib/stats';
 import { setTheme, useTheme, type Theme } from '@/lib/theme';
 import {
   Breadcrumb,
@@ -38,9 +37,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
@@ -49,14 +45,19 @@ import {
 import { Segmented } from './bits';
 import { EvalMark, Sprite, VariantLabel } from './marks';
 
-function NavItem({ to, params, mark, children }: { to: string; params?: Record<string, string>; mark?: ReactNode; children: string }) {
-  const matchRoute = useMatchRoute();
-  const active = Boolean(matchRoute({ to: to as '/', params: params as never, fuzzy: to !== '/' }));
+/** Whether a nav item is the page being shown: exact for "/", by prefix for the rest. */
+function useIsActive(path: string): boolean {
+  const pathname = useRouterState({ select: st => st.location.pathname });
+  return path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(`${path}/`);
+}
+
+function NavItem({ to, path, params, icon, children }: { to: string; path: string; params?: Record<string, string>; icon: ReactNode; children: string }) {
+  const active = useIsActive(path);
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={active} tooltip={children}>
         <Link to={to as '/'} params={params as never}>
-          {mark}
+          {icon}
           <span>{children}</span>
         </Link>
       </SidebarMenuButton>
@@ -66,67 +67,38 @@ function NavItem({ to, params, mark, children }: { to: string; params?: Record<s
 
 function Wordmark() {
   return (
-    <Link to="/" className="flex h-8 items-center gap-2 rounded-md px-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-      <Sprite item="995-10000" size={24} alt="" />
-      <span className="font-game text-base/4 text-foreground">2004scape evals</span>
-    </Link>
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton size="lg" asChild>
+          <Link to="/">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-accent">
+              <Sprite item="995-10000" size={20} alt="" />
+            </span>
+            <span className="font-game text-base/4">2004scape evals</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
   );
 }
 
 /** Above this many evals the nav gets a filter. */
 const FILTER_FROM = 8;
 
-const familyOf = (e: Eval): string => e.base || evalBase(e.id);
-
-/** What a variant's title adds to its family head's: "Cook's Assistant, 5 tries" → "5 tries". */
-function variantTitle(e: Eval, head: Eval): string {
-  const rest = e.title.startsWith(head.title) ? e.title.slice(head.title.length).replace(/^[\s,:–-]+/, '') : '';
-  return rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : e.title;
-}
-
-/**
- * The evals as nav items, each with its sprite. Variants of one eval (cooks_assistant_x5 of
- * cooks_assistant) nest under it by what tells them apart ("5 tries"), so the list grows by
- * families rather than near-duplicate titles.
- */
+/** The evals as nav items, each with its sprite, in a flat list. */
 function EvalNav({ evals }: { evals: Eval[] }) {
-  const matchRoute = useMatchRoute();
   const [filter, setFilter] = useState('');
   const query = filter.trim().toLowerCase();
   const shown = query ? evals.filter(e => e.title.toLowerCase().includes(query)) : evals;
-  const families = [...groupBy(shown, familyOf).values()];
   return (
     <>
-      {evals.length > FILTER_FROM && (
-        <SidebarInput aria-label="Filter evals" placeholder="Filter" value={filter} onChange={event => setFilter(event.target.value)} className="mb-2" />
-      )}
+      {evals.length > FILTER_FROM && <SidebarInput aria-label="Filter evals" placeholder="Filter" value={filter} onChange={event => setFilter(event.target.value)} />}
       <SidebarMenu>
-        {families.map(family => {
-          const head = family.find(e => e.id === familyOf(e)) ?? family[0];
-          const rest = family.filter(e => e !== head);
-          return (
-            <Fragment key={head.id}>
-              <NavItem to="/evals/$evalId" params={{ evalId: head.id }} mark={<EvalMark evalId={head.id} size={16} title="" />}>
-                {head.title}
-              </NavItem>
-              {rest.length > 0 && (
-                <SidebarMenuItem>
-                  <SidebarMenuSub>
-                    {rest.map(e => (
-                      <SidebarMenuSubItem key={e.id}>
-                        <SidebarMenuSubButton asChild isActive={Boolean(matchRoute({ to: '/evals/$evalId', params: { evalId: e.id } as never }))}>
-                          <Link to="/evals/$evalId" params={{ evalId: e.id }} title={e.title}>
-                            <span>{variantTitle(e, head)}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                </SidebarMenuItem>
-              )}
-            </Fragment>
-          );
-        })}
+        {shown.map(e => (
+          <NavItem key={e.id} to="/evals/$evalId" path={`/evals/${e.id}`} params={{ evalId: e.id }} icon={<EvalMark evalId={e.id} size={16} title="" />}>
+            {e.title}
+          </NavItem>
+        ))}
       </SidebarMenu>
       {shown.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">No eval matches.</p>}
     </>
@@ -144,21 +116,21 @@ function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              <NavItem to="/">Overview</NavItem>
+              <NavItem to="/" path="/" icon={<Trophy />}>
+                Overview
+              </NavItem>
+              <NavItem to="/compare" path="/compare" icon={<ChartScatter />}>
+                Compare
+              </NavItem>
+              <NavItem to="/runs" path="/runs" icon={<ListVideo />}>
+                Runs
+              </NavItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
           <SidebarGroupLabel>Evals</SidebarGroupLabel>
-          <SidebarGroupContent>{data && <EvalNav evals={data.evals} />}</SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <NavItem to="/compare">Compare</NavItem>
-              <NavItem to="/runs">Runs</NavItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
+          <SidebarGroupContent>{data && <EvalNav evals={[...data.evals].sort((a, b) => a.title.localeCompare(b.title))} />}</SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
       <SidebarRail />

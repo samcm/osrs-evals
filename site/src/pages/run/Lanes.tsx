@@ -697,7 +697,7 @@ export const Lanes = memo(function Lanes({ run, clock, search, price, aside }: {
   const { lanes, ticks } = useMemo(() => {
     const xs = Array.from({ length: GRID_POINTS + 1 }, (_, i) => (i / GRID_POINTS) * maxX);
     const ticks = xs.map(x => (measure === 'ticks' ? x : clock.toTick(x)));
-    const ctx: Ctx = { run, clock, measure, maxX, xs, ticks, visible, tools: search.tools as ToolCategory[], errorsOnly: search.errors === '1', faded: hover.faded };
+    const ctx: Ctx = { run, clock, measure, maxX, xs, ticks, visible, tools: [], errorsOnly: false, faded: hover.faded };
     const build: Record<LaneId, () => Lane | null> = {
       progress: () => progressLane(ctx),
       calls: () => callsLane(ctx),
@@ -709,7 +709,7 @@ export const Lanes = memo(function Lanes({ run, clock, search, price, aside }: {
     };
     const lanes = (shownKey.split(',') as LaneId[]).map(id => build[id]()).filter((l): l is Lane => l != null);
     return { lanes, ticks };
-  }, [run, clock, measure, maxX, visible, search.tools, search.errors, search.cost, search.sdk, search.act, shownKey, price, hover.id]);
+  }, [run, clock, measure, maxX, visible, search.cost, search.sdk, search.act, shownKey, price, hover.id]);
 
   const xTicks = useMemo(() => ticksWithin(maxX, measure), [maxX, measure]);
   const attemptXs = useMemo(

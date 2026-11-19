@@ -1,14 +1,12 @@
 /**
  * Where the character went: the run's path on the world map, bright up to the playhead and faint
- * after it, with a dot at the playhead. By default the map follows the character (zoom from the
- * gestures); `?overview=1` shows the whole path instead. Upstairs and underground positions are drawn
+ * after it, with a dot at the playhead. The map shows the whole path; zoom and pan are the reader's
+ * (`?map=`), and "Fit" returns to the whole path. Upstairs and underground positions are drawn
  * where they are on the surface (underground is 6,400 tiles north in the cache), with the floor named.
  */
 
 import { useEffect, useMemo, useReducer, useRef } from 'react';
-import { getRouteApi } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { WorldMap, type MapMarker, type MapPath } from '@/components/WorldMap';
 import type { RunDetail, RunEvent } from '@/data/types';
 import { questSrc, skillSrc, uiSrc } from '@/lib/assets';
@@ -18,10 +16,6 @@ import { TIME_RAMP, type Clock } from './model';
 import { TRANSITION_MS, useCommitted, usePlayhead } from './playhead';
 import { runSearch, type RunSearch } from './search';
 
-const route = getRouteApi('/runs/$runId');
-
-/** Screen pixels per tile while following */
-const FOLLOW_ZOOM = 6;
 /** Path points are at most this many ticks apart while the character moves */
 const STEP_TICKS = 10;
 
@@ -91,7 +85,6 @@ function useGlide(target: number, glide: boolean): number {
 const dot = (id: string, points: readonly PathPoint[], at: number, color: string): MapPath => ({ id, color, points, opacity: 0, at });
 
 export function RunMap({ run, clock, view, height, fitHeight }: { run: RunDetail; clock: Clock; view: RunSearch['map']; height: number; fitHeight?: boolean }) {
-  const { overview } = route.useSearch();
   const update = useSearchUpdate(runSearch);
   const [committed] = useCommitted(run, clock);
   const head = usePlayhead(clock, committed);
@@ -99,7 +92,6 @@ export function RunMap({ run, clock, view, height, fitHeight }: { run: RunDetail
   const hover = head.scrub == null ? head.hover : null;
   const points = run.path as unknown as PathPoint[];
   const surface = useMemo(() => points.map(toSurface), [points]);
-  const following = !overview;
 
   const markers = useMemo(
     () =>
@@ -117,15 +109,14 @@ export function RunMap({ run, clock, view, height, fitHeight }: { run: RunDetail
     const at = here ? toSurface(here) : null;
     const trail = at ? [...surface.slice(0, end + 1), at] : surface.slice(0, end + 1);
     return [
-      { id: `${run.id}-all`, color: '--muted-foreground', points: surface, width: 2, opacity: 0.35 },
-      { id: `${run.id}-trail`, color: TIME_RAMP[TIME_RAMP.length - 1], ramp: TIME_RAMP, rampSpan: [0, clock.maxTicks], points: trail, width: 2 },
+      // The whole path in its time colours, faint after the playhead, bright up to it
+      { id: `${run.id}-all`, color: TIME_RAMP[TIME_RAMP.length - 1], ramp: TIME_RAMP, rampSpan: [0, clock.maxTicks], points: surface, width: 2, opacity: 0.6 },
+      { id: `${run.id}-trail`, color: TIME_RAMP[TIME_RAMP.length - 1], ramp: TIME_RAMP, rampSpan: [0, clock.maxTicks], points: trail, width: 3 },
       ...(hover != null ? [dot(`${run.id}-hover`, hoverTrail(surface, points, hover), hover, '--muted-foreground')] : []),
       dot(`${run.id}-at`, trail, time, '--primary'),
     ];
   }, [run.id, surface, points, here?.[1], here?.[2], time, hover, clock.maxTicks]);
 
-  const centre = here ? toSurface(here) : null;
-  const shown: MapView | undefined = following && centre ? [centre[1], centre[2], view?.[2] ?? FOLLOW_ZOOM] : view;
   const floor = floorName(here);
 
   if (points.length === 0) return <p className="flex items-center justify-center text-sm text-muted-foreground" style={{ height }}>No path was recorded.</p>;
@@ -134,28 +125,18 @@ export function RunMap({ run, clock, view, height, fitHeight }: { run: RunDetail
       <WorldMap
         paths={paths}
         markers={markers}
-        view={shown}
-        // Following keeps only the zoom; "Fit" shows the whole path
-        onViewChange={(v: MapView | undefined) => (v ? update({ map: v }) : update({ overview: '1', map: undefined }))}
+        view={view}
+        onViewChange={(v: MapView | undefined) => update({ map: v })}
         height={height}
         fitHeight={fitHeight}
+        fitKey={run.id}
         label="The character's path up to the playhead, and where it went after"
       />
-      <div className="absolute top-2 left-2 flex flex-col items-start gap-2">
-        <ToggleGroup
-          type="single"
-          size="sm"
-          variant="outline"
-          value={following ? 'follow' : 'overview'}
-          onValueChange={v => v && update({ overview: v === 'overview' ? '1' : undefined, map: undefined })}
-          aria-label="Map view"
-          className="rounded-lg bg-background"
-        >
-          <ToggleGroupItem value="follow">Follow</ToggleGroupItem>
-          <ToggleGroupItem value="overview">Overview</ToggleGroupItem>
-        </ToggleGroup>
-        {floor && <Badge variant="secondary">{floor}</Badge>}
-      </div>
+      {floor && (
+        <Badge variant="secondary" className="absolute top-2 left-2">
+          {floor}
+        </Badge>
+      )}
     </div>
   );
 }

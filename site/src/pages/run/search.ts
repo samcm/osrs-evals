@@ -22,15 +22,8 @@ export const runSearch = defineSearch({
   /** The playhead, in game ticks */
   t: int(undefined, { min: 0 }),
   map: mapViewParam(),
-  /** The map shows the whole path rather than following the character */
-  overview: oneOf(['1'], undefined),
   /** Playback speed, as a multiple of the game's 20 ticks a second */
   speed: oneOf(['1', '4', '16', '64'], '16'),
-  /** Transcript filters: tool categories, and only turns with an error */
-  tools: list(TOOL_CATEGORIES),
-  errors: oneOf(['1'], undefined),
-  /** The transcript shows what the current call ran */
-  code: oneOf(['1'], undefined),
   /** The lanes shown, when not the default ones */
   lanes: list(LANE_IDS),
   /** Lane cuts */
