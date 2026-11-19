@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { loadTrimmedSprite, type TrimmedSprite } from '@/lib/assets';
-import { imageToTile, indexAt, MAP_IMAGE, MAP_IMAGE_2X, mapMetaQuery, onSurface, roundView, tileToImage, type MapMeta, type MapView, type PathPoint } from '@/lib/map';
+import { imageToTile, MAP_IMAGE, MAP_IMAGE_2X, mapMetaQuery, positionAt, roundView, surfaceZ, tileToImage, type MapMeta, type MapView, type PathPoint } from '@/lib/map';
 import { Button } from '@/components/ui/button';
 import { useThemeColors } from '@/lib/theme';
 
@@ -70,36 +70,28 @@ interface Prepared {
   /** Image-pixel coordinates of surface points, x then y */
   xy: Float32Array;
   ticks: Float64Array;
-  /** [start, end) point ranges of unbroken runs */
+  /** [start, end) point ranges of unbroken runs: a jump (teleport, respawn) starts a new one */
   runs: [number, number][];
 }
 
 const preparedCache = new WeakMap<readonly PathPoint[], Prepared>();
 
-/** A path's surface points in image pixels, split where it leaves the surface; cached per points array. */
+/** A path's points in image pixels, as drawn on the surface map, split at jumps; cached per points array. */
 function prepare(meta: MapMeta, points: readonly PathPoint[]): Prepared {
   const cached = preparedCache.get(points);
   if (cached) return cached;
-  const path = { points };
-  const xy = new Float32Array(path.points.length * 2);
-  const ticks = new Float64Array(path.points.length);
+  const xy = new Float32Array(points.length * 2);
+  const ticks = new Float64Array(points.length);
   const runs: [number, number][] = [];
-  let n = 0;
-  let start = -1;
-  for (const [tick, x, z, level] of path.points) {
-    if (!onSurface(meta, z, level)) {
-      if (start >= 0 && n > start) runs.push([start, n]);
-      start = -1;
-      continue;
-    }
-    if (start < 0) start = n;
-    const [px, py] = tileToImage(meta, x, z);
+  let start = 0;
+  points.forEach(([tick, x, z, , jump], n) => {
+    if (jump === 1 && n > start) runs.push([start, n]), (start = n);
+    const [px, py] = tileToImage(meta, x, surfaceZ(z));
     xy[n * 2] = px;
     xy[n * 2 + 1] = py;
     ticks[n] = tick;
-    n++;
-  }
-  if (start >= 0 && n > start) runs.push([start, n]);
+  });
+  if (points.length > start) runs.push([start, points.length]);
   const result = { xy, ticks, runs };
   preparedCache.set(points, result);
   return result;
@@ -123,7 +115,8 @@ function rampColor(stops: [number, number, number][], f: number): string {
  * The 2004scape world map with run paths, markers and time dots. Pan by dragging, zoom with
  * ctrl/⌘ + wheel, a trackpad or two-finger pinch, double-click, or the buttons. With no `view` it
  * fits the paths; `onViewChange` reports the view when a gesture ends (undefined after "Fit"), so a
- * page can keep it in the URL. Positions underground or on another plane break the line.
+ * page can keep it in the URL. Underground and upstairs positions are drawn where they are on the
+ * surface; a jump (teleport, respawn) breaks the line.
  */
 export function WorldMap({
   paths,
@@ -137,6 +130,10 @@ export function WorldMap({
   label,
   className,
   overlay,
+  follow,
+  followZoom = 6,
+  onFollowZoom,
+  dim = 0,
 }: {
   paths: MapPath[];
   markers?: MapMarker[];
@@ -157,6 +154,16 @@ export function WorldMap({
   /** Draws over everything else on each draw, in CSS pixels; `toScreen` places a tile, `zoom` is
    * screen pixels per tile. A new function redraws the map, so animate by passing a new one. */
   overlay?: MapOverlay;
+  /** Tiles to keep in view while there is no `view` (characters at the playhead): the map centres on
+   * them, as close as `followZoom`. Dragging stops following (reported as a view); "Follow" starts
+   * it again. */
+  follow?: readonly { x: number; z: number }[] | null;
+  /** Screen pixels per tile while following, at the most */
+  followZoom?: number;
+  /** Zooming while following reports the new zoom here, and keeps following; without it a zoom stops following */
+  onFollowZoom?: (zoom: number) => void;
+  /** Fade the map image toward the page colour by this much (0–1), so an overlay reads over it */
+  dim?: number;
 }) {
   const { data: meta, isError: metaFailed } = useQuery(mapMetaQuery);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -287,6 +294,11 @@ export function WorldMap({
     ctx.setTransform(cam.s * dpr, 0, 0, cam.s * dpr, ox * dpr, oy * dpr);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(image2x && cam.s * dpr > 1 ? image2x : image, 0, 0, meta.width, meta.height);
+    if (dim > 0) {
+      ctx.globalAlpha = dim;
+      ctx.fillRect(0, 0, meta.width, meta.height);
+      ctx.globalAlpha = 1;
+    }
 
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
@@ -343,10 +355,9 @@ export function WorldMap({
     // Time dots over the markers: where each path is now matters most
     for (const { path } of prepared) {
       if (path.at == null) continue;
-      const i = indexAt(path.points, path.at);
-      const point = path.points[i];
-      if (!point || !onSurface(meta, point[2], point[3])) continue;
-      const [sx, sy] = toScreen(point[1], point[2]);
+      const at = positionAt(path.points, path.at);
+      if (!at) continue;
+      const [sx, sy] = toScreen(at.x, at.z);
       ctx.beginPath();
       ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
       ctx.fillStyle = resolve(path.ramp?.length ? path.ramp[path.ramp.length - 1] : path.color);
@@ -360,7 +371,7 @@ export function WorldMap({
       overlay(ctx, toScreen, cam.s * meta.px_per_tile);
       ctx.restore();
     }
-  }, [colors, image, image2x, markers, meta, overlay, prepared, size, sprites]);
+  }, [colors, dim, image, image2x, markers, meta, overlay, prepared, size, sprites]);
 
   const requestDraw = useCallback(() => {
     cancelAnimationFrame(frame.current);
@@ -371,42 +382,60 @@ export function WorldMap({
   const fitRef = useRef(fit);
   fitRef.current = fit;
   const viewKey = view?.join(',');
+  const canFollow = follow !== undefined;
+  const following = canFollow && !view;
+  const followKey = following && follow ? `${follow.map(f => `${f.x.toFixed(2)},${f.z.toFixed(2)}`).join(';')}@${followZoom}` : '';
   useEffect(() => {
     if (!meta || size.w === 0) return;
     if (view) {
       const [cx, cy] = tileToImage(meta, view[0], view[1]);
       camera.current = clampCentre(meta, { cx, cy, s: clampScale(meta, size, view[2] / meta.px_per_tile) }, size);
-    } else {
+    } else if (following && follow?.length) {
+      const xs = follow.map(f => tileToImage(meta, f.x, f.z));
+      const [x0, x1] = [Math.min(...xs.map(p => p[0])), Math.max(...xs.map(p => p[0]))];
+      const [y0, y1] = [Math.min(...xs.map(p => p[1])), Math.max(...xs.map(p => p[1]))];
+      // Close to one character, far enough out for a pack: room for the pins at the edges
+      const room = 3 * padding;
+      const s = Math.min(followZoom / meta.px_per_tile, (size.w - 2 * room) / Math.max(1, x1 - x0), (size.h - 2 * room) / Math.max(1, y1 - y0));
+      camera.current = clampCentre(meta, { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, s: clampScale(meta, size, s) }, size);
+    } else if (!following) {
       camera.current = fitRef.current();
     }
     requestDraw();
-    // view and geometry are compared by value (viewKey, geometryKey), not by array identity
-  }, [meta, size, viewKey, geometryKey]);
+    // view, geometry and the followed tile are compared by value, not by array identity
+  }, [meta, size, viewKey, geometryKey, followKey]);
 
   useEffect(() => {
     requestDraw();
     return () => cancelAnimationFrame(frame.current);
   }, [requestDraw]);
 
-  const commit = useCallback(() => {
-    const cam = camera.current;
-    if (!cam || !meta || !onViewChange) return;
-    const [x, z] = imageToTile(meta, cam.cx, cam.cy);
-    onViewChange(roundView([x, z, cam.s * meta.px_per_tile]));
-  }, [meta, onViewChange]);
+  /** Reports the camera when a gesture ends: a zoom while following keeps following, anything else is a view. */
+  const commit = useCallback(
+    (gesture: 'pan' | 'zoom' = 'pan') => {
+      const cam = camera.current;
+      if (!cam || !meta) return;
+      if (following && gesture === 'zoom' && onFollowZoom) return onFollowZoom(Math.round(cam.s * meta.px_per_tile * 100) / 100);
+      const [x, z] = imageToTile(meta, cam.cx, cam.cy);
+      onViewChange?.(roundView([x, z, cam.s * meta.px_per_tile]));
+    },
+    [following, meta, onFollowZoom, onViewChange]
+  );
 
   /** Zoom by a factor keeping the image point under (px, py) fixed. */
   const zoomAt = useCallback(
     (px: number, py: number, factor: number) => {
       const cam = camera.current;
       if (!cam || !meta) return;
+      // Following (and staying so), the followed tiles stay centred whatever is under the pointer
+      if (following && onFollowZoom) [px, py] = [size.w / 2, size.h / 2];
       const ix = cam.cx + (px - size.w / 2) / cam.s;
       const iy = cam.cy + (py - size.h / 2) / cam.s;
       const s = clampScale(meta, size, cam.s * factor);
       camera.current = clampCentre(meta, { cx: ix - (px - size.w / 2) / s, cy: iy - (py - size.h / 2) / s, s }, size);
       requestDraw();
     },
-    [meta, requestDraw, size]
+    [following, meta, onFollowZoom, requestDraw, size]
   );
 
   // Ctrl/⌘ + wheel (and trackpad pinch, which arrives as ctrl + wheel) zooms; a plain wheel scrolls the page
@@ -420,7 +449,7 @@ export function WorldMap({
       const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
       zoomAt(event.clientX - rect.left, event.clientY - rect.top, Math.exp(-delta * 0.01));
       window.clearTimeout(wheelTimer.current);
-      wheelTimer.current = window.setTimeout(commit, 250);
+      wheelTimer.current = window.setTimeout(() => commit('zoom'), 250);
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', onWheel);
@@ -473,7 +502,7 @@ export function WorldMap({
 
   const onPointerUp = (event: React.PointerEvent<HTMLCanvasElement>): void => {
     pointers.current.delete(event.pointerId);
-    if (pointers.current.size === 0 && moved.current) commit();
+    if (pointers.current.size === 0 && moved.current) commit('pan');
   };
 
   const button = (text: string, title: string, onClick: () => void) => (
@@ -497,7 +526,7 @@ export function WorldMap({
         onDoubleClick={event => {
           const [x, y] = local(event);
           zoomAt(x, y, 2);
-          commit();
+          commit('zoom');
         }}
       />
       {failed ? (
@@ -506,16 +535,19 @@ export function WorldMap({
         <div className="absolute top-2 right-2 flex gap-1">
           {button('+', 'Zoom in', () => {
             zoomAt(size.w / 2, size.h / 2, 2);
-            commit();
+            commit('zoom');
           })}
           {button('−', 'Zoom out', () => {
             zoomAt(size.w / 2, size.h / 2, 0.5);
-            commit();
+            commit('zoom');
           })}
-          {button('Fit', 'Fit the paths', () => {
+          {canFollow && !following && button('Follow', 'Keep the character in the middle', () => onViewChange?.(undefined))}
+          {button('Fit', canFollow ? 'Show the whole path' : 'Fit the paths', () => {
             camera.current = fit();
             requestDraw();
-            onViewChange?.(undefined);
+            // A map that follows has no view while following, so the fitted view is kept as one
+            if (canFollow) commit('pan');
+            else onViewChange?.(undefined);
           })}
         </div>
       )}

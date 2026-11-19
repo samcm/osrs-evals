@@ -29,14 +29,49 @@ export const MAP_IMAGE = '/assets/map/world.png';
 /** The same map at twice the resolution, drawn when zoomed in far enough to use it (optional) */
 export const MAP_IMAGE_2X = '/assets/map/world@2x.png';
 
-/** One recorded position: game tick, tile x, tile z, plane. */
-export type PathPoint = readonly [tick: number, x: number, z: number, level: number];
+/** One recorded position: game tick, tile x, tile z, plane, and 1 when it was a jump (teleport, respawn), not a walk. */
+export type PathPoint = readonly [tick: number, x: number, z: number, level: number, jump?: 1];
 
-/** Positions at z ≥ 6400 are underground (dungeons are mapped above the surface in the cache). */
+/** Positions at z ≥ 6400 are underground (dungeons are mapped 6,400 tiles north of the surface above them). */
 export const UNDERGROUND_Z = 6400;
 
-/** Whether a position is on the surface map: plane 0 and not underground. */
-export const onSurface = (meta: MapMeta, z: number, level: number): boolean => z < UNDERGROUND_Z && level === meta.level;
+/** Where a position is drawn on the surface map: underground under the surface above it, upper floors over the ground. */
+export const surfaceZ = (z: number): number => (z >= UNDERGROUND_Z ? z - UNDERGROUND_Z : z);
+
+/** The floor a position is on, when it is not the surface's ground floor. */
+export function floorName(z: number, level: number): string | null {
+  if (z >= UNDERGROUND_Z) return 'Underground';
+  return level > 0 ? `Floor ${level}` : null;
+}
+
+/** Path points are at most this many ticks apart while the character walks (the run detail's paths). */
+export const STEP_TICKS = 10;
+
+/** Where a character was at a tick, as drawn on the surface map. */
+export interface Position {
+  x: number;
+  z: number;
+  floor: string | null;
+}
+
+/**
+ * Where a character was at a tick. Paths only record changes, so between two points the character
+ * stood still and then walked for at most `step` ticks; a jump (teleport, respawn, or further than
+ * it could walk) is not walked.
+ */
+export function positionAt(points: readonly PathPoint[], tick: number, step = STEP_TICKS): Position | null {
+  if (points.length === 0) return null;
+  const i = Math.max(0, indexAt(points, tick));
+  const p = points[i];
+  const at = { x: p[1], z: surfaceZ(p[2]), floor: floorName(p[2], p[3]) };
+  const q = points[i + 1];
+  if (!q || tick <= p[0] || q[4] === 1) return at;
+  const qz = surfaceZ(q[2]);
+  if (Math.abs(q[1] - at.x) + Math.abs(qz - at.z) > step * 2 + 2) return at;
+  const start = Math.max(p[0], q[0] - step);
+  const f = Math.min(1, Math.max(0, (tick - start) / (q[0] - start || 1)));
+  return { ...at, x: at.x + (q[1] - at.x) * f, z: at.z + (qz - at.z) * f };
+}
 
 /** A tile's centre in map-image pixels. */
 export function tileToImage(meta: MapMeta, x: number, z: number): [number, number] {

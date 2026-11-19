@@ -236,7 +236,7 @@ export function RunPage() {
         clock={clock}
         search={search}
         price={index.prices[run.model]}
-        aside={<RunMap run={run} clock={clock} view={search.map} height={420} fitHeight />}
+        aside={<RunMap run={run} clock={clock} view={search.map} zoom={search.mz} height={420} />}
       />
     </>
   );

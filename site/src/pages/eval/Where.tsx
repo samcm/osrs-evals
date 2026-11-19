@@ -8,10 +8,13 @@ import { WorldMap, type MapOverlay, type MapPath } from '@/components/WorldMap';
 import { KeyLegend } from '@/components/charts';
 import type { EvalRuns } from '@/data/types';
 import type { LegendState } from '@/lib/legend';
-import { UNDERGROUND_Z, type MapView } from '@/lib/map';
+import { surfaceZ, type MapView } from '@/lib/map';
 import { useSearchUpdate } from '@/lib/search';
 import { useThemeColors } from '@/lib/theme';
 import type { RunCurve } from './model';
+
+/** The heat's one hue: red reads as heat over the map's greens and browns */
+const HEAT = '--color-data-red';
 
 /** Screen pixels a square takes at the least: one tile zoomed in, several zoomed out */
 const MIN_CELL = 8;
@@ -29,10 +32,8 @@ export function WhereMap({ curves, grid, legend, view, height = 480 }: { curves:
       const points = grid!.runs[cv.run.id].path;
       const end = cv.points[cv.points.length - 1]?.tick ?? points[points.length - 1][0];
       paths.push({ id: cv.run.id, color: cv.variant.color.token, points: points as unknown as MapPath['points'], opacity: 0 });
-      points.forEach((p, i) => {
-        if (p[2] >= UNDERGROUND_Z || p[3] !== 0) return;
-        stays.push({ x: p[1], z: p[2], ticks: Math.max(0, (points[i + 1]?.[0] ?? end) - p[0]) });
-      });
+      // Underground and upstairs count where they are on the surface map
+      points.forEach((p, i) => stays.push({ x: p[1], z: surfaceZ(p[2]), ticks: Math.max(0, (points[i + 1]?.[0] ?? end) - p[0]) }));
     }
     return { stays, paths };
   }, [grid, shown]);
@@ -51,12 +52,13 @@ export function WhereMap({ curves, grid, legend, view, height = 480 }: { curves:
         cells.set(key, c);
       }
       const most = Math.max(1, ...[...cells.values()].map(c => c.ticks));
-      ctx.fillStyle = colors.primary;
+      ctx.fillStyle = colors.resolve(HEAT);
       for (const c of cells.values()) {
         const [x0, y0] = toScreen(c.x - 0.5, c.z + cell - 0.5);
         const [x1, y1] = toScreen(c.x + cell - 0.5, c.z - 0.5);
-        // Log scale: a few long waits shouldn't wash out everywhere else
-        ctx.globalAlpha = 0.15 + 0.7 * (Math.log1p(c.ticks) / Math.log1p(most));
+        // Log scale, so a few long waits don't wash out everywhere else; squared, so ground only
+        // walked over stays faint and the places they stayed stand out
+        ctx.globalAlpha = 0.04 + 0.86 * (Math.log1p(c.ticks) / Math.log1p(most)) ** 2;
         ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
       }
       ctx.globalAlpha = 1;
@@ -73,9 +75,10 @@ export function WhereMap({ curves, grid, legend, view, height = 480 }: { curves:
           onViewChange={v => update({ map: v })}
           height={height}
           fitHeight
+          dim={0.55}
           label="Game time spent on each part of the map, summed over the runs"
         />
-        <KeyLegend items={[{ label: 'Less time', swatchClassName: 'bg-primary/20' }, { label: 'More', swatchClassName: 'bg-primary/80' }]} />
+        <KeyLegend items={[{ label: 'Less time', swatchClassName: 'bg-data-red/20' }, { label: 'More', swatchClassName: 'bg-data-red/85' }]} />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import type { ToolCategory } from '@/data/types';
 import { TOOL_CATEGORIES as TOOLS } from '@/lib/tools';
 import { mapViewParam } from '@/lib/map';
-import { defineSearch, int, legendParams, list, oneOf, useSearchUpdate } from '@/lib/search';
+import { defineSearch, int, legendParams, list, num, oneOf, useSearchUpdate } from '@/lib/search';
 import { setMoment } from './model';
 import { pause } from './playhead';
 
@@ -21,7 +21,10 @@ export const runSearch = defineSearch({
   turn: int(undefined, { min: 1 }),
   /** The playhead, in game ticks */
   t: int(undefined, { min: 0 }),
+  /** The map's view once the reader moves it; without one the map follows the character */
   map: mapViewParam(),
+  /** The map's zoom while it follows, in screen pixels per tile */
+  mz: num(undefined),
   /** Playback speed, as a multiple of the game's 20 ticks a second */
   speed: oneOf(['1', '4', '16', '64'], '16'),
   /** The lanes shown, when not the default ones */

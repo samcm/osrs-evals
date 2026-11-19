@@ -1,25 +1,25 @@
 /**
  * Every racing run on the world map at the playhead: its trail so far (the last stretch bold, the
  * rest faint, in its harness's dash), its character as a pin in its model's colour with its
- * vendor's mark, and the quests and deaths it has had by then.
+ * vendor's mark, and the quests it has done by then. The map follows the pack until the reader
+ * moves it; "Follow" goes back to it and "Fit" shows every whole path.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { WorldMap, type MapOverlay, type MapPath } from '@/components/WorldMap';
 import type { PathPoint } from '@/data/types';
-import { brandSrc, loadTrimmedSprite, questSrc, skillSrc, uiSrc, type TrimmedSprite } from '@/lib/assets';
-import { UNDERGROUND_Z, type MapView } from '@/lib/map';
+import { brandSrc, loadTrimmedSprite, questSrc, uiSrc, type TrimmedSprite } from '@/lib/assets';
+import { positionAt, surfaceZ, type MapView } from '@/lib/map';
 import type { AgentLine } from '@/lib/series';
 import { useThemeColors } from '@/lib/theme';
 import type { RunCurve } from '../model';
-import { positionAt } from './race';
 
 export interface Track {
   curve: RunCurve;
   points: readonly PathPoint[];
   /** Most ticks between two recorded points while walking */
   step: number;
-  /** Quests and deaths, with where they happened */
+  /** Quests, with where they were done */
   marks: { tick: number; x: number; z: number; src: string; inferred: boolean }[];
   /** Place at the playhead, from 0 */
   rank: number;
@@ -149,7 +149,6 @@ export function RaceMap({
       const dpr = window.devicePixelRatio || 1;
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
-      const surface = (p: PathPoint): boolean => p[2] < UNDERGROUND_Z && p[3] === 0;
 
       const dim = (t: Track): number => (lit != null && t.curve.variant.key !== lit ? 0.2 : 1);
       // Lit tracks draw last, over the faded ones
@@ -163,16 +162,16 @@ export function RaceMap({
         let last: PathPoint | null = null;
         for (const p of t.points) {
           if (p[0] > tick) break;
-          if (last && p[4] !== 1 && surface(last) && surface(p)) {
+          if (last && p[4] !== 1) {
             const target = p[0] >= tick - trail ? bold : faint;
-            target.moveTo(...toScreen(last[1], last[2]));
-            target.lineTo(...toScreen(p[1], p[2]));
+            target.moveTo(...toScreen(last[1], surfaceZ(last[2])));
+            target.lineTo(...toScreen(p[1], surfaceZ(p[2])));
           }
           last = p;
         }
         const head = positionAt(t.points, tick, t.step);
-        if (last && head?.surface && surface(last)) {
-          bold.moveTo(...toScreen(last[1], last[2]));
+        if (last && head) {
+          bold.moveTo(...toScreen(last[1], surfaceZ(last[2])));
           bold.lineTo(...toScreen(head.x, head.z));
         }
         ctx.strokeStyle = color;
@@ -187,7 +186,7 @@ export function RaceMap({
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
 
-      // Quests and deaths so far, as their sprites
+      // Quests so far, as their icons
       const k = Math.max(1, Math.floor(dpr));
       ctx.imageSmoothingEnabled = false;
       for (const t of tracks)
@@ -223,9 +222,9 @@ export function RaceMap({
       const isLit = (t: Track): number => (lit != null && t.curve.variant.key === lit ? 1 : 0);
       const order = drawn.map((a, i) => ({ ...a, s: spot[i] })).sort((a, b) => isLit(a.t) - isLit(b.t) || b.t.rank - a.t.rank);
       placed.current = order.map(({ t, s }) => ({ x: s[0], y: s[1], key: t.curve.variant.key }));
-      for (const { t, p, xy, s } of order) {
+      for (const { t, xy, s } of order) {
         const color = colors.resolve(t.curve.variant.color.token);
-        ctx.globalAlpha = (p.surface ? 1 : 0.45) * (dim(t) < 1 ? 0.35 : 1);
+        ctx.globalAlpha = dim(t) < 1 ? 0.35 : 1;
         if (Math.hypot(s[0] - xy[0], s[1] - xy[1]) > PIN * 0.6) {
           ctx.beginPath();
           ctx.moveTo(xy[0], xy[1]);
@@ -282,9 +281,14 @@ export function RaceMap({
     [colors, images, lit, placed, tick, trail, tracks]
   );
 
+  // The map follows the pack: every pin in view, as close as one character allows
+  const follow = useMemo(() => tracks.flatMap(t => positionAt(t.points, tick, t.step) ?? []), [tracks, tick]);
+
   return (
     <WorldMap
       paths={fitPaths}
+      follow={follow}
+      followZoom={8}
       view={view}
       onViewChange={onViewChange}
       height={height}
@@ -295,7 +299,7 @@ export function RaceMap({
   );
 }
 
-/** A run's quests and deaths as map marks, placed where it was at the time. */
+/** A run's quests as map marks, placed where it was at the time. */
 export function marksOf(
   events: { kind: string; tick: number; quest?: string | null; source?: string }[] | undefined,
   points: readonly PathPoint[],
@@ -303,10 +307,9 @@ export function marksOf(
 ): Track['marks'] {
   if (!events) return [];
   return events.flatMap(e => {
-    if (e.kind !== 'quest' && e.kind !== 'death') return [];
+    if (e.kind !== 'quest') return [];
     const p = positionAt(points, e.tick, step);
-    if (!p?.surface) return [];
-    const src = e.kind === 'death' ? skillSrc('hitpoints') : e.quest ? questSrc(e.quest) : uiSrc('quests');
-    return [{ tick: e.tick, x: p.x, z: p.z, src, inferred: e.kind === 'quest' && e.source === 'inferred' }];
+    if (!p) return [];
+    return [{ tick: e.tick, x: p.x, z: p.z, src: e.quest ? questSrc(e.quest) : uiSrc('quests'), inferred: e.source === 'inferred' }];
   });
 }

@@ -70,9 +70,9 @@ fs.writeFileSync(`${OUT}/ui/panel.png`, sprite('invback')); // the stone side pa
 console.log(`skills: ${SKILLS.length}, ui: ${TABS.length + 1}`);
 
 // ---- world map ------------------------------------------------------------------------------------
-// Free-to-play surface with a margin: Falador and Rimmington (west) to Al Kharid (east), Lumbridge
-// Swamp (south) to Edgeville (north).
-const X0 = 2920, X1 = 3350, Z0 = 3120, Z1 = 3540;
+// The mainland the runs reach, with a margin: Ardougne (west) to Al Kharid and the River Salve (east),
+// Karamja (south) to the low Wilderness (north).
+const X0 = 2432, X1 = 3391, Z0 = 3072, Z1 = 3711;
 const { MapView } = await import(`${WC}/mapview/MapView.ts`);
 MapView.prototype.run = async function () {}; // no event loop, no fetches; fields still initialise
 const view = new MapView();
