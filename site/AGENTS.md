@@ -69,8 +69,8 @@ the one ranked list), **Cost** (cost against result, finished within a budget, a
 
 ### Run page
 
-A debugger. `PageHeader` (the character, model and harness, eval and epoch, the result as meta,
-previous and next). Then the game player and the agent's thinking side by side on one playhead,
+A debugger. The header bar names the eval and the pairing; `PageHeader` holds the result as meta,
+the epoch and previous/next. Then the game player and the agent's thinking side by side on one playhead,
 the playback bar under them, then the timeline lanes and the map on the same playhead. Every part
 reads and moves the playhead through `src/pages/run/playhead.ts` (`?t=` when settled). Files:
 `src/pages/run/`.

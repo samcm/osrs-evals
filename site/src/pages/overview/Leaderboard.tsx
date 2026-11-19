@@ -27,11 +27,11 @@ const tint = (score: number): string => TINTS[Math.min(TINTS.length - 1, Math.fl
 
 function HeatCell({ pairing, e }: { pairing: Pairing; e: Eval }) {
   const s = pairing.evals.get(e.id);
-  if (!s) return <span className="inline-flex h-6 w-9 items-center justify-center text-muted-foreground">–</span>;
+  if (!s) return <span className="inline-flex h-6 w-10 items-center justify-center text-muted-foreground">–</span>;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className={cn('inline-flex h-6 w-9 items-center justify-center rounded-sm tabular-nums', tint(s.score))}>{formatScore(s.score)}</span>
+        <span className={cn('inline-flex h-6 w-10 items-center justify-center rounded-sm tabular-nums', tint(s.score))}>{formatScore(s.score)}</span>
       </TooltipTrigger>
       <TooltipContent>
         {e.title}, {s.runs === 1 ? '1 run' : `${s.runs} runs`}
@@ -66,31 +66,37 @@ export function Leaderboard({ pairings, evals, sort, onSortChange }: { pairings:
   const columns = useMemo(
     () =>
       [
-        col.accessor('rank', { header: '#', enableSorting: false, cell: ({ getValue }) => <span className="text-muted-foreground">{getValue()}</span> }),
+        col.accessor('rank', { header: '#', enableSorting: false, meta: { className: 'w-px' }, cell: ({ getValue }) => <span className="text-muted-foreground">{getValue()}</span> }),
         col.accessor(p => p.variant.name, {
           id: 'pairing',
           header: 'Pairing',
-          // The name takes the table's spare width, so the numbers sit together on the right
-          meta: { className: 'w-full' },
+          meta: { className: 'w-px' },
           // On a phone a long name truncates (its title has it whole) so the score stays in view
           cell: ({ row }) => <VariantLabel variant={row.original.variant} run={row.original.sample} compact className="max-md:max-w-52" />,
         }),
         col.accessor('score', {
           header: 'Score',
-          meta: { numeric: true },
+          // A long bar, so the ranking reads as a bar chart
+
           sortDescFirst: true,
           cell: ({ getValue }) => (
-            <span className="flex items-center justify-end gap-3">
-              <Progress value={getValue() * 100} aria-hidden className="w-24 max-md:hidden **:data-[slot=progress-indicator]:bg-data-emerald" />
-              <span className="font-medium">{formatScore(getValue())}</span>
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="w-7 shrink-0 text-right font-medium tabular-nums">{formatScore(getValue())}</span>
+              <Progress value={getValue() * 100} aria-hidden className="w-28 lg:w-36 2xl:w-56 max-md:hidden **:data-[slot=progress-indicator]:bg-data-emerald" />
             </span>
           ),
         }),
         ...evals.map(e =>
           col.accessor(p => p.evals.get(e.id)?.score ?? -1, {
             id: `eval-${e.id}`,
-            header: () => <EvalMark evalId={e.id} size={16} title={e.title} />,
-            meta: { numeric: true },
+            header: () => (
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                <EvalMark evalId={e.id} size={16} title="" />
+                {e.title}
+              </span>
+            ),
+            // Columns other than the score shrink to their content, so the score's bar takes the rest
+            meta: { className: 'w-px text-center' },
             sortDescFirst: true,
             cell: ({ row }) => <HeatCell pairing={row.original} e={e} />,
           })
