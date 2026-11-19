@@ -32,7 +32,7 @@ function Spread({ e, r, x, max }: { e: Eval; r: RankedVariant; x: XMeasure; max:
     return Math.min(1, Math.max(0, v / max)) * (target ? FINISHED_SPAN : 1);
   };
   return (
-    <span className="relative mx-2 block h-4 w-32 sm:w-48">
+    <span className="relative mx-2 block h-4 min-w-32">
       <span aria-hidden className="absolute top-1/2 left-0 border-t" style={{ width: `${(target ? FINISHED_SPAN : 1) * 100}%` }} />
       {/* Runs that never finished sit apart at the end, past a gap */}
       {target && <span aria-hidden className="absolute top-1/2 right-0 border-t border-dashed" style={{ width: `${(1 - FINISHED_SPAN - 0.05) * 100}%` }} />}
@@ -87,7 +87,8 @@ export function Leaderboard({ e, ranked, x, legend }: { e: Eval; ranked: RankedV
                   {TO_FINISH[x]}
                 </TableHead>
               )}
-              <TableHead>Runs</TableHead>
+              {/* The runs' scale takes the table's slack, so the dots spread out */}
+              <TableHead className="w-full">Runs</TableHead>
               <TableHead className="text-right" title="Median per run">
                 Cost
               </TableHead>

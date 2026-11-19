@@ -253,6 +253,31 @@ export function RaceMap({
         }
       }
       ctx.globalAlpha = 1;
+
+      // The lit pairing's pins say whose they are, as a tooltip would
+      if (lit != null) {
+        ctx.font = `500 12px ${getComputedStyle(document.body).fontFamily}`;
+        ctx.textBaseline = 'middle';
+        for (const { t, s } of order) {
+          if (t.curve.variant.key !== lit) continue;
+          const text = t.curve.variant.short;
+          const w = ctx.measureText(text).width + 16;
+          const h = 24;
+          // To the pin's right, or its left near the map's right edge
+          const right = s[0] + PIN + 4 + w <= ctx.canvas.width / dpr;
+          const x = right ? s[0] + PIN + 4 : s[0] - PIN - 4 - w;
+          const y = s[1] - h / 2;
+          ctx.beginPath();
+          ctx.roundRect(x, y, w, h, 6);
+          ctx.fillStyle = colors.surface;
+          ctx.fill();
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = colors.border;
+          ctx.stroke();
+          ctx.fillStyle = colors.foreground;
+          ctx.fillText(text, x + 8, s[1]);
+        }
+      }
     },
     [colors, images, lit, placed, tick, trail, tracks]
   );
@@ -264,6 +289,7 @@ export function RaceMap({
       onViewChange={onViewChange}
       height={height}
       overlay={overlay}
+      className="rounded-none"
       label="Every run on the world map at the playhead, each a pin in its model's colour with its trail"
     />
   );
