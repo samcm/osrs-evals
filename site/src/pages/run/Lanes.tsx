@@ -1,17 +1,22 @@
 /**
- * The run as lanes on one shared x axis: progress with its events, spend, context, model calls,
- * SDK actions, activity and XP. Every lane is a shadcn chart sampled on the same grid of x values,
- * so Recharts' `syncId` moves one crosshair through all of them; clicking any lane selects the
- * model call running then and puts the map at that moment.
+ * The run as one instrument: lanes on one shared x axis and one playhead. Progress with its events
+ * (sprites in a row of their own, on a 24px grid), model calls, SDK actions and activity show by
+ * default; spend, context and XP are a menu away (`?lanes=`). Every lane is a shadcn chart of the
+ * same height sampled on the same grid of x values, so Recharts' `syncId` moves one crosshair
+ * through all of them. Hovering previews that moment everywhere on the page; clicking puts the
+ * playhead there. The playhead is one vertical line through every lane.
  */
 
-import { useMemo, useRef, type ReactNode, type RefObject } from 'react';
+import { memo, useMemo, useRef, type ReactNode, type RefObject } from 'react';
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, XAxis, YAxis, usePlotArea, useXAxisScale, useYAxisScale, type MouseHandlerDataParam, type TooltipContentProps } from 'recharts';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { ParamSegmented, Segmented } from '@/components/bits';
-import { crosshairCursor, gridProps, KeyLegend, SpriteMarkers, syncProps, type LegendItem, type SpriteMarker } from '@/components/charts';
+import { crosshairCursor, gridProps, KeyLegend, syncProps, type LegendItem } from '@/components/charts';
 import { Sprite } from '@/components/marks';
+import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import type { Price, RunDetail, RunEvent, ToolCategory, Turn } from '@/data/types';
 import { questSrc, skillSrc, uiSrc } from '@/lib/assets';
@@ -23,6 +28,7 @@ import { useSearchUpdate } from '@/lib/search';
 import { hashColor } from '@/lib/series';
 import { SDK_OUTCOMES, TOKEN_KINDS, type TokenKind } from '@/lib/tokens';
 import { TOOL_CATEGORY } from '@/lib/tools';
+import { useWidth } from '@/lib/useWidth';
 import { cn } from '@/lib/utils';
 import {
   animationName,
@@ -31,21 +37,26 @@ import {
   RUNNING,
   setMoment,
   ticksWithin,
-  turnAt,
   turnHasError,
   turnSummary,
   turnTick,
+  useMoment,
   WALKING,
   type Clock,
   type XMeasure,
 } from './model';
-import { runSearch, type RunSearch } from './search';
+import { DEFAULT_LANES, LANE_IDS, runSearch, useSettle, type LaneId, type RunSearch } from './search';
 
 const SYNC = 'run-lanes';
 /** Points on the shared x grid: every lane is sampled here, so the crosshair matches by value */
 const GRID_POINTS = 720;
 /** The y axis takes the same width in every lane, so the plots line up */
 const Y_WIDTH = 52;
+/** Room right of every plot, so the last x label fits */
+const RIGHT = 20;
+/** A sprite in the events row and the grid it sits on */
+const SPRITE = 20;
+const SLOT = 24;
 
 /** Where each kind of token sits in the calls series and in the price list. */
 const TOKEN_FIELDS: Record<TokenKind, { calls: 'input_uncached' | 'cache_write' | 'cache_read' | 'output'; price: keyof Price }> = {
@@ -64,8 +75,18 @@ interface TipItem {
   color?: string;
 }
 
-interface Lane {
+/** An event in the progress lane's row of sprites. */
+interface StripMarker {
   id: string;
+  tick: number;
+  x: number;
+  src: string;
+  title: string;
+  inferred: boolean;
+}
+
+interface Lane {
+  id: LaneId;
   title: ReactNode;
   control?: ReactNode;
   config: ChartConfig;
@@ -78,6 +99,8 @@ interface Lane {
   legend?: LegendItem[];
   /** The legend toggles series (hide/focus) */
   bound?: boolean;
+  /** Events as sprites in a row above the plot */
+  strip?: StripMarker[];
 }
 
 interface Ctx {
@@ -91,7 +114,6 @@ interface Ctx {
   visible: (id: string) => boolean;
   tools: ToolCategory[];
   errorsOnly: boolean;
-  selTurn: number | null;
 }
 
 const formatX = (measure: XMeasure, x: number): string => (measure === 'ticks' ? `Tick ${formatInt(Math.round(x))}` : formatClock(x));
@@ -124,6 +146,9 @@ const area = (key: string, stack?: string, opacity = 0.4) => (
 );
 
 type Marked = Extract<RunEvent, { kind: 'quest' | 'death' | 'level' }>;
+type AttemptStart = Extract<RunEvent, { kind: 'attempt' }>;
+
+const attempts = (run: RunDetail): AttemptStart[] => run.events.filter((e): e is AttemptStart => e.kind === 'attempt');
 
 function eventSprite(e: Marked): string {
   if (e.kind === 'quest') return e.quest ? questSrc(e.quest) : uiSrc('quests');
@@ -146,16 +171,15 @@ function progressLane(ctx: Ctx): Lane {
     ticks
   );
   const rows = xs.map((x, i) => ({ x, v: run.timeline[Math.max(0, at[i])]?.value ?? 0 }));
-  const valueAt = (tick: number): number => run.timeline.filter(p => p.tick <= tick).at(-1)?.value ?? 0;
   const marked = run.events.filter((e): e is Marked => e.kind === 'quest' || e.kind === 'death' || e.kind === 'level');
-  const attemptStarts = run.events.filter((e): e is Extract<RunEvent, { kind: 'attempt' }> => e.kind === 'attempt');
+  const attemptStarts = attempts(run);
   const max = Math.max(1, ...run.timeline.map(p => p.value));
   const target = run.target;
   const yTicks = target != null ? (target % 2 === 0 ? [0, target / 2, target] : niceTicks(target, 2, true).filter(t => t <= target).concat(target)) : niceTicks(max, 2, true);
-  const markers: SpriteMarker[] = marked.map(e => ({
+  const strip: StripMarker[] = marked.map(e => ({
     id: `${e.kind}-${e.tick}`,
+    tick: e.tick,
     x: clock.x(e.tick, measure),
-    y: valueAt(e.tick),
     src: eventSprite(e),
     title: e.kind === 'quest' && e.source === 'inferred' ? `≈ ${e.name ?? 'A quest'}: guessed from the quest-points jump` : eventName(e),
     inferred: e.kind === 'quest' && e.source === 'inferred',
@@ -169,23 +193,8 @@ function progressLane(ctx: Ctx): Lane {
     rows,
     yTicks: [...new Set(yTicks)],
     yFormat: formatCompact,
-    body: (
-      <>
-        {area('v', undefined, 0.12)}
-        {attemptStarts
-          .filter(a => a.attempt > 1)
-          .map(a => (
-            <ReferenceLine
-              key={a.attempt}
-              x={clock.x(a.tick, measure)}
-              stroke="var(--muted-foreground)"
-              strokeDasharray="3 3"
-              label={{ value: `Attempt ${a.attempt}`, position: 'insideTopLeft', fontSize: 12, className: 'fill-muted-foreground' }}
-            />
-          ))}
-        <SpriteMarkers markers={markers} size={24} />
-      </>
-    ),
+    body: area('v', undefined, 0.12),
+    strip,
     tip: i => {
       const tick = ticks[i];
       const attempt = attemptStarts.filter(a => a.tick <= tick).at(-1);
@@ -279,7 +288,7 @@ function contextLane(ctx: Ctx): Lane {
  * Each model call as a block: as wide as the time to the next call, as tall as the model took;
  * solid while the model worked, faint while its tools ran. Coloured by the call's tool category.
  */
-function CallBlocks({ starts, ends, untils, latency, colors, shown, errors, selected }: {
+function CallBlocks({ starts, ends, untils, latency, colors, shown, errors }: {
   starts: number[];
   ends: number[];
   untils: number[];
@@ -287,7 +296,6 @@ function CallBlocks({ starts, ends, untils, latency, colors, shown, errors, sele
   colors: string[];
   shown: boolean[];
   errors: boolean[];
-  selected: number | null;
 }) {
   const plot = usePlotArea();
   const x = useXAxisScale();
@@ -307,9 +315,6 @@ function CallBlocks({ starts, ends, untils, latency, colors, shown, errors, sele
             <rect x={x1} y={top} width={x2 - x1} height={bottom - top} fill={colors[i]} fillOpacity={0.25} />
             <rect x={x0} y={top} width={x1 - x0} height={bottom - top} fill={colors[i]} />
             {errors[i] && <rect x={x0} y={top - 4} width={Math.max(3, x1 - x0)} height={2} fill="var(--destructive)" />}
-            {selected === i && (
-              <rect x={x0 - 1.5} y={top - 1.5} width={Math.max(4.5, x2 - x0 + 3)} height={bottom - top + 1.5} fill="none" stroke="var(--foreground)" strokeWidth={1.5} />
-            )}
           </g>
         );
       })}
@@ -342,7 +347,7 @@ function callsLane(ctx: Ctx): Lane {
     body: (
       <>
         <Line dataKey="zero" stroke="none" dot={false} activeDot={false} isAnimationActive={false} />
-        <CallBlocks starts={start} ends={end} untils={untils} latency={calls.latency} colors={colors} shown={shown} errors={errors} selected={ctx.selTurn} />
+        <CallBlocks starts={start} ends={end} untils={untils} latency={calls.latency} colors={colors} shown={shown} errors={errors} />
       </>
     ),
     tip: i => {
@@ -542,18 +547,131 @@ function xpLane(ctx: Ctx): Lane | null {
   };
 }
 
-export function Lanes({ run, clock, search, price }: { run: RunDetail; clock: Clock; search: RunSearch; price: Price | undefined }) {
+/**
+ * The progress lane's events as sprites in one row, each at its moment on the x axis, nudged along
+ * a 24px grid so none overlap. Hover names it; a click puts the playhead there.
+ */
+function EventStrip({ markers, maxX, onSelect }: { markers: StripMarker[]; maxX: number; onSelect: (tick: number) => void }) {
+  const [ref, width] = useWidth();
+  const placed = useMemo(() => {
+    if (width <= 0) return [];
+    const sorted = [...markers].sort((a, b) => a.x - b.x);
+    const lefts = sorted.map(m => (m.x / (maxX || 1)) * width - SPRITE / 2);
+    for (let i = 1; i < lefts.length; i++) lefts[i] = Math.max(lefts[i], lefts[i - 1] + SLOT);
+    // Pull back from the right edge, then drop what still does not fit
+    if (lefts.length) lefts[lefts.length - 1] = Math.min(lefts[lefts.length - 1], width - SPRITE / 2);
+    for (let i = lefts.length - 2; i >= 0; i--) lefts[i] = Math.min(lefts[i], lefts[i + 1] - SLOT);
+    return sorted.map((m, i) => ({ ...m, left: Math.round(lefts[i]) })).filter(m => m.left >= -SPRITE / 2);
+  }, [markers, maxX, width]);
+  return (
+    <div ref={ref} className="relative h-6" style={{ marginLeft: Y_WIDTH, marginRight: RIGHT }}>
+      {placed.map(m => (
+        <Tooltip key={m.id}>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={m.title}
+              onClick={() => onSelect(m.tick)}
+              className={cn(
+                'absolute top-0 flex cursor-pointer rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                m.inferred && 'border-b border-dashed border-muted-foreground'
+              )}
+              style={{ left: m.left }}
+            >
+              <Sprite src={m.src} size={SPRITE} alt="" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{m.title}</TooltipContent>
+        </Tooltip>
+      ))}
+    </div>
+  );
+}
+
+/** The playhead through every lane: where the game is (scrubbing or playing, else `?t=`, else the end). */
+function PlayheadLine({ clock, measure, committed }: { clock: Clock; measure: XMeasure; committed: number | null }) {
+  const { scrub } = useMoment();
+  const tick = scrub ?? committed ?? clock.maxTicks;
+  const maxX = measure === 'ticks' ? clock.maxTicks : clock.maxSeconds;
+  const share = Math.min(1, Math.max(0, clock.x(tick, measure) / (maxX || 1)));
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-primary"
+      style={{ left: `calc(${Y_WIDTH}px + (100% - ${Y_WIDTH + RIGHT}px) * ${share})` }}
+    />
+  );
+}
+
+/** Which lanes this run has data for, with their names in the lanes menu. */
+function availableLanes(run: RunDetail): { id: LaneId; label: string }[] {
+  const hasCalls = run.series.calls.seconds.length > 0;
+  const has: Record<LaneId, boolean> = {
+    progress: true,
+    calls: hasCalls,
+    sdk: (run.series.sdk?.bins.length ?? 0) > 0,
+    activity: (run.series.activity?.rows.length ?? 0) > 0,
+    spend: hasCalls,
+    context: hasCalls,
+    xp: Object.keys(run.series.xp ?? {}).length > 0,
+  };
+  const labels: Record<LaneId, string> = {
+    progress: evalArt(run.eval).measure,
+    calls: 'Model calls',
+    sdk: 'SDK actions',
+    activity: 'Activity',
+    spend: 'Spend',
+    context: 'Context',
+    xp: 'XP',
+  };
+  return LANE_IDS.filter(id => has[id]).map(id => ({ id, label: labels[id] }));
+}
+
+function LanesMenu({ available, shown }: { available: { id: LaneId; label: string }[]; shown: readonly LaneId[] }) {
   const update = useSearchUpdate(runSearch);
+  const toggle = (id: LaneId, on: boolean): void => {
+    const next = LANE_IDS.filter(l => (l === id ? on : shown.includes(l)));
+    const isDefault = next.length === DEFAULT_LANES.length && next.every(l => DEFAULT_LANES.includes(l));
+    update({ lanes: isDefault ? [] : next });
+  };
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm">
+          Lanes
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-auto">
+        {available.map(l => (
+          <DropdownMenuCheckboxItem
+            key={l.id}
+            checked={shown.includes(l.id)}
+            disabled={shown.length === 1 && shown.includes(l.id)}
+            onSelect={e => e.preventDefault()}
+            onCheckedChange={on => toggle(l.id, on)}
+          >
+            {l.label}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export const Lanes = memo(function Lanes({ run, clock, search, price }: { run: RunDetail; clock: Clock; search: RunSearch; price: Price | undefined }) {
+  const update = useSearchUpdate(runSearch);
+  const settle = useSettle();
   const legend = useLegend();
   const hovered = useRef<string | null>(null);
   const measure = search.x;
   const maxX = measure === 'ticks' ? clock.maxTicks : clock.maxSeconds;
   const turns = run.turns;
-  const selTurn = search.turn != null && search.turn <= turns.length ? search.turn - 1 : null;
-  const selTick = search.t ?? (selTurn != null ? turnTick(turns[selTurn], clock) : null);
-  const selX = selTick == null ? null : Math.min(maxX, clock.x(selTick, measure));
-  const hasCalls = run.series.calls.seconds.length > 0;
+  const picked = search.turn != null && search.turn <= turns.length ? turns[search.turn - 1] : undefined;
+  const committed = search.t ?? (picked ? turnTick(picked, clock) : null);
   const { visible } = legend;
+  const available = useMemo(() => availableLanes(run), [run]);
+  const requested: readonly LaneId[] = search.lanes.length ? (search.lanes as LaneId[]) : DEFAULT_LANES;
+  const shown = available.map(l => l.id).filter(id => requested.includes(id));
 
   const xControl = (
     <Segmented
@@ -567,61 +685,73 @@ export function Lanes({ run, clock, search, price }: { run: RunDetail; clock: Cl
     />
   );
 
-  const { lanes, xs, ticks } = useMemo(() => {
+  const shownKey = shown.join(',');
+  const { lanes, ticks } = useMemo(() => {
     const xs = Array.from({ length: GRID_POINTS + 1 }, (_, i) => (i / GRID_POINTS) * maxX);
     const ticks = xs.map(x => (measure === 'ticks' ? x : clock.toTick(x)));
-    const ctx: Ctx = { run, clock, measure, maxX, xs, ticks, visible, tools: search.tools as ToolCategory[], errorsOnly: search.errors === '1', selTurn };
-    const lanes = [
-      progressLane(ctx),
-      ...(hasCalls ? [spendLane(ctx, price, search.cost), contextLane(ctx), callsLane(ctx)] : []),
-      sdkLane(ctx, search.sdk),
-      activityLane(ctx, search.act),
-      xpLane(ctx),
-    ].filter((l): l is Lane => l != null);
-    return { lanes, xs, ticks };
-  }, [run, clock, measure, maxX, visible, search.tools, search.errors, search.cost, search.sdk, search.act, selTurn, hasCalls, price]);
+    const ctx: Ctx = { run, clock, measure, maxX, xs, ticks, visible, tools: search.tools as ToolCategory[], errorsOnly: search.errors === '1' };
+    const build: Record<LaneId, () => Lane | null> = {
+      progress: () => progressLane(ctx),
+      calls: () => callsLane(ctx),
+      sdk: () => sdkLane(ctx, search.sdk),
+      activity: () => activityLane(ctx, search.act),
+      spend: () => spendLane(ctx, price, search.cost),
+      context: () => contextLane(ctx),
+      xp: () => xpLane(ctx),
+    };
+    const lanes = (shownKey.split(',') as LaneId[]).map(id => build[id]()).filter((l): l is Lane => l != null);
+    return { lanes, ticks };
+  }, [run, clock, measure, maxX, visible, search.tools, search.errors, search.cost, search.sdk, search.act, shownKey, price]);
 
   const xTicks = useMemo(() => ticksWithin(maxX, measure), [maxX, measure]);
-
-  /** Select the call running at a grid point and put the map there. */
-  const select = (i: number): void => {
-    const tick = Math.max(0, Math.round(ticks[i]));
-    update({ t: tick, turn: turns.length ? turnAt(turns, clock, tick) + 1 : undefined });
-  };
+  const attemptXs = useMemo(
+    () =>
+      attempts(run)
+        .filter(a => a.attempt > 1)
+        .map(a => ({ attempt: a.attempt, x: clock.x(a.tick, measure) })),
+    [run, clock, measure]
+  );
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Timeline</CardTitle>
-        <CardAction>{xControl}</CardAction>
+        <CardAction className="flex items-center gap-2">
+          <LanesMenu available={available} shown={shown} />
+          {xControl}
+        </CardAction>
       </CardHeader>
       <CardContent
-        className="flex cursor-crosshair flex-col gap-6 select-none"
+        className="cursor-crosshair select-none"
         onMouseLeave={() => {
           hovered.current = null;
           setMoment({ hover: null });
         }}
       >
-        {lanes.map((lane, n) => (
-          <LaneChart
-            key={lane.id}
-            lane={lane}
-            last={n === lanes.length - 1}
-            measure={measure}
-            maxX={maxX}
-            xTicks={xTicks}
-            selX={selX}
-            legend={legend}
-            hovered={hovered}
-            onHover={i => setMoment({ hover: Math.round(ticks[i]) })}
-            onSelect={select}
-            gridSize={xs.length}
-          />
-        ))}
+        <div className="relative flex flex-col gap-3">
+          {lanes.map((lane, n) => (
+            <LaneChart
+              key={lane.id}
+              lane={lane}
+              last={n === lanes.length - 1}
+              measure={measure}
+              maxX={maxX}
+              xTicks={xTicks}
+              attempts={attemptXs}
+              legend={legend}
+              hovered={hovered}
+              onHover={i => setMoment({ hover: Math.round(ticks[i]) })}
+              onSelect={i => settle(ticks[i])}
+              onSelectTick={tick => settle(tick)}
+              gridSize={ticks.length}
+            />
+          ))}
+          <PlayheadLine clock={clock} measure={measure} committed={committed} />
+        </div>
       </CardContent>
     </Card>
   );
-}
+});
 
 function LaneChart({
   lane,
@@ -629,11 +759,12 @@ function LaneChart({
   measure,
   maxX,
   xTicks,
-  selX,
+  attempts,
   legend,
   hovered,
   onHover,
   onSelect,
+  onSelectTick,
   gridSize,
 }: {
   lane: Lane;
@@ -641,11 +772,12 @@ function LaneChart({
   measure: XMeasure;
   maxX: number;
   xTicks: number[];
-  selX: number | null;
+  attempts: { attempt: number; x: number }[];
   legend: LegendState;
   hovered: RefObject<string | null>;
   onHover: (i: number) => void;
   onSelect: (i: number) => void;
+  onSelectTick: (tick: number) => void;
   gridSize: number;
 }) {
   const index = (state: MouseHandlerDataParam): number | null => {
@@ -654,17 +786,19 @@ function LaneChart({
   };
   const yTop = lane.yTicks[lane.yTicks.length - 1] ?? 1;
   return (
-    <section aria-label={typeof lane.title === 'string' ? lane.title : lane.id} className="flex flex-col gap-2">
-      <div className="flex min-h-7 flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-medium">{lane.title}</h3>
-        {lane.control}
+    <section aria-label={typeof lane.title === 'string' ? lane.title : lane.id} className="flex flex-col gap-1">
+      <div className="flex min-h-8 flex-wrap items-center gap-x-4 gap-y-1">
+        <h3 className="text-xs font-medium">{lane.title}</h3>
+        {lane.legend && lane.legend.length > 0 && <KeyLegend items={lane.legend} legend={lane.bound ? legend : undefined} className="justify-start pt-0 text-muted-foreground" />}
+        {lane.control && <div className="ml-auto">{lane.control}</div>}
       </div>
-      <ChartContainer config={lane.config} className={cn('aspect-auto w-full', last ? 'h-40' : 'h-32')}>
+      {lane.strip && lane.strip.length > 0 && <EventStrip markers={lane.strip} maxX={maxX} onSelect={onSelectTick} />}
+      <ChartContainer config={lane.config} className={cn('aspect-auto w-full', last ? 'h-29' : 'h-24')}>
         <ComposedChart
           data={lane.rows}
           {...syncProps(SYNC)}
-          // Room for the 0 label under the plot when the x axis is hidden
-          margin={{ top: 8, right: 20, bottom: last ? 0 : 8, left: 0 }}
+          // Every plot is 88px tall; the last lane adds the x axis under it
+          margin={{ top: 4, right: RIGHT, bottom: last ? 0 : 4, left: 0 }}
           onMouseMove={state => {
             hovered.current = lane.id;
             const i = index(state);
@@ -684,7 +818,8 @@ function LaneChart({
             tickFormatter={(v: number) => (measure === 'ticks' ? formatCompact(v) : formatClock(v))}
             tickLine={false}
             axisLine={false}
-            tickMargin={8}
+            tickMargin={6}
+            height={24}
             interval={0}
             allowDataOverflow
             hide={!last}
@@ -711,10 +846,17 @@ function LaneChart({
             }}
           />
           {lane.body}
-          {selX != null && <ReferenceLine x={selX} stroke="var(--primary)" strokeWidth={1.5} />}
+          {attempts.map(a => (
+            <ReferenceLine
+              key={a.attempt}
+              x={a.x}
+              stroke="var(--muted-foreground)"
+              strokeDasharray="3 3"
+              label={lane.id === 'progress' ? { value: `Attempt ${a.attempt}`, position: 'insideTopLeft', fontSize: 12, className: 'fill-muted-foreground' } : undefined}
+            />
+          ))}
         </ComposedChart>
       </ChartContainer>
-      {lane.legend && lane.legend.length > 0 && <KeyLegend items={lane.legend} legend={lane.bound ? legend : undefined} />}
     </section>
   );
 }

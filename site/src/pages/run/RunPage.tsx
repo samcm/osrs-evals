@@ -241,8 +241,8 @@ export function RunPage() {
    * playback bar under both, then the timeline lanes and the map. Narrow, in source order: the game,
    * the playback bar, the thinking, the map, the lanes. The playback bar sticks under the site header
    * so the playhead is in reach wherever the page is scrolled; on wide screens the map sticks under it
-   * while the lanes scroll past. The thinking takes the game's height
-   * (contain-size keeps it from growing the row) and scrolls inside it.
+   * while the lanes scroll past. The thinking takes the game's height on wide screens (contain-size
+   * keeps it from growing the row) and a fixed one when stacked, and scrolls inside it.
    */
   return (
     <>
@@ -259,8 +259,8 @@ export function RunPage() {
           </CardContent>
         </Card>
         {run.turns.length > 0 && (
-          <div className="min-w-0 rounded-xl xl:col-span-2 xl:col-start-4 xl:row-start-1 xl:overflow-y-auto xl:contain-size xl:*:min-h-full">
-            <Transcript run={run} clock={clock} search={search} />
+          <div className="h-120 min-w-0 xl:col-span-2 xl:col-start-4 xl:row-start-1 xl:h-auto xl:contain-size">
+            <Transcript run={run} clock={clock} search={search} tick={head.tick} />
           </div>
         )}
         <Card className="min-w-0 xl:sticky xl:col-span-2 xl:col-start-4 xl:row-start-3 xl:self-start" style={{ top: mapTop.top }}>
