@@ -74,7 +74,7 @@ function PointTooltip({
       formatter={(value, name) => (
         <div className="flex w-full items-center justify-between gap-4">
           <span className="text-muted-foreground">{name}</span>
-          <span className="font-mono font-medium text-foreground tabular-nums">{value as string}</span>
+          <span className="font-medium text-foreground tabular-nums">{value as string}</span>
         </div>
       )}
     />
@@ -87,7 +87,8 @@ function PointLabels({ points }: { points: Point[] }) {
   const x = useXAxisScale();
   const y = useYAxisScale();
   if (!plot || !x || !y) return null;
-  const width = (p: Point) => labelWidth(p.spec.label) + (p.spec.harness ? p.spec.harness.length * 7 + 26 : 0);
+  // The mark and short name only: the point's shape is the harness, as a line's dash is (AGENTS.md, end labels)
+  const width = (p: Point) => labelWidth(p.spec.label);
   const placed = points.map(p => ({ p, px: Number(x(p.x)), py: Number(y(p.y)), width: width(p) }));
   // Labels may run into the chart's margins, not past its edges
   const positions = placePointLabels(placed, { x: 0, y: plot.y, width: plot.x + plot.width + 16, height: plot.height });
@@ -104,7 +105,7 @@ function PointLabels({ points }: { points: Point[] }) {
                 pos.endsWith('left') && 'justify-end'
               )}
             >
-              <SeriesLabel series={q.p.spec} size={14} />
+              <SeriesLabel series={q.p.spec} size={14} harness={false} />
             </div>
           </foreignObject>
         );

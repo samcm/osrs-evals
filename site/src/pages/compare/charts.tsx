@@ -3,7 +3,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Bar, BarChart, CartesianGrid, Scatter, ScatterChart, XAxis, YAxis } from 'recharts';
-import { ChartFrame, KeyLegend, SeriesLabel, SeriesTooltip, seriesConfig, seriesColor, xAxisProps, logAxisProps } from '@/components/charts';
+import { ChartFrame, KeyLegend, SeriesLabel, SeriesLegend, SeriesTooltip, seriesConfig, seriesColor, xAxisProps, logAxisProps } from '@/components/charts';
 import { ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { Eval, Run, ToolCategory } from '@/data/types';
 import { scatterShape, toolSeries, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
@@ -112,19 +112,11 @@ export function StripChart({
         config={seriesConfig(variants.map(v => v.series))}
         rows={groups.length}
         legend={
-          <KeyLegend
+          <SeriesLegend
+            series={variants.map(v => v.series)}
             legend={legend}
-            items={[
-              { label: 'Median', swatchClassName: 'bg-foreground' },
-              ...variants.map(({ series }) => ({
-                id: series.id,
-                name: series.name,
-                label: null,
-                mark: <SeriesLabel series={series} size={14} />,
-                color: series.swatch,
-                symbol: series.symbol,
-              })),
-            ]}
+            kind="symbol"
+            before={[{ label: 'Median', swatchClassName: 'bg-foreground' }]}
           />
         }
       >
@@ -203,7 +195,7 @@ export function StripChart({
                       {rows.map(([k, v]) => (
                         <div key={k} className="flex justify-between gap-4">
                           <span className="text-muted-foreground">{k}</span>
-                          <span className="font-mono font-medium tabular-nums">{v}</span>
+                          <span className="font-medium text-foreground tabular-nums">{v}</span>
                         </div>
                       ))}
                     </div>

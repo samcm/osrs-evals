@@ -1,7 +1,7 @@
 /**
- * Tooltip content built from shadcn's ChartTooltipContent: each row is the series' colour, its marks
- * (vendor mark, short name, harness badge) and its value, formatted; rows sort by value. The title
- * is the x value, formatted.
+ * Tooltip content built from shadcn's ChartTooltipContent: each row is the series' key (its colour,
+ * and for pairings the harness' dash, as in the legend), its marks (vendor mark, short name, harness
+ * badge) and its value, formatted; rows sort by value. The title is the x value, formatted.
  *
  *   <ChartTooltip cursor={crosshairCursor}
  *     content={<SeriesTooltip series={series} format={formatInt} labelFormat={t => `Tick ${formatInt(t)}`} />} />
@@ -12,6 +12,7 @@ import type { SeriesSpec } from '@/lib/chartSeries';
 import { formatAxisNumber } from '@/lib/format';
 import { ChartTooltipContent } from '@/components/ui/chart';
 import { SeriesLabel } from './SeriesLabel';
+import { Key } from './Legend';
 
 type ContentProps = React.ComponentProps<typeof ChartTooltipContent>;
 
@@ -20,6 +21,7 @@ export function SeriesTooltip({
   format = v => v.toLocaleString('en-US'),
   labelFormat = label => (typeof label === 'number' ? formatAxisNumber(label) : label),
   sort = 'desc',
+  kind,
   ...props
 }: Partial<ContentProps> & {
   series: SeriesSpec[];
@@ -29,6 +31,8 @@ export function SeriesTooltip({
   labelFormat?: (label: number | string) => ReactNode;
   /** Order rows by value, or keep the series' order */
   sort?: 'desc' | 'asc' | 'none';
+  /** The key's style, as the legend's: a pairing's line dash (the default for pairings) or a block */
+  kind?: 'line' | 'swatch';
 }) {
   const byKey = new Map(series.map(s => [s.key, s]));
   const payload = (props.payload ?? []).filter(item => byKey.has(String(item.dataKey)) && item.value != null);
@@ -44,9 +48,9 @@ export function SeriesTooltip({
         const s = byKey.get(String(item.dataKey))!;
         return (
           <div className="flex w-full items-center gap-2">
-            <span aria-hidden className="size-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: s.color }} />
-            <SeriesLabel series={s} size={14} className="flex-1" />
-            <span className="ml-auto pl-2 font-mono font-medium text-foreground tabular-nums">{format(Number(value), s)}</span>
+            <Key item={(kind ?? (s.harness ? 'line' : 'swatch')) === 'line' ? { color: s.swatch, line: s.line } : { color: s.swatch }} />
+            <SeriesLabel series={s} size={14} className="flex-1 text-muted-foreground" />
+            <span className="ml-auto pl-2 font-medium text-foreground tabular-nums">{format(Number(value), s)}</span>
           </div>
         );
       }}

@@ -115,7 +115,7 @@ function Strip({ column, groups, labels, labelRoom, lit }: { column: Column; gro
                   formatter={value => (
                     <div className="flex w-full items-center justify-between gap-4">
                       <span className="text-muted-foreground">{d.run ? `Epoch ${d.run.epoch}` : 'Median'}</span>
-                      <span className="font-mono font-medium text-foreground tabular-nums">{formatX(Number(value), column.measure)}</span>
+                      <span className="font-medium text-foreground tabular-nums">{formatX(Number(value), column.measure)}</span>
                     </div>
                   )}
                 />

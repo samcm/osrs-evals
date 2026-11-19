@@ -1,6 +1,7 @@
 /**
- * Line-end labels that never collide, drawn inside a Recharts chart: each series' marks and short
- * name at the right of the plot, level with where its line ends, nudged apart (layoutEndLabels) and
+ * Line-end labels that never collide, drawn inside a Recharts chart: each series' key (its colour
+ * and dash), vendor mark and short name at the right of the plot (the dash carries the harness, so
+ * a label never truncates), level with where its line ends, nudged apart (layoutEndLabels) and
  * dropped by priority when there is no room. Give the chart `margin={chartMargin({ endLabels: true })}`.
  *
  *   <LineChart …>
@@ -11,8 +12,9 @@
 
 import { usePlotArea, useYAxisScale } from 'recharts';
 import { layoutEndLabels } from '@/lib/endLabels';
-import { dashArray, type SeriesSpec } from '@/lib/chartSeries';
+import type { SeriesSpec } from '@/lib/chartSeries';
 import { END_LABEL_WIDTH } from './axes';
+import { Key } from './Legend';
 import { SeriesLabel } from './SeriesLabel';
 
 export interface EndLabelItem {
@@ -25,16 +27,7 @@ export interface EndLabelItem {
 
 const LINE_HEIGHT = 20;
 
-export function EndLabels({
-  items,
-  yAxisId,
-  line = false,
-}: {
-  items: EndLabelItem[];
-  yAxisId?: string | number;
-  /** Key each label with a short stroke in the series' colour and dash (for line charts whose labels leave the harness to the dash) */
-  line?: boolean;
-}) {
+export function EndLabels({ items, yAxisId }: { items: EndLabelItem[]; yAxisId?: string | number }) {
   const plot = usePlotArea();
   const y = useYAxisScale(yAxisId);
   if (!plot || !y) return null;
@@ -54,14 +47,8 @@ export function EndLabels({
         return (
           <foreignObject key={series.key} x={plot.x + plot.width + 6} y={top} width={END_LABEL_WIDTH - 8} height={LINE_HEIGHT}>
             <div className="flex h-full items-center gap-1.5 text-xs text-foreground">
-              {line ? (
-                <svg aria-hidden width="14" height="4" className="shrink-0">
-                  <line x1="0" y1="2" x2="14" y2="2" stroke={series.color} strokeWidth="2" strokeDasharray={dashArray(series.line)} />
-                </svg>
-              ) : (
-                <span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ backgroundColor: series.color }} />
-              )}
-              <SeriesLabel series={series} size={14} className="min-w-0" />
+              <Key item={{ color: series.swatch, line: series.line }} />
+              <SeriesLabel series={series} size={14} harness={false} className="min-w-0" />
             </div>
           </foreignObject>
         );

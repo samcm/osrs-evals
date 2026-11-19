@@ -2,7 +2,8 @@
  * Identity of every model, vendor and agent: display names, brand marks, and fixed chart styles.
  *
  * Colours: each model has one fixed colour (a data hue token from tokens.css), used everywhere:
- *   Claude Haiku 5.5 orange, Claude Sonnet 5.5 purple, GPT-5.6 Luna teal, no model (Program) slate.
+ *   Claude Haiku 5.5 orange, Claude Sonnet 5.5 purple, Claude Opus 5.5 rose, GPT-5.6 Luna teal,
+ *   GPT-6.2 Sol blue, GPT-6.2 Astra green, no model (Program) slate.
  * A model not listed gets a stable hash of its id into the chart palette, skipping the hues taken
  * above, never a colour by position. Agents have no colour: each has a fixed line style and point
  * shape, so a variant (model × agent) is drawn in its model's colour with its agent's line and shape.
@@ -42,19 +43,18 @@ const HUES = {
   slate: hue('slate'),
 };
 
-/** The chart palette (chart-0 to chart-14) minus the fixed model hues, for models not listed. */
+/**
+ * The chart palette (chart-0 to chart-14) minus the fixed model hues (blue 0, orange 6, purple 7,
+ * teal 10, rose 12) and the hues that read as one of them (emerald 1 as green, red 3 as rose,
+ * violet 9 as purple), for models not listed.
+ */
 const PALETTE: SeriesColor[] = [
-  // bg-chart-0 border-chart-0 fill-chart-0 … listed in full so Tailwind generates each class
-  { token: '--color-chart-0', swatchClassName: 'bg-chart-0', borderClassName: 'border-chart-0', fillClassName: 'fill-chart-0' },
-  { token: '--color-chart-1', swatchClassName: 'bg-chart-1', borderClassName: 'border-chart-1', fillClassName: 'fill-chart-1' },
+  // bg-chart-2 border-chart-2 fill-chart-2 … listed in full so Tailwind generates each class
   { token: '--color-chart-2', swatchClassName: 'bg-chart-2', borderClassName: 'border-chart-2', fillClassName: 'fill-chart-2' },
-  { token: '--color-chart-3', swatchClassName: 'bg-chart-3', borderClassName: 'border-chart-3', fillClassName: 'fill-chart-3' },
   { token: '--color-chart-4', swatchClassName: 'bg-chart-4', borderClassName: 'border-chart-4', fillClassName: 'fill-chart-4' },
   { token: '--color-chart-5', swatchClassName: 'bg-chart-5', borderClassName: 'border-chart-5', fillClassName: 'fill-chart-5' },
   { token: '--color-chart-8', swatchClassName: 'bg-chart-8', borderClassName: 'border-chart-8', fillClassName: 'fill-chart-8' },
-  { token: '--color-chart-9', swatchClassName: 'bg-chart-9', borderClassName: 'border-chart-9', fillClassName: 'fill-chart-9' },
   { token: '--color-chart-11', swatchClassName: 'bg-chart-11', borderClassName: 'border-chart-11', fillClassName: 'fill-chart-11' },
-  { token: '--color-chart-12', swatchClassName: 'bg-chart-12', borderClassName: 'border-chart-12', fillClassName: 'fill-chart-12' },
   { token: '--color-chart-13', swatchClassName: 'bg-chart-13', borderClassName: 'border-chart-13', fillClassName: 'fill-chart-13' },
   { token: '--color-chart-14', swatchClassName: 'bg-chart-14', borderClassName: 'border-chart-14', fillClassName: 'fill-chart-14' },
 ];

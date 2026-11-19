@@ -26,6 +26,7 @@ export {
   crosshairCursor,
   END_LABEL_WIDTH,
   gridProps,
+  LINE_WIDTH,
   lineProps,
   logAxisProps,
   NAMED_Y_AXIS_WIDTH,
@@ -37,6 +38,6 @@ export {
 } from './axes';
 export { SeriesTooltip } from './SeriesTooltip';
 export { SeriesLabel } from './SeriesLabel';
-export { KeyLegend, SeriesLegend, type LegendItem } from './Legend';
+export { Key, KeyLegend, SeriesLegend, type LegendItem } from './Legend';
 export { EndLabels, type EndLabelItem } from './EndLabels';
 export { SpriteMarkers, type SpriteMarker } from './SpriteMarkers';

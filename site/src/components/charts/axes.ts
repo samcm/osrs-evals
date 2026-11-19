@@ -18,7 +18,7 @@ import type { XAxisProps } from 'recharts';
 import { formatAxisNumber, formatCostTick } from '@/lib/format';
 import { logRange, logTicks } from '@/lib/logAxis';
 import { dashArray, type SeriesSpec } from '@/lib/chartSeries';
-import { FADED_OPACITY } from '@/lib/hover';
+import { FADED_OPACITY, setHovered } from '@/lib/hover';
 import { seriesColor } from './config';
 
 type AxisDomain = NonNullable<XAxisProps['domain']>;
@@ -26,8 +26,8 @@ type AxisDomain = NonNullable<XAxisProps['domain']>;
 /** CartesianGrid: horizontal hairlines only. */
 export const gridProps = { vertical: false } as const;
 
-/** Tooltip `cursor`: a dashed vertical crosshair. */
-export const crosshairCursor = { stroke: 'var(--muted-foreground)', strokeWidth: 1, strokeDasharray: '3 3' };
+/** Tooltip `cursor`: shadcn's vertical crosshair, a hairline in the border colour. */
+export const crosshairCursor = { stroke: 'var(--border)', strokeWidth: 1 };
 
 /**
  * Charts with the same id share the crosshair and tooltip position, matched by x value (so their
@@ -128,27 +128,30 @@ export function logAxisProps(values: (number | null | undefined)[], format: (val
   };
 }
 
+/** Every line's width, as shadcn's charts draw them. */
+export const LINE_WIDTH = 2;
+
 /**
- * A series' Line: its colour, its agent's dash, 1.75px, no dots, no animation; a step line by
- * default (counts, scores and CDFs step). Hidden series stay mounted but invisible, so colours and
- * the legend don't shift. `faded` (from useHover) dims it while another series is hovered.
+ * A series' Line: its colour, its agent's dash, 2px, no dots, no animation; a step line by default
+ * (counts, scores and CDFs step). Hidden series stay mounted but invisible, so colours and the
+ * legend don't shift. `faded` (from useHover) dims it while another series is hovered, and pointing
+ * at the line hovers its series, as a legend key or a table row does.
  */
-export function lineProps(
-  series: SeriesSpec,
-  { step = true, hidden = false, width = 1.75, faded = false }: { step?: boolean; hidden?: boolean; width?: number; faded?: boolean } = {}
-) {
+export function lineProps(series: SeriesSpec, { step = true, hidden = false, faded = false }: { step?: boolean; hidden?: boolean; faded?: boolean } = {}) {
   return {
     dataKey: series.key,
     name: series.key,
     type: step ? ('stepAfter' as const) : ('linear' as const),
     stroke: seriesColor(series),
-    strokeWidth: width,
+    strokeWidth: LINE_WIDTH,
     strokeDasharray: dashArray(series.line),
     dot: false,
-    activeDot: hidden ? false : { r: 3 },
+    activeDot: hidden ? false : { r: 4 },
     connectNulls: false,
     isAnimationActive: false,
     hide: hidden,
     strokeOpacity: faded ? FADED_OPACITY : 1,
+    onMouseEnter: () => setHovered(series.id),
+    onMouseLeave: () => setHovered(undefined),
   };
 }

@@ -178,7 +178,7 @@ export function EvalPage() {
               <ParetoChart e={e} ranked={ranked} px={search.px} legend={legend} />
             </PageSection>
             {target && (
-              <PageSection title="Finished within" className="xl:border-t-0 xl:pt-0">
+              <PageSection title="Finished within">
                 <CdfChart e={e} ranked={ranked} cx={search.px} legend={legend} />
               </PageSection>
             )}

@@ -213,7 +213,7 @@ export function ProgressChart({
               return (
                 <Line
                   key={line.key}
-                  {...lineProps(line.spec, { faded: faded(lit, line.spec.id), width: lit === line.spec.id ? 2.25 : 1.75 })}
+                  {...lineProps(line.spec, { faded: faded(lit, line.spec.id) })}
                   dataKey={line.key}
                   name={line.key}
                   stroke={line.spec.color}
