@@ -10,10 +10,12 @@
  *
  * Its first and last columns pad by the card's spacing, so in a CardContent without side padding the
  * rows run to the card's edges and line up with the header. Headers never wrap; a table wider than
- * its card scrolls inside it.
+ * its card scrolls inside it. A column with `meta: { minWidth }` shows only when the table is that
+ * wide, so columns follow the card's width rather than the window's (the sidebar takes its share).
  */
 
 import { Fragment, type ReactNode } from 'react';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronsUpDown } from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
@@ -25,6 +27,7 @@ import {
   type SortingState,
 } from '@tanstack/react-table';
 import { FADED_OPACITY, hoverProps, useHover } from '@/lib/hover';
+import { useWidth } from '@/lib/useWidth';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -37,6 +40,8 @@ declare module '@tanstack/react-table' {
     wrap?: boolean;
     /** Classes for the column's header and cells, such as `max-md:hidden` for a column phones skip */
     className?: string;
+    /** Show the column only when the table is at least this many pixels wide */
+    minWidth?: number;
   }
 }
 
@@ -64,7 +69,10 @@ export interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   /** The series id a row stands for: hovering the row hovers it across the page (lib/hover), and rows fade while another is hovered */
   hoverId?: (row: T) => string;
+  /** Shown in one full-width row when there are no rows */
   empty?: ReactNode;
+  /** Left of the pagination, such as a row count; with it the footer shows even on one page */
+  footer?: ReactNode;
 }
 
 /** The card's spacing on the outer columns (shadcn Card sets --card-spacing). */
@@ -85,18 +93,29 @@ export function DataTable<T>({
   onRowClick,
   hoverId,
   empty,
+  footer,
 }: DataTableProps<T>) {
   const hover = useHover();
+  const [measure, width] = useWidth();
   const paging = pageSize != null && onPageChange != null;
   const pageCount = paging ? Math.max(1, Math.ceil(data.length / pageSize)) : 1;
   // A page past the end, as from an old link, shows the last page
   const pageIndex = paging ? Math.min(Math.max(1, page), pageCount) - 1 : 0;
   const sorting = onSortChange ? toSorting(sort ?? []) : undefined;
+  // Columns wider tables add: hidden, not just unseen, so the outer columns keep the card's spacing
+  const columnVisibility = Object.fromEntries(
+    columns.flatMap(c => {
+      const id = c.id ?? (c as { accessorKey?: string }).accessorKey;
+      const min = c.meta?.minWidth;
+      return id != null && min != null && width > 0 && width < min ? [[id, false]] : [];
+    })
+  );
   const table = useReactTable({
     data,
     columns,
     getRowId,
     state: {
+      columnVisibility,
       ...(sorting ? { sorting } : {}),
       ...(paging ? { pagination: { pageIndex, pageSize } } : {}),
     },
@@ -117,9 +136,10 @@ export function DataTable<T>({
   const columnCount = table.getVisibleLeafColumns().length;
   const rows = table.getRowModel().rows;
   const expands = renderExpanded != null && onExpandedChange != null;
+  const pages = paging && pageCount > 1;
 
   return (
-    <div className="min-w-0">
+    <div ref={measure} className="@container/table min-w-0">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map(group => (
@@ -128,6 +148,7 @@ export function DataTable<T>({
                 const meta = header.column.columnDef.meta;
                 const sorted = header.column.getIsSorted();
                 const label = flexRender(header.column.columnDef.header, header.getContext());
+                const SortIcon = sorted === 'desc' ? ArrowDown : sorted === 'asc' ? ArrowUp : ChevronsUpDown;
                 return (
                   <TableHead
                     key={header.id}
@@ -139,15 +160,19 @@ export function DataTable<T>({
                         type="button"
                         onClick={header.column.getToggleSortingHandler()}
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-sm whitespace-nowrap transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
+                          'group/sort inline-flex items-center align-middle gap-1 rounded-sm whitespace-nowrap transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
                           meta?.numeric && 'flex-row-reverse',
                           sorted && 'text-foreground'
                         )}
                       >
                         <span>{label}</span>
-                        <span aria-hidden className={cn('w-2 text-xs', !sorted && 'invisible')}>
-                          {sorted === 'desc' ? '↓' : '↑'}
-                        </span>
+                        <SortIcon
+                          aria-hidden
+                          className={cn(
+                            'size-3.5 transition-opacity',
+                            !sorted && 'opacity-0 group-hover/sort:opacity-60 group-focus-visible/sort:opacity-60'
+                          )}
+                        />
                       </button>
                     ) : (
                       label
@@ -159,6 +184,13 @@ export function DataTable<T>({
           ))}
         </TableHeader>
         <TableBody>
+          {rows.length === 0 && (
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={columnCount} className="h-24 text-center whitespace-normal text-muted-foreground">
+                {empty ?? 'No rows.'}
+              </TableCell>
+            </TableRow>
+          )}
           {rows.map(row => {
             const open = expands && expanded === row.id;
             const click = expands
@@ -173,9 +205,12 @@ export function DataTable<T>({
                   {...(hid != null ? hoverProps(hid) : {})}
                   style={hid != null && hover.faded(hid) ? { opacity: FADED_OPACITY + 0.25 } : undefined}
                   onClick={click}
+                  // A clickable row is reachable by keyboard too: Tab to it, Enter to open
+                  tabIndex={click ? 0 : undefined}
+                  onKeyDown={click ? event => event.key === 'Enter' && event.target === event.currentTarget && click() : undefined}
                   aria-expanded={expands ? open : undefined}
                   data-state={open ? 'selected' : undefined}
-                  className={cn('transition-opacity', click && 'cursor-pointer')}
+                  className={cn('transition-opacity', click && 'cursor-pointer outline-none focus-visible:bg-muted')}
                 >
                   {row.getVisibleCells().map(cell => {
                     const meta = cell.column.columnDef.meta;
@@ -201,20 +236,35 @@ export function DataTable<T>({
           })}
         </TableBody>
       </Table>
-      {rows.length === 0 && (empty ?? <p className="py-6 text-center text-sm text-muted-foreground">No rows.</p>)}
-      {paging && pageCount > 1 && (
-        <div className="flex items-center justify-between gap-4 border-t px-[var(--card-spacing,0.5rem)] pt-3 text-xs text-muted-foreground tabular-nums">
-          <span>
-            Rows {pageIndex * pageSize + 1} to {Math.min(data.length, (pageIndex + 1) * pageSize)} of {data.length}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={pageIndex === 0} onClick={() => onPageChange(pageIndex)}>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" disabled={pageIndex >= pageCount - 1} onClick={() => onPageChange(pageIndex + 2)}>
-              Next
-            </Button>
-          </div>
+      {(pages || footer != null) && (
+        <div className="flex items-center justify-between gap-4 border-t px-[var(--card-spacing,0.5rem)] pt-3 text-sm text-muted-foreground tabular-nums">
+          <div className="min-w-0">{footer}</div>
+          {pages && (
+            <div className="flex items-center gap-2">
+              <span className="whitespace-nowrap">
+                Page {pageIndex + 1} of {pageCount}
+              </span>
+              <Button variant="outline" size="icon" className="max-sm:hidden" aria-label="First page" disabled={pageIndex === 0} onClick={() => onPageChange(1)}>
+                <ChevronsLeft />
+              </Button>
+              <Button variant="outline" size="icon" aria-label="Previous page" disabled={pageIndex === 0} onClick={() => onPageChange(pageIndex)}>
+                <ChevronLeft />
+              </Button>
+              <Button variant="outline" size="icon" aria-label="Next page" disabled={pageIndex >= pageCount - 1} onClick={() => onPageChange(pageIndex + 2)}>
+                <ChevronRight />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="max-sm:hidden"
+                aria-label="Last page"
+                disabled={pageIndex >= pageCount - 1}
+                onClick={() => onPageChange(pageCount)}
+              >
+                <ChevronsRight />
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
