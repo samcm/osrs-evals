@@ -16,7 +16,7 @@ export type GroupBy = 'variant' | 'model' | 'agent';
 
 export const X_OPTIONS: { value: XMeasure; label: string }[] = [
   { value: 'ticks', label: 'Ticks' },
-  { value: 'seconds', label: 'Seconds' },
+  { value: 'seconds', label: 'Time' },
   { value: 'cost', label: 'Cost' },
   { value: 'calls', label: 'Calls' },
 ];

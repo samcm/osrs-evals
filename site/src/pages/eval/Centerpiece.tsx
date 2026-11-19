@@ -8,6 +8,7 @@
 import { useMemo, useRef } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Slider } from '@/components/ui/slider';
 import { runQuery } from '@/data/queries';
@@ -23,7 +24,7 @@ import { niceMax, type Agg, type RunCurve } from './model';
 import { pause, play, seek, useEvalPlayhead } from './playhead';
 import { finalOrder, standings } from './centerpiece/race';
 import { marksOf, PIN, RaceMap, type PlacedPin, type Track } from './centerpiece/RaceMap';
-import { Standings } from './centerpiece/Standings';
+import { LANE, Standings } from './centerpiece/Standings';
 
 /** Runs whose detail (fine path, quests) is loaded; past this the eval's coarse paths do. */
 const DETAILED = 16;
@@ -76,6 +77,7 @@ export function Centerpiece({
   const target = runners[0]?.run.target ?? null;
   const top = target ?? niceMax(Math.max(1, ...runners.map(cv => Math.max(...cv.points.map(p => p.value)))));
   // The map takes half its width in height, within what a screen can show beside the rest
+  const narrow = width > 0 && width < 640;
   const height = Math.round(Math.min(520, Math.max(300, width * 0.48)));
 
   /** The pin under the pointer lights its pairing everywhere. */
@@ -89,10 +91,11 @@ export function Centerpiece({
   };
 
   return (
-    <section className="flex flex-col gap-stack" aria-label="Every run in the game">
+    // A media card: the map runs to the card's edges, as an image-first shadcn card does
+    <Card className="pt-0" aria-label="Every run in the game">
       <div ref={ref} className="relative" onPointerMove={onPointerMove} onPointerLeave={() => setHovered(undefined)}>
         {width === 0 || !grid ? (
-          <Skeleton className="w-full rounded-sm" style={{ height: width ? height : 360 }} />
+          <Skeleton className="w-full rounded-none" style={{ height: width ? height : 360 }} />
         ) : (
           <RaceMap
             tracks={tracks}
@@ -106,36 +109,41 @@ export function Centerpiece({
           />
         )}
       </div>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="icon-sm"
-          onClick={() => (head.playing ? pause() : play())}
-          aria-label={head.playing ? 'Pause' : 'Play'}
-          title={head.playing ? 'Pause' : 'Play'}
-        >
-          <svg aria-hidden viewBox="0 0 10 10" className="fill-current">
-            {head.playing ? <path d="M1.5 1h2.5v8H1.5zM6 1h2.5v8H6z" /> : <path d="M2 1l7 4-7 4z" />}
-          </svg>
-        </Button>
-        <Slider
-          aria-label="Game tick"
-          min={0}
-          max={span}
-          step={1}
-          value={[Math.round(head.tick)]}
-          onValueChange={([v]) => {
-            pause();
-            seek(v);
-          }}
-          onValueCommit={([v]) => head.settle(v)}
-          className="min-w-0 flex-1"
-        />
-        <span className="w-14 shrink-0 text-right text-xs text-muted-foreground tabular-nums" title="Game ticks">
-          {formatInt(Math.round(head.tick))}
-        </span>
-      </div>
-      <Standings rows={rows} max={top} tick={head.tick} showEpoch={agg === 'runs'} lit={lit} />
-    </section>
+      <CardContent className="flex flex-col gap-2">
+        {/* The playback bar on the lanes' grid: its slider spans their tracks */}
+        <div className={LANE.row}>
+          <span className={LANE.head(narrow, agg === 'runs')}>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => (head.playing ? pause() : play())}
+            aria-label={head.playing ? 'Pause' : 'Play'}
+            title={head.playing ? 'Pause' : 'Play'}
+          >
+            <svg aria-hidden viewBox="0 0 10 10" className="fill-current">
+              {head.playing ? <path d="M1.5 1h2.5v8H1.5zM6 1h2.5v8H6z" /> : <path d="M2 1l7 4-7 4z" />}
+            </svg>
+          </Button>
+          </span>
+          <Slider
+            aria-label="Game tick"
+            min={0}
+            max={span}
+            step={1}
+            value={[Math.round(head.tick)]}
+            onValueChange={([v]) => {
+              pause();
+              seek(v);
+            }}
+            onValueCommit={([v]) => head.settle(v)}
+            className={LANE.track}
+          />
+          <span className={LANE.value} title="Game tick">
+            {formatInt(Math.round(head.tick))}
+          </span>
+        </div>
+        <Standings rows={rows} max={top} tick={head.tick} showEpoch={agg === 'runs'} lit={lit} narrow={narrow} />
+      </CardContent>
+    </Card>
   );
 }
