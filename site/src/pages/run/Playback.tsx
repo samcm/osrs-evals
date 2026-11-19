@@ -1,7 +1,7 @@
 /**
- * The playback bar under the game: play and pause, the speed, a track over the whole run with its
- * events on it (quests, deaths, attempt starts), and the time at the playhead. It sits under the
- * player, attached: the player has the top corners of the pair, the bar the bottom. It drives the page's
+ * The playback bar under the game, in the player card's footer: play and pause, the speed, a track
+ * over the whole run with its events on it (quests, deaths, attempt starts), and the time at the
+ * playhead. It drives the page's
  * one playhead (playhead.ts). Keys: Space plays or pauses; Shift+← and Shift+→ step to the previous
  * and next model call (plain ← and → go to the previous and next run).
  */
@@ -123,9 +123,9 @@ export function Playback({ run, clock, measure }: { run: RunDetail; clock: Clock
     return out;
   }, [run.events, width, max]);
 
-  const label = measure === 'ticks' ? formatInt(Math.round(tick)) : formatClock(clock.toSeconds(tick));
+  const label = measure === 'ticks' ? `${formatInt(Math.round(tick))} ticks` : formatClock(clock.toSeconds(tick));
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-b-xl bg-card px-4 py-3 ring-1 ring-foreground/10">
+    <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-2">
       <Button variant="outline" size="icon-sm" onClick={toggle} aria-label={head.playing ? 'Pause' : 'Play'} aria-keyshortcuts="Space" title={head.playing ? 'Pause' : 'Play'}>
         <svg aria-hidden viewBox="0 0 10 10" className="fill-current">
           {head.playing ? <path d="M1.5 1h2.5v8H1.5zM6 1h2.5v8H6z" /> : <path d="M2 1l7 4-7 4z" />}

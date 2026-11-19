@@ -3,8 +3,8 @@ import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Outcome } from '@/components/bits';
 import { PageHeader, type MetaItem } from '@/components/page';
-import { Card, CardContent } from '@/components/ui/card';
-import { Sprite, VariantLabel } from '@/components/marks';
+import { Card, CardFooter } from '@/components/ui/card';
+import { Sprite } from '@/components/marks';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -27,8 +27,6 @@ import { runSearch } from './search';
 import { Transcript } from './Transcript';
 
 const route = getRouteApi('/runs/$runId');
-
-const headSrc = (id: string): string => `/data/runs/${encodeURIComponent(id)}.head.png`;
 
 /** Each quest the run completed, as its icon; an inferred one is underlined and says why. */
 function QuestIcons({ quests }: { quests: RunDetail['metrics']['quests'] }) {
@@ -165,27 +163,20 @@ function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure
     <nav aria-label="Epochs of this pairing" className="flex items-center gap-2">
       {arrow(prev, '←', 'Previous epoch')}
       <span className="text-sm whitespace-nowrap text-muted-foreground tabular-nums">
-        <span className="text-foreground">{formatInt(at + 1)}</span> of {formatInt(siblings.length)}
+        Epoch <span className="text-foreground">{formatInt(run.epoch)}</span> of {formatInt(siblings.length)}
       </span>
       {arrow(next, '→', 'Next epoch')}
     </nav>
   );
 }
 
-/** The character, the pairing (vendor mark, model, harness), the eval and epoch, the result as meta; the run id and the other epochs on the right. */
+/**
+ * The result as meta; the run id (its facts behind it) and the epochs on the right. The header bar
+ * already names the eval and the pairing.
+ */
 function Header({ run, evalInfo, runs, measure }: { run: RunDetail; evalInfo: Eval | undefined; runs: Run[]; measure: XMeasure }) {
   return (
     <PageHeader
-      mark={<img src={headSrc(run.id)} alt={run.account} className="size-10 object-contain" />}
-      title={<VariantLabel run={run} size={20} className="flex-wrap gap-2" />}
-      description={
-        <>
-          <Link to="/evals/$evalId" params={{ evalId: run.eval }} className="hover:text-foreground">
-            {evalInfo?.title ?? run.eval}
-          </Link>
-          , epoch {formatInt(run.epoch)}
-        </>
-      }
       meta={resultMeta(run, evalInfo, measure)}
       actions={
         <>
@@ -228,11 +219,11 @@ export function RunPage() {
     <>
       <Header run={run} evalInfo={evalInfo} runs={index.runs} measure={search.x} />
       <div className="grid gap-gutter xl:grid-cols-5">
-        <Card className="min-w-0 xl:col-span-3">
-          <CardContent>
-            <Player run={run} head={head} />
+        <Card className="min-w-0 gap-0 pt-0 xl:col-span-3">
+          <Player run={run} head={head} />
+          <CardFooter>
             <Playback run={run} clock={clock} measure={search.x} />
-          </CardContent>
+          </CardFooter>
         </Card>
         {run.turns.length > 0 && (
           <div className="h-120 min-w-0 xl:col-span-2 xl:h-auto xl:contain-size">

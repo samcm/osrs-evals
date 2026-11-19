@@ -8,8 +8,8 @@
  * long a tick lasts at the current speed. serve.ts sends the ticks in between when the playhead moves
  * a little forward (playing), and the world as it was at that tick when it jumps (seek, scrub back),
  * so rs-world itself is unchanged. Without serve.ts (a static host) or a recording, the run's end
- * screenshot stands in. The playback bar (Playback.tsx) attaches under it: the player has the top
- * corners of the pair, the bar the bottom ones.
+ * screenshot stands in. It fills the top of the player card, edge to edge; the playback bar
+ * (Playback.tsx) is the card's footer.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -68,9 +68,9 @@ export function Player({ run, head }: { run: RunDetail; head: Playhead }) {
 
   const shot = run.screenshot ? `/data/${run.screenshot}` : null;
   const still = (alt: string) => shot && <img src={shot} alt={alt} className="absolute inset-0 size-full object-cover" />;
-  if (status === 'unavailable') return <div className="relative aspect-video w-full overflow-hidden rounded-t-xl bg-muted">{still('The game at the end of the run')}</div>;
+  if (status === 'unavailable') return <div className="relative aspect-video w-full overflow-hidden bg-muted">{still('The game at the end of the run')}</div>;
   return (
-    <div className="relative aspect-video w-full overflow-hidden rounded-t-xl bg-muted">
+    <div className="relative aspect-video w-full overflow-hidden bg-muted">
       {/* Until rs-world has drawn the character: the closest frame we have, dimmed and breathing */}
       <div className={cn('absolute inset-0 animate-pulse transition-opacity', drawn && 'opacity-0')}>
         <div className="size-full opacity-40">{still('')}</div>
