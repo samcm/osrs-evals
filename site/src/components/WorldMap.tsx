@@ -228,7 +228,8 @@ export function WorldMap({
           y1 = Math.max(y1, p.xy[i * 2 + 1]);
         }
     if (x0 === Infinity) return height;
-    const minSpan = (8 * meta.px_per_tile) / 2;
+    // At least ~50 tiles across, so a run that stays in one building still shows where it is
+    const minSpan = 48 * meta.px_per_tile;
     const aspect = Math.max(y1 - y0, minSpan) / Math.max(x1 - x0, minSpan);
     return Math.round(Math.min(height, Math.max(200, (size.w - 2 * padding) * aspect + 2 * padding)));
   }, [fitHeight, height, meta, padding, prepared, size.w]);
@@ -254,7 +255,8 @@ export function WorldMap({
       x1 = meta.width;
       y1 = meta.height;
     }
-    const minSpan = (8 * meta.px_per_tile) / 2;
+    // At least ~50 tiles across, so a run that stays in one building still shows where it is
+    const minSpan = 48 * meta.px_per_tile;
     const w = Math.max(x1 - x0, minSpan);
     const h = Math.max(y1 - y0, minSpan);
     // clampScale stops at the map filling the frame: paths at the map's edge give up their padding
