@@ -1,35 +1,33 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
+import { CirclePlus, X } from 'lucide-react';
 import { DataTable } from '@/components/DataTable';
-import { SelectField } from '@/components/SelectField';
-import { Empty, linkClassName } from '@/components/bits';
-import { PageHeader, PageSection, PageToolbar } from '@/components/page';
+import { PageSection, PageToolbar } from '@/components/page';
 import { BrandMark, EvalMark, VariantLabel } from '@/components/marks';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
 import { indexQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
 import { outcomeWord } from '@/lib/evals';
 import { capitalize, formatClock, formatCost, formatInt, MISSING } from '@/lib/format';
 import { resultValue } from '@/lib/runResult';
-import { inScope, useDocumentTitle, useScope, useScopeUpdate, useSearchUpdate } from '@/lib/search';
-import { agentInfo, modelInfo, variantOf } from '@/lib/series';
+import { useDocumentTitle, useScope, useSearchUpdate } from '@/lib/search';
+import { agentInfo, modelInfo, variantKey, vendorOf } from '@/lib/series';
 import { cn } from '@/lib/utils';
 
 const route = getRouteApi('/runs/');
 const PAGE_SIZE = 50;
 
-type OutcomeFilter = 'finished' | 'not_finished' | 'scored';
+type Outcome = 'finished' | 'not_finished' | 'scored';
 
-const OUTCOMES: { value: OutcomeFilter; label: string }[] = [
-  { value: 'finished', label: 'Finished' },
-  { value: 'not_finished', label: 'Not finished' },
-  { value: 'scored', label: 'Scored' },
-];
-
-const outcomeValue = (r: Run): OutcomeFilter =>
-  (({ Finished: 'finished', 'Not finished': 'not_finished', Scored: 'scored' }) as const)[outcomeWord(r)];
+const OUTCOME_VALUE = { Finished: 'finished', 'Not finished': 'not_finished', Scored: 'scored' } as const;
+const outcomeValue = (r: Run): Outcome => OUTCOME_VALUE[outcomeWord(r)];
 
 /** Who ended the run, in a word: the agent, the budget, or reaching the target. */
 const endedBy = (reason: string | null): string =>
@@ -41,26 +39,195 @@ interface Row extends Run {
   e: Eval | undefined;
 }
 
+/** The filters, each a URL list; a run passes a filter when the list is empty or holds the run's value. */
+const FACETS = ['eval', 'model', 'agent', 'vendor', 'outcome', 'batch'] as const;
+type Facet = (typeof FACETS)[number];
+
+const facetValue: Record<Facet, (r: Run) => string> = {
+  eval: r => r.eval,
+  model: r => r.model,
+  agent: r => r.agent,
+  vendor: r => vendorOf(r.model).id,
+  outcome: outcomeValue,
+  batch: r => r.batch,
+};
+
+interface Option {
+  value: string;
+  label: string;
+  mark?: ReactNode;
+}
+
+/** shadcn's faceted filter: a dashed button naming the filter and its picks, opening a checklist with counts. */
+function FacetFilter({
+  title,
+  options,
+  selected,
+  counts,
+  onChange,
+}: {
+  title: string;
+  options: Option[];
+  selected: string[];
+  counts: Map<string, number>;
+  onChange: (values: string[]) => void;
+}) {
+  const picked = options.filter(o => selected.includes(o.value));
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="border-dashed">
+          <CirclePlus />
+          {title}
+          {picked.length > 0 && (
+            <>
+              <Separator orientation="vertical" className="h-4 data-vertical:self-center" />
+              <Badge variant="secondary" className="rounded-sm sm:hidden">
+                {picked.length}
+              </Badge>
+              <Badge variant="secondary" className="max-w-40 rounded-sm max-sm:hidden">
+                <span className="truncate">{picked.length > 1 ? `${picked.length} selected` : picked[0].label}</span>
+              </Badge>
+            </>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-0" align="start">
+        <Command>
+          {options.length > 6 && <CommandInput placeholder={title} />}
+          <CommandList>
+            <CommandEmpty>No match.</CommandEmpty>
+            <CommandGroup>
+              {options.map(o => {
+                const on = selected.includes(o.value);
+                return (
+                  <CommandItem
+                    key={o.value}
+                    value={o.label}
+                    data-checked={on}
+                    onSelect={() => onChange(on ? selected.filter(v => v !== o.value) : [...selected, o.value])}
+                  >
+                    {o.mark}
+                    <span className="flex-1 truncate">{o.label}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{counts.get(o.value) ?? 0}</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+            {picked.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem onSelect={() => onChange([])}>
+                    Clear
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 const col = createColumnHelper<Row>();
 
-/** The best value the run held, with the eval's measure; a finished or unfinished mark for evals with a target. */
+/** The best value the run held; a filled or hollow dot says whether it reached the eval's target. */
 function ResultCell({ run, e }: { run: Run; e: Eval | undefined }) {
-  const value = resultValue(run);
+  const value = formatInt(resultValue(run));
   const word = outcomeWord(run);
   return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+    <span className="inline-flex items-center gap-1.5" title={[e && `${value} ${e.measure.toLowerCase()}`, word !== 'Scored' && word].filter(Boolean).join(', ')}>
       {word !== 'Scored' && (
-        <span
-          role="img"
-          aria-label={word}
-          title={word}
-          className={cn('size-2 shrink-0 rounded-full', word === 'Finished' ? 'bg-success' : 'border-2 border-destructive')}
-        />
+        <span aria-label={word} role="img" className={cn('size-2 shrink-0 rounded-full', word === 'Finished' ? 'bg-success' : 'border-2 border-destructive')} />
       )}
-      <span className="font-medium tabular-nums">{formatInt(value)}</span>
-      {e && <span className="text-xs text-muted-foreground">{e.measure.toLowerCase()}</span>}
+      {value}
     </span>
   );
+}
+
+function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[] {
+  return [
+    // Filtered to one eval, every row would repeat it
+    ...(oneEval
+      ? []
+      : [
+          col.accessor(r => r.e?.title ?? r.eval, {
+            id: 'eval',
+            header: 'Eval',
+            cell: ({ row, getValue }) => (
+              <span className="inline-flex items-center gap-2" title={String(getValue())}>
+                <EvalMark evalId={row.original.eval} size={20} title={String(getValue())} />
+                <span className="@max-5xl/runs:sr-only">{String(getValue())}</span>
+              </span>
+            ),
+          }),
+        ]),
+    col.accessor(r => `${modelInfo(r.model).short} ${agentInfo(r.agent, r.agent_name).name}`, {
+      id: 'variant',
+      header: 'Pairing',
+      cell: ({ row }) => <VariantLabel run={row.original} compact />,
+    }),
+    col.accessor(r => (r.success ? 1e9 : 0) + (resultValue(r) ?? -1), {
+      id: 'result',
+      header: oneEval?.measure ?? 'Result',
+      meta: { numeric: true },
+      sortDescFirst: true,
+      cell: ({ row }) => <ResultCell run={row.original} e={row.original.e} />,
+    }),
+    col.accessor(r => r.cost ?? -1, {
+      id: 'cost',
+      header: 'Cost',
+      meta: { numeric: true, minWidth: 440 },
+      sortDescFirst: true,
+      cell: ({ row }) => formatCost(row.original.cost),
+    }),
+    col.accessor(r => r.metrics.wall_seconds ?? -1, {
+      id: 'wall',
+      header: 'Wall time',
+      meta: { numeric: true, minWidth: 560 },
+      sortDescFirst: true,
+      cell: ({ row }) => (row.original.metrics.wall_seconds == null ? MISSING : formatClock(row.original.metrics.wall_seconds)),
+    }),
+    col.accessor(r => r.game_ticks ?? -1, {
+      id: 'ticks',
+      header: 'Game ticks',
+      meta: { numeric: true, minWidth: 820 },
+      sortDescFirst: true,
+      cell: ({ row }) => formatInt(row.original.game_ticks),
+    }),
+    col.accessor(r => r.ended_by ?? '', {
+      id: 'ended',
+      header: 'Ended by',
+      meta: { minWidth: 920 },
+      cell: ({ row }) => endedBy(row.original.ended_by),
+    }),
+    col.accessor(r => r.sample_started ?? r.started, {
+      id: 'started',
+      header: 'Started (UTC)',
+      meta: { minWidth: 700 },
+      sortDescFirst: true,
+      cell: ({ getValue }) => {
+        const date = new Date(String(getValue()));
+        return Number.isNaN(date.getTime()) ? MISSING : startedFormat.format(date);
+      },
+    }),
+    col.accessor('id', {
+      header: 'Run',
+      meta: { minWidth: 1240 },
+      cell: ({ getValue }) => (
+        <Link
+          to="/runs/$runId"
+          params={{ runId: getValue() }}
+          className="font-mono text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          onClick={event => event.stopPropagation()}
+        >
+          {getValue()}
+        </Link>
+      ),
+    }),
+  ] as ColumnDef<Row, unknown>[];
 }
 
 export function RunsPage() {
@@ -69,194 +236,113 @@ export function RunsPage() {
   const navigate = useNavigate();
   const { data } = useSuspenseQuery(indexQuery);
   const scope = useScope();
-  const setScope = useScopeUpdate();
-  const setSearch = useSearchUpdate<typeof search>();
+  const setSearch = useSearchUpdate<typeof search & typeof scope>();
 
+  const picks: Record<Facet, string[]> = { ...scope, eval: search.eval, outcome: search.outcome, batch: search.batch };
+  const query = search.q?.trim().toLowerCase() ?? '';
   const evalById = useMemo(() => new Map(data.evals.map(e => [e.id, e])), [data]);
-  const rows = useMemo<Row[]>(
-    () =>
-      data.runs
-        .filter(
-          r =>
-            inScope(r, scope) &&
-            (!search.eval || r.eval === search.eval) &&
-            (!search.batch || r.batch === search.batch) &&
-            (!search.outcome || outcomeValue(r) === search.outcome)
-        )
-        .map(r => ({ ...r, e: evalById.get(r.eval) })),
-    [data, scope, search.eval, search.batch, search.outcome, evalById]
-  );
 
-  const models = [...new Set(data.runs.map(r => r.model))]
-    .map(m => ({ value: m, label: modelInfo(m).name, mark: <BrandMark slug={modelInfo(m).vendor.slug} size={16} /> }))
-    .sort((a, b) => a.label.localeCompare(b.label));
-  const agents = [...new Map(data.runs.map(r => [r.agent, { value: r.agent, label: agentInfo(r.agent, r.agent_name).name }])).values()].sort((a, b) =>
-    a.label.localeCompare(b.label)
-  );
-  const batches = [...new Set(data.runs.map(r => r.batch))].sort().map(b => ({ value: b, label: b }));
+  /** Runs matching the search text and every filter but `skip` (for that filter's counts). */
+  const matching = (skip?: Facet) =>
+    data.runs.filter(
+      r =>
+        FACETS.every(f => f === skip || picks[f].length === 0 || picks[f].includes(facetValue[f](r))) &&
+        (!query ||
+          [r.id, r.batch, evalById.get(r.eval)?.title ?? r.eval, modelInfo(r.model).name, agentInfo(r.agent, r.agent_name).name].some(s =>
+            s.toLowerCase().includes(query)
+          ))
+    );
+  const counts = (f: Facet) => {
+    const out = new Map<string, number>();
+    for (const r of matching(f)) out.set(facetValue[f](r), (out.get(facetValue[f](r)) ?? 0) + 1);
+    return out;
+  };
+  const rows: Row[] = matching().map(r => ({ ...r, e: evalById.get(r.eval) }));
 
-  const columns = useMemo(
-    () =>
-      [
-        col.accessor(r => r.e?.title ?? r.eval, {
-          id: 'eval',
-          header: 'Eval',
-          cell: ({ row }) => (
-            <span className="flex items-center gap-2">
-              {row.original.screenshot ? (
-                <img
-                  src={`/data/${row.original.screenshot}`}
-                  alt=""
-                  loading="lazy"
-                  width={48}
-                  height={27}
-                  className="h-7 w-12 max-w-none rounded-sm bg-muted object-cover max-sm:hidden"
-                />
-              ) : (
-                <span className="block h-7 w-12 rounded-sm bg-muted max-sm:hidden" />
-              )}
-              <EvalMark evalId={row.original.eval} size={20} title={row.original.e?.title} />
-            </span>
-          ),
-        }),
-        col.accessor(r => variantOf(r).name, {
-          id: 'variant',
-          header: 'Pairing',
-          cell: ({ row }) => <VariantLabel run={row.original} compact />,
-        }),
-        col.accessor(r => (r.success ? 1e9 : 0) + (resultValue(r) ?? -1), {
-          id: 'result',
-          header: 'Result',
-          sortDescFirst: true,
-          cell: ({ row }) => <ResultCell run={row.original} e={row.original.e} />,
-        }),
-        col.accessor(r => r.cost ?? -1, {
-          id: 'cost',
-          header: 'Cost',
-          meta: { numeric: true },
-          sortDescFirst: true,
-          cell: ({ row }) => formatCost(row.original.cost),
-        }),
-        col.accessor(r => r.game_ticks ?? -1, {
-          id: 'ticks',
-          header: 'Game ticks',
-          meta: { numeric: true, className: 'max-md:hidden' },
-          sortDescFirst: true,
-          cell: ({ row }) => formatInt(row.original.game_ticks),
-        }),
-        col.accessor(r => r.metrics.wall_seconds ?? -1, {
-          id: 'wall',
-          header: 'Wall time',
-          meta: { numeric: true, className: 'max-lg:hidden' },
-          sortDescFirst: true,
-          cell: ({ row }) => (row.original.metrics.wall_seconds == null ? MISSING : formatClock(row.original.metrics.wall_seconds)),
-        }),
-        col.accessor(r => r.ended_by ?? '', {
-          id: 'ended',
-          header: 'Ended by',
-          meta: { className: 'max-lg:hidden' },
-          cell: ({ row }) => endedBy(row.original.ended_by),
-        }),
-        col.accessor(r => r.sample_started ?? r.started, {
-          id: 'started',
-          header: 'Started (UTC)',
-          meta: { className: 'max-md:hidden' },
-          sortDescFirst: true,
-          cell: ({ getValue }) => {
-            const date = new Date(getValue());
-            return Number.isNaN(date.getTime()) ? MISSING : startedFormat.format(date);
-          },
-        }),
-        col.accessor('id', {
-          header: 'Run',
-          cell: ({ getValue }) => (
-            <Link
-              to="/runs/$runId"
-              params={{ runId: getValue() }}
-              className={cn(linkClassName, 'font-mono text-xs text-muted-foreground')}
-              onClick={event => event.stopPropagation()}
-            >
-              {getValue()}
-            </Link>
-          ),
-        }),
-      ] as ColumnDef<Row, unknown>[],
-    []
-  );
+  const uniq = (make: (r: Run) => Option) =>
+    [...new Map(data.runs.map(r => [make(r).value, make(r)])).values()].sort((a, b) => a.label.localeCompare(b.label));
+  const options: Record<Facet, Option[]> = {
+    eval: data.evals.map(e => ({ value: e.id, label: e.title, mark: <EvalMark evalId={e.id} size={16} title="" /> })),
+    model: uniq(r => ({ value: r.model, label: modelInfo(r.model).name, mark: <BrandMark slug={modelInfo(r.model).vendor.slug} size={16} /> })),
+    agent: uniq(r => ({ value: r.agent, label: agentInfo(r.agent, r.agent_name).name })),
+    vendor: uniq(r => ({ value: vendorOf(r.model).id, label: vendorOf(r.model).name, mark: <BrandMark slug={vendorOf(r.model).slug} size={16} /> })),
+    outcome: (['finished', 'not_finished', 'scored'] as const).map(v => ({ value: v, label: capitalize(v.replace('_', ' ')) })),
+    batch: uniq(r => ({ value: r.batch, label: r.batch })),
+  };
+  const titles: Record<Facet, string> = { eval: 'Eval', model: 'Model', agent: 'Harness', vendor: 'Vendor', outcome: 'Outcome', batch: 'Batch' };
+  // Vendor narrows the same way Model does, so it shows only when a link brought it in
+  const shown = FACETS.filter(f => f !== 'vendor' || picks.vendor.length > 0);
 
-  const filtered = Boolean(search.eval || search.batch || search.outcome || scope.model.length || scope.agent.length || scope.vendor.length);
+  const oneEval = search.eval.length === 1 ? evalById.get(search.eval[0]) : undefined;
+  const columns = useMemo(() => runColumns(oneEval), [oneEval]);
+
+  const filtered = Boolean(query) || FACETS.some(f => picks[f].length > 0);
+  const reset = () => setSearch({ q: undefined, ...Object.fromEntries(FACETS.map(f => [f, []])) }, { resetPage: true });
+  const noun = (n: number) => (n === 1 ? 'run' : 'runs');
 
   return (
     <>
-      <PageHeader title="Runs" />
-
-      <PageToolbar label="Filters" className="grid grid-cols-2 sm:flex">
-        <SelectField
-          label="Eval"
-          hideLabel
-          allLabel="All evals"
-          className="col-span-2 sm:w-56"
-          value={search.eval}
-          options={data.evals.map(e => ({ value: e.id, label: e.title, mark: <EvalMark evalId={e.id} size={16} title="" /> }))}
-          onChange={v => setSearch({ eval: v }, { resetPage: true })}
+      <PageToolbar label="Filters">
+        <Input
+          type="search"
+          aria-label="Search runs"
+          placeholder="Search runs"
+          className="w-36 sm:w-48"
+          value={search.q ?? ''}
+          onChange={event => setSearch({ q: event.target.value || undefined }, { resetPage: true })}
         />
-        <SelectField
-          label="Model"
-          hideLabel
-          allLabel="All models"
-          className="sm:w-48"
-          value={scope.model[0]}
-          options={models}
-          onChange={v => setScope({ model: v ? [v] : [] })}
-        />
-        <SelectField
-          label="Harness"
-          hideLabel
-          allLabel="All harnesses"
-          className="sm:w-44"
-          value={scope.agent[0]}
-          options={agents}
-          onChange={v => setScope({ agent: v ? [v] : [] })}
-        />
-        <SelectField
-          label="Outcome"
-          hideLabel
-          allLabel="All outcomes"
-          className="sm:w-44"
-          value={search.outcome}
-          options={OUTCOMES}
-          onChange={v => setSearch({ outcome: v as OutcomeFilter | undefined }, { resetPage: true })}
-        />
-        <SelectField
-          label="Batch"
-          hideLabel
-          allLabel="All batches"
-          className="sm:w-44"
-          value={search.batch}
-          options={batches}
-          onChange={v => setSearch({ batch: v }, { resetPage: true })}
-        />
+        {shown.map(f => (
+          <FacetFilter
+            key={f}
+            title={titles[f]}
+            options={options[f]}
+            selected={picks[f]}
+            counts={counts(f)}
+            onChange={values => setSearch({ [f]: values } as Partial<Record<Facet, string[]>>, { resetPage: true })}
+          />
+        ))}
         {filtered && (
-          <Button variant="ghost" onClick={() => navigate({ to: '/runs', search: { model: [], agent: [], vendor: [] } as never })}>
-            Clear
+          <Button variant="ghost" onClick={reset}>
+            Reset
+            <X />
           </Button>
         )}
       </PageToolbar>
 
-      <PageSection title={rows.length === 1 ? '1 run' : `${formatInt(rows.length)} runs`}>
-        <DataTable
-          data={rows}
-          columns={columns}
-          getRowId={r => r.id}
-          hoverId={r => variantOf(r).key}
-          sort={search.sort}
-          onSortChange={sort => setSearch({ sort }, { resetPage: true })}
-          onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.id } })}
-          page={search.page}
-          pageSize={PAGE_SIZE}
-          onPageChange={page => setSearch({ page })}
-          empty={<Empty>No runs match these filters.</Empty>}
-        />
+      <PageSection>
+        <div className="@container/runs">
+          <DataTable
+            data={rows}
+            columns={columns}
+            getRowId={r => r.id}
+            hoverId={variantKey}
+            sort={search.sort}
+            onSortChange={sort => setSearch({ sort }, { resetPage: true })}
+            onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.id } })}
+            page={search.page}
+            pageSize={PAGE_SIZE}
+            onPageChange={page => setSearch({ page })}
+            footer={
+              rows.length === 0
+                ? undefined
+                : filtered
+                ? `${formatInt(rows.length)} of ${formatInt(data.runs.length)} ${noun(data.runs.length)}`
+                : `${formatInt(rows.length)} ${noun(rows.length)}`
+            }
+            empty={
+              data.runs.length === 0 ? (
+                'No runs yet.'
+              ) : (
+                <span className="inline-flex flex-col items-center gap-3">
+                  No runs match these filters.
+                  <Button variant="outline" onClick={reset}>
+                    Reset filters
+                  </Button>
+                </span>
+              )
+            }
+          />
+        </div>
       </PageSection>
     </>
   );

@@ -1,11 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { RunsPage } from '@/pages/RunsPage';
-import { defineSearch, int, oneOf, sortParam, text } from '@/lib/search';
+import { defineSearch, int, list, sortParam, text } from '@/lib/search';
 
 export const runsSearch = defineSearch({
-  eval: text(),
-  outcome: oneOf(['finished', 'not_finished', 'scored'], undefined),
-  batch: text(),
+  q: text(),
+  eval: list(),
+  outcome: list(['finished', 'not_finished', 'scored']),
+  batch: list(),
   sort: sortParam(['-started']),
   page: int(1, { min: 1 }),
 });
