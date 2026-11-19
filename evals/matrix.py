@@ -1,4 +1,4 @@
-"""Cook's Assistant (one try, and five tries in one run) and 500 shrimps, each played by each agent. The model is not fixed here: give it (or several) at
+"""Cook's Assistant (one try, and five tries in one run), 500 shrimps and quest points, each played by each agent. The model is not fixed here: give it (or several) at
 run time, with the log dir:
 
     PYTHONPATH=. inspect eval-set evals/matrix.py --model anthropic/claude-haiku-5-5 --log-dir <dir>
@@ -79,3 +79,8 @@ def qp_bash():
 @task
 def qp_claude_code():
     return task_with(quest_points(), solver=agents()["claude_code"], epochs=2)
+
+
+@task
+def qp_codex():
+    return task_with(quest_points(), solver=agents()["codex"], epochs=2)
