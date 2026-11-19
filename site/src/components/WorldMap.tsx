@@ -32,6 +32,9 @@ export interface MapMarker {
   title?: string;
 }
 
+/** Draws over the map in CSS pixels (the context is scaled for the device). */
+export type MapOverlay = (ctx: CanvasRenderingContext2D, toScreen: (x: number, z: number) => [number, number], zoom: number) => void;
+
 interface Camera {
   /** Centre in map-image pixels */
   cx: number;
@@ -130,6 +133,7 @@ export function WorldMap({
   padding = 24,
   label,
   className,
+  overlay,
 }: {
   paths: MapPath[];
   markers?: MapMarker[];
@@ -145,6 +149,9 @@ export function WorldMap({
   /** Accessible description of what the map shows */
   label?: string;
   className?: string;
+  /** Draws over everything else on each draw, in CSS pixels; `toScreen` places a tile, `zoom` is
+   * screen pixels per tile. A new function redraws the map, so animate by passing a new one. */
+  overlay?: MapOverlay;
 }) {
   const { data: meta, isError: metaFailed } = useQuery(mapMetaQuery);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -340,7 +347,12 @@ export function WorldMap({
       const h = (sprite.height * k) / dpr;
       ctx.drawImage(sprite.image, Math.round((sx - w / 2) * dpr) / dpr, Math.round((sy - h / 2) * dpr) / dpr, w, h);
     }
-  }, [colors, image, image2x, markers, meta, prepared, size, sprites]);
+    if (overlay) {
+      ctx.save();
+      overlay(ctx, toScreen, cam.s * meta.px_per_tile);
+      ctx.restore();
+    }
+  }, [colors, image, image2x, markers, meta, overlay, prepared, size, sprites]);
 
   const requestDraw = useCallback(() => {
     cancelAnimationFrame(frame.current);

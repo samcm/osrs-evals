@@ -18,6 +18,8 @@ export const evalSearch = defineSearch({
   /** The map's view and the tick its dots mark */
   map: mapViewParam(),
   t: int(undefined, { min: 0 }),
+  /** Which runs the centrepiece races: each pairing's median or best run, or every run */
+  pick: oneOf(['median', 'best', 'all'], 'median'),
   sort: sortParam(['-result', 'ticks']),
   page: int(1, { min: 1 }),
   /** Hidden and isolated variants, by variant key */
