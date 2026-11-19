@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Outcome } from '@/components/bits';
-import { PageHeader, type MetaItem } from '@/components/page';
+import { PageHeader, PageSection, type MetaItem } from '@/components/page';
 import { Sprite, VariantLabel } from '@/components/marks';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { indexQuery, runQuery } from '@/data/queries';
@@ -197,24 +196,6 @@ function Header({ run, evalInfo, runs, measure }: { run: RunDetail; evalInfo: Ev
   );
 }
 
-/** Where to stick something so it sits just under a sticky element (the playback bar) and the grid's gap after it. */
-function useStickyBelow() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [top, setTop] = useState<number>();
-  useEffect(() => {
-    const bar = ref.current;
-    if (!bar) return;
-    const measure = (): void => {
-      const gap = bar.parentElement ? parseFloat(getComputedStyle(bar.parentElement).rowGap) || 0 : 0;
-      setTop((parseFloat(getComputedStyle(bar).top) || 0) + bar.offsetHeight + gap);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(bar);
-    return () => observer.disconnect();
-  }, []);
-  return { ref, top };
-}
 
 export function RunPage() {
   const { runId } = route.useParams();
@@ -235,38 +216,36 @@ export function RunPage() {
 
   const update = useSearchUpdate(runSearch);
   const head = usePlayhead(clock, selected, tick => update({ t: tick }));
-  const mapTop = useStickyBelow();
 
   /*
-   * The debugger, on one playhead. Wide: the game and the agent's thinking side by side, the
-   * playback bar under both, then the timeline lanes and the map. Narrow, in source order: the game,
-   * the playback bar, the thinking, the map, the lanes. The playback bar sticks under the site header
-   * so the playhead is in reach wherever the page is scrolled; on wide screens the map sticks under it
-   * while the lanes scroll past. The thinking takes the game's height on wide screens (contain-size
-   * keeps it from growing the row) and a fixed one when stacked, and scrolls inside it.
+   * The debugger, on one playhead. The lead band is the main screen: the game with its playback bar
+   * attached, and the agent's thinking beside it on wide screens (it takes the game's height and
+   * scrolls inside; contain-size keeps it from growing the row). Then the timeline: the lanes, with
+   * the map beside them, sticking under the site header while the lanes scroll past.
    */
   return (
     <>
       <Header run={run} evalInfo={evalInfo} runs={index.runs} measure={search.x} />
-      <div className="grid gap-4 md:gap-6 xl:grid-cols-5">
-        <div className="min-w-0 xl:col-span-3 xl:row-start-1">
-          <Player run={run} head={head} />
-          <Playback run={run} clock={clock} measure={search.x} />
-        </div>
-        {run.turns.length > 0 && (
-          <div className="h-120 min-w-0 xl:col-span-2 xl:col-start-4 xl:row-start-1 xl:h-auto xl:contain-size">
-            <Transcript run={run} clock={clock} search={search} tick={head.tick} />
+      <PageSection lead>
+        <div className="grid gap-gutter xl:grid-cols-5">
+          <div className="min-w-0 xl:col-span-3">
+            <Player run={run} head={head} />
+            <Playback run={run} clock={clock} measure={search.x} />
           </div>
-        )}
-        <Card className="min-w-0 xl:sticky xl:col-span-2 xl:col-start-4 xl:row-start-2 xl:self-start" style={{ top: mapTop.top }}>
-          <CardContent>
-            <RunMap run={run} clock={clock} view={search.map} height={420} fitHeight />
-          </CardContent>
-        </Card>
-        <div className="min-w-0 xl:col-span-3 xl:col-start-1 xl:row-start-2">
-          <Lanes run={run} clock={clock} search={search} price={index.prices[run.model]} />
+          {run.turns.length > 0 && (
+            <div className="h-120 min-w-0 xl:col-span-2 xl:h-auto xl:contain-size">
+              <Transcript run={run} clock={clock} search={search} tick={head.tick} />
+            </div>
+          )}
         </div>
-      </div>
+      </PageSection>
+      <Lanes
+        run={run}
+        clock={clock}
+        search={search}
+        price={index.prices[run.model]}
+        aside={<RunMap run={run} clock={clock} view={search.map} height={420} fitHeight />}
+      />
     </>
   );
 }

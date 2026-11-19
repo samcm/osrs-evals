@@ -72,7 +72,7 @@ export function Player({ run, head }: { run: RunDetail; head: Playhead }) {
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-t-xl bg-muted">
       {/* Until rs-world has drawn the character: the closest frame we have, dimmed and breathing */}
-      <div className={cn('absolute inset-0 animate-pulse transition-opacity duration-150', drawn && 'opacity-0')}>
+      <div className={cn('absolute inset-0 animate-pulse transition-opacity', drawn && 'opacity-0')}>
         <div className="size-full opacity-40">{still('')}</div>
       </div>
       <iframe
@@ -82,7 +82,7 @@ export function Player({ run, head }: { run: RunDetail; head: Playhead }) {
         title="The game"
         tabIndex={-1}
         onLoad={e => hideRsWorldUi(e.currentTarget)}
-        className={cn('pointer-events-none relative size-full border-0 opacity-0 transition-[opacity,filter] duration-150', drawn && 'opacity-100', dipped && 'brightness-0')}
+        className={cn('pointer-events-none relative size-full border-0 opacity-0 transition-[opacity,filter]', drawn && 'opacity-100', dipped && 'brightness-0')}
       />
     </div>
   );

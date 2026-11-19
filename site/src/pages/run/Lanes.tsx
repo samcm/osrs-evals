@@ -11,18 +11,19 @@ import { memo, useMemo, useRef, type ReactNode, type RefObject } from 'react';
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, XAxis, YAxis, usePlotArea, useXAxisScale, useYAxisScale, type MouseHandlerDataParam, type TooltipContentProps } from 'recharts';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { ParamSegmented, Segmented } from '@/components/bits';
-import { crosshairCursor, gridProps, KeyLegend, syncProps, type LegendItem } from '@/components/charts';
+import { ChartFrame, crosshairCursor, gridProps, KeyLegend, syncProps, Y_AXIS_WIDTH, type LegendItem } from '@/components/charts';
 import { Sprite } from '@/components/marks';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageSection } from '@/components/page';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import type { Price, RunDetail, RunEvent, ToolCategory, Turn } from '@/data/types';
 import { questSrc, skillSrc, uiSrc } from '@/lib/assets';
 import { cssColor, modelSeries, seriesKey } from '@/lib/chartSeries';
 import { evalArt } from '@/lib/evals';
 import { formatClock, formatCost, formatInt, formatSeconds, formatTokens } from '@/lib/format';
+import { FADED_OPACITY, useHover } from '@/lib/hover';
 import { useLegend, type LegendState } from '@/lib/legend';
 import { useSearchUpdate } from '@/lib/search';
 import { hashColor } from '@/lib/series';
@@ -39,19 +40,18 @@ import {
   ticksWithin,
   turnHasError,
   turnSummary,
-  turnTick,
-  useMoment,
   WALKING,
   type Clock,
   type XMeasure,
 } from './model';
+import { useCommitted, usePlayhead } from './playhead';
 import { DEFAULT_LANES, LANE_IDS, runSearch, useSettle, type LaneId, type RunSearch } from './search';
 
 const SYNC = 'run-lanes';
 /** Points on the shared x grid: every lane is sampled here, so the crosshair matches by value */
 const GRID_POINTS = 720;
-/** The y axis takes the same width in every lane, so the plots line up */
-const Y_WIDTH = 52;
+/** The y axis takes the site's one width in every lane, so the plots line up with every other chart */
+const Y_WIDTH = Y_AXIS_WIDTH;
 /** Room right of every plot, so the last x label fits */
 const RIGHT = 20;
 /** A sprite in the events row and the grid it sits on */
@@ -114,6 +114,8 @@ interface Ctx {
   visible: (id: string) => boolean;
   tools: ToolCategory[];
   errorsOnly: boolean;
+  /** Whether a series should fade: another one is hovered */
+  faded: (id: string) => boolean;
 }
 
 const formatX = (measure: XMeasure, x: number): string => (measure === 'ticks' ? `Tick ${formatInt(Math.round(x))}` : formatClock(x));
@@ -129,7 +131,10 @@ function lastAtOrBefore(at: number[], grid: number[]): number[] {
   return out;
 }
 
-const area = (key: string, stack?: string, opacity = 0.4) => (
+/** A series' opacity: dimmed while another series is hovered (lib/hover) */
+const fade = (faded: boolean): number => (faded ? FADED_OPACITY : 1);
+
+const area = (key: string, stack?: string, opacity = 0.4, faded = false) => (
   <Area
     key={key}
     dataKey={key}
@@ -137,7 +142,8 @@ const area = (key: string, stack?: string, opacity = 0.4) => (
     stackId={stack}
     stroke={`var(--color-${key})`}
     fill={`var(--color-${key})`}
-    fillOpacity={opacity}
+    fillOpacity={opacity * fade(faded)}
+    strokeOpacity={fade(faded)}
     strokeWidth={1.5}
     dot={false}
     activeDot={false}
@@ -251,7 +257,7 @@ function spendLane(ctx: Ctx, price: Price | undefined, cut: RunSearch['cost']): 
     rows,
     yTicks: niceTicks(total || 1, 2),
     yFormat: v => (usd ? `$${Number(v.toPrecision(3))}` : formatCompact(v)),
-    body: <>{kinds.map(k => area(seriesKey(k.id), 'spend'))}</>,
+    body: <>{kinds.map(k => area(seriesKey(k.id), 'spend', 0.4, ctx.faded(k.id)))}</>,
     bound: true,
     legend: TOKEN_KINDS.map(k => ({ id: k.id, label: k.label, swatchClassName: k.color.swatchClassName })),
     tip: i => {
@@ -396,7 +402,7 @@ function bucketLane(ctx: Ctx, base: Omit<Lane, 'config' | 'rows' | 'yTicks' | 'y
     rows,
     yTicks: niceTicks(max, 3, true),
     yFormat: formatCompact,
-    body: <>{visible.map(g => area(seriesKey(g.id), base.id, 0.5))}</>,
+    body: <>{visible.map(g => area(seriesKey(g.id), base.id, 0.5, ctx.faded(g.id)))}</>,
     bound: true,
     legend: groups.map(g => ({ id: g.id, label: g.label, swatchClassName: g.swatch })),
     tip: i => {
@@ -536,7 +542,7 @@ function xpLane(ctx: Ctx): Lane | null {
     body: (
       <>
         {visible.map(s => (
-          <Line key={s} dataKey={seriesKey(s)} type="stepAfter" stroke={`var(--color-${seriesKey(s)})`} strokeWidth={2} dot={false} activeDot={false} isAnimationActive={false} />
+          <Line key={s} dataKey={seriesKey(s)} type="stepAfter" stroke={`var(--color-${seriesKey(s)})`} strokeOpacity={fade(ctx.faded(s))} strokeWidth={2} dot={false} activeDot={false} isAnimationActive={false} />
         ))}
       </>
     ),
@@ -588,16 +594,20 @@ function EventStrip({ markers, maxX, onSelect }: { markers: StripMarker[]; maxX:
   );
 }
 
-/** The playhead through every lane: where the game is (scrubbing or playing, else `?t=`, else the end). */
-function PlayheadLine({ clock, measure, committed }: { clock: Clock; measure: XMeasure; committed: number | null }) {
-  const { scrub } = useMoment();
-  const tick = scrub ?? committed ?? clock.maxTicks;
+/**
+ * The playhead through every lane, in the page's playhead colour (primary): where the game is
+ * (scrubbing or playing, else `?t=`, else the end). A jump glides over the page's 150 ms; a drag or
+ * playing moves it as it goes.
+ */
+function PlayheadLine({ run, clock, measure }: { run: RunDetail; clock: Clock; measure: XMeasure }) {
+  const [committed] = useCommitted(run, clock);
+  const head = usePlayhead(clock, committed);
   const maxX = measure === 'ticks' ? clock.maxTicks : clock.maxSeconds;
-  const share = Math.min(1, Math.max(0, clock.x(tick, measure) / (maxX || 1)));
+  const share = Math.min(1, Math.max(0, clock.x(head.at, measure) / (maxX || 1)));
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-primary"
+      className={cn('pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-primary', !head.playing && head.scrub == null && 'transition-[left]')}
       style={{ left: `calc(${Y_WIDTH}px + (100% - ${Y_WIDTH + RIGHT}px) * ${share})` }}
     />
   );
@@ -658,16 +668,14 @@ function LanesMenu({ available, shown }: { available: { id: LaneId; label: strin
   );
 }
 
-export const Lanes = memo(function Lanes({ run, clock, search, price }: { run: RunDetail; clock: Clock; search: RunSearch; price: Price | undefined }) {
+export const Lanes = memo(function Lanes({ run, clock, search, price, aside }: { run: RunDetail; clock: Clock; search: RunSearch; price: Price | undefined; aside?: ReactNode }) {
   const update = useSearchUpdate(runSearch);
   const settle = useSettle();
   const legend = useLegend();
+  const hover = useHover();
   const hovered = useRef<string | null>(null);
   const measure = search.x;
   const maxX = measure === 'ticks' ? clock.maxTicks : clock.maxSeconds;
-  const turns = run.turns;
-  const picked = search.turn != null && search.turn <= turns.length ? turns[search.turn - 1] : undefined;
-  const committed = search.t ?? (picked ? turnTick(picked, clock) : null);
   const { visible } = legend;
   const available = useMemo(() => availableLanes(run), [run]);
   const requested: readonly LaneId[] = search.lanes.length ? (search.lanes as LaneId[]) : DEFAULT_LANES;
@@ -689,7 +697,7 @@ export const Lanes = memo(function Lanes({ run, clock, search, price }: { run: R
   const { lanes, ticks } = useMemo(() => {
     const xs = Array.from({ length: GRID_POINTS + 1 }, (_, i) => (i / GRID_POINTS) * maxX);
     const ticks = xs.map(x => (measure === 'ticks' ? x : clock.toTick(x)));
-    const ctx: Ctx = { run, clock, measure, maxX, xs, ticks, visible, tools: search.tools as ToolCategory[], errorsOnly: search.errors === '1' };
+    const ctx: Ctx = { run, clock, measure, maxX, xs, ticks, visible, tools: search.tools as ToolCategory[], errorsOnly: search.errors === '1', faded: hover.faded };
     const build: Record<LaneId, () => Lane | null> = {
       progress: () => progressLane(ctx),
       calls: () => callsLane(ctx),
@@ -701,7 +709,7 @@ export const Lanes = memo(function Lanes({ run, clock, search, price }: { run: R
     };
     const lanes = (shownKey.split(',') as LaneId[]).map(id => build[id]()).filter((l): l is Lane => l != null);
     return { lanes, ticks };
-  }, [run, clock, measure, maxX, visible, search.tools, search.errors, search.cost, search.sdk, search.act, shownKey, price]);
+  }, [run, clock, measure, maxX, visible, search.tools, search.errors, search.cost, search.sdk, search.act, shownKey, price, hover.id]);
 
   const xTicks = useMemo(() => ticksWithin(maxX, measure), [maxX, measure]);
   const attemptXs = useMemo(
@@ -713,22 +721,23 @@ export const Lanes = memo(function Lanes({ run, clock, search, price }: { run: R
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Timeline</CardTitle>
-        <CardAction className="flex items-center gap-2">
+    <PageSection
+      title="Timeline"
+      actions={
+        <>
           <LanesMenu available={available} shown={shown} />
           {xControl}
-        </CardAction>
-      </CardHeader>
-      <CardContent
-        className="cursor-crosshair select-none"
-        onMouseLeave={() => {
-          hovered.current = null;
-          setMoment({ hover: null });
-        }}
-      >
-        <div className="relative flex flex-col gap-3">
+        </>
+      }
+    >
+      <div className="grid items-start gap-gutter xl:grid-cols-5">
+        <div
+          className="relative flex min-w-0 cursor-crosshair flex-col gap-stack select-none xl:col-span-3"
+          onMouseLeave={() => {
+            hovered.current = null;
+            setMoment({ hover: null });
+          }}
+        >
           {lanes.map((lane, n) => (
             <LaneChart
               key={lane.id}
@@ -746,10 +755,13 @@ export const Lanes = memo(function Lanes({ run, clock, search, price }: { run: R
               gridSize={ticks.length}
             />
           ))}
-          <PlayheadLine clock={clock} measure={measure} committed={committed} />
+          <PlayheadLine run={run} clock={clock} measure={measure} />
         </div>
-      </CardContent>
-    </Card>
+        {/* Beside the lanes on wide screens, under the site header and the gutter (top-header is
+            3rem, the gutter 1.5rem at xl) while the lanes scroll past */}
+        {aside && <div className="min-w-0 xl:sticky xl:top-18 xl:col-span-2">{aside}</div>}
+      </div>
+    </PageSection>
   );
 });
 
@@ -788,16 +800,16 @@ function LaneChart({
   return (
     <section aria-label={typeof lane.title === 'string' ? lane.title : lane.id} className="flex flex-col gap-1">
       <div className="flex min-h-8 flex-wrap items-center gap-x-4 gap-y-1">
-        <h3 className="text-xs font-medium">{lane.title}</h3>
+        <h3 className="text-sm text-muted-foreground">{lane.title}</h3>
         {lane.legend && lane.legend.length > 0 && <KeyLegend items={lane.legend} legend={lane.bound ? legend : undefined} className="justify-start pt-0 text-muted-foreground" />}
         {lane.control && <div className="ml-auto">{lane.control}</div>}
       </div>
       {lane.strip && lane.strip.length > 0 && <EventStrip markers={lane.strip} maxX={maxX} onSelect={onSelectTick} />}
-      <ChartContainer config={lane.config} className={cn('aspect-auto w-full', last ? 'h-29' : 'h-24')}>
+      <ChartFrame config={lane.config} height="compact">
         <ComposedChart
           data={lane.rows}
           {...syncProps(SYNC)}
-          // Every plot is 88px tall; the last lane adds the x axis under it
+          // Every lane is the compact chart height; the last one gives part of it to the x axis
           margin={{ top: 4, right: RIGHT, bottom: last ? 0 : 4, left: 0 }}
           onMouseMove={state => {
             hovered.current = lane.id;
@@ -856,7 +868,7 @@ function LaneChart({
             />
           ))}
         </ComposedChart>
-      </ChartContainer>
+      </ChartFrame>
     </section>
   );
 }
