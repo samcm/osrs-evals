@@ -172,7 +172,7 @@ artifacts, not decoration.
 
 ## Copy rules
 
-- A page names itself once in its content, in the H1. No card, caption or "Goal" box restates it.
+- A page names itself once, in the header bar. No card, caption or "Goal" box restates it.
 - No subtitle under a heading unless it states a unit, scope or window that the chart does not.
   Never a subtitle that repeats an axis name.
 - No caption under a value that the label already implies ("Cost" needs no "at list price"; prices
