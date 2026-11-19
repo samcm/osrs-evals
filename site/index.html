@@ -9,7 +9,7 @@
     <script>
       // Set the theme before React mounts so the page never flashes the other one
       (function () {
-        var colors = { light: '#efeee5', dark: '#0f0f0e' };
+        var colors = { light: '#efeee5', dark: '#11100e' };
         var stored = localStorage.getItem('theme');
         var dark = stored === 'dark' || (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         if (dark) document.documentElement.classList.add('dark');
