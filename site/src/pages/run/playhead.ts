@@ -45,7 +45,7 @@ interface Playback {
   pending: number | null;
 }
 
-let playback: Playback = { playing: false, speed: REAL_TIME * 16, pending: null };
+let playback: Playback = { playing: false, speed: REAL_TIME * 4, pending: null };
 const listeners = new Set<() => void>();
 const emit = (): void => listeners.forEach(l => l());
 
