@@ -237,7 +237,7 @@ Ideas for more are in `ideas.yaml`.
 Every eval says "as fast as you can": the world runs in real time, so the time a model spends
 thinking and writing code is game time too. Each run records both clocks: ticks (game time, the
 score) and wall-clock seconds, plus the time spent waiting on the model, the tokens, and cost at
-list price (`prices.yaml`).
+list price, which `site/export.py` reads from [models.dev](https://models.dev) for each model it exports, call by call, so a long prompt is priced at its model's long-context rate.
 
 ## The site
 

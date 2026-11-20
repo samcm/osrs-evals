@@ -1,6 +1,9 @@
 """Turn Inspect logs into the site's data: one index of every run, one file per run, one per eval.
 
-    python site/export.py <log dir> [<log dir> ...] --prices prices.yaml --out site/public/data
+    python site/export.py <log dir> [<log dir> ...] --out site/public/data
+
+Cost is tokens at list price, from models.dev (--prices takes another copy of its api.json, a URL
+or a file), whatever account actually paid.
 
 A run is one sample of one log: an eval, an agent, a model, an epoch. Everything here is read from
 the logs and the run folders next to them (the world recording, the engine's log, the accounts'
@@ -23,7 +26,6 @@ from datetime import datetime
 from pathlib import Path
 
 import fsspec
-import yaml
 from inspect_ai.log import list_eval_logs, read_eval_log
 
 SITE = Path(__file__).resolve().parent
@@ -118,27 +120,43 @@ def vendor_of(model: str) -> str | None:
     return None if vendor == "none" else vendor
 
 
+def load_prices(source: str, models: set[str]) -> dict:
+    """List prices of these models from models.dev's api.json, $ per million tokens:
+    {model: {input, output, input_cache_read, input_cache_write, tiers}}. A model is looked up as its
+    maker's own (openai/openai-codex/gpt-6.2-sol is openai's gpt-6.2-sol); unlisted ones are left out.
+    A tier prices a whole call whose prompt is over `context` tokens."""
+    with fsspec.open(source, "r") as f:
+        catalog = json.load(f)
+
+    def rates(c: dict) -> dict:
+        return {"input": c["input"], "output": c["output"], "input_cache_read": c.get("cache_read", c["input"]), "input_cache_write": c.get("cache_write", c["input"])}
+
+    prices = {}
+    for model in sorted(models):
+        vendor, name = vendor_of(model), model.split("/")[-1]
+        c = (catalog.get(vendor or "", {}).get("models", {}).get(name) or {}).get("cost")
+        if c and "input" in c and "output" in c:
+            tiers = [{"context": t["tier"]["size"], **rates(t)} for t in c.get("tiers", []) if t.get("tier", {}).get("type") == "context"]
+            prices[model] = {**rates(c), "tiers": sorted(tiers, key=lambda t: t["context"])}
+    return prices
+
+
 def usage_cost(model: str, u, prices: dict) -> dict | None:
-    """USD at list price of one usage record, by kind of token; None when the model has no price."""
+    """USD at list price of one model call's usage, by kind of token; None when the model has no
+    price. A call whose prompt is over a tier's context size is priced at that tier."""
     p = prices.get(model)
     if not p or u is None:
         return None
+    prompt = (u.input_tokens or 0) + (u.input_tokens_cache_read or 0) + (u.input_tokens_cache_write or 0)
+    for t in p.get("tiers", []):
+        if prompt > t["context"]:
+            p = t
     return {
         "input": (u.input_tokens or 0) * p["input"] / 1e6,
         "output": (u.output_tokens or 0) * p["output"] / 1e6,
         "cache_read": (u.input_tokens_cache_read or 0) * p["input_cache_read"] / 1e6,
         "cache_write": (u.input_tokens_cache_write or 0) * p["input_cache_write"] / 1e6,
     }
-
-
-def cost(usage: dict, prices: dict) -> float | None:
-    total = 0.0
-    for model, u in usage.items():
-        c = usage_cost(canonical_model(model), u, prices)
-        if c is None:
-            return None
-        total += sum(c.values())
-    return round(total, 5)
 
 
 def run_dir_files(run_dir: str) -> dict[str, bytes]:
@@ -736,7 +754,8 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
     cache_read = sum(u.input_tokens_cache_read or 0 for u in usage.values())
     cache_write = sum(u.input_tokens_cache_write or 0 for u in usage.values())
     all_in = in_uncached + cache_read + cache_write
-    costs = [usage_cost(canonical_model(model), u, prices) for model, u in usage.items()]
+    # Priced call by call, as a call's prompt size can put it in a dearer tier
+    costs = [usage_cost(canonical_model(e.model), e.output.usage, prices) for e in s.events if e.event == "model" and e.output and e.output.usage]
     cost_by = {k: round(sum(c[k] for c in costs), 5) for k in ("input", "output", "cache_read", "cache_write")} if costs and all(costs) else None
     first = next((p for p in timeline if p["value"] != timeline[0]["value"]), None) if timeline else None
     buckets = (world or {}).get("buckets", {})
@@ -817,7 +836,7 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
         "output_tokens_per_second": round(sum(t["output_tokens"] or 0 for t in turns) / max(1e-9, sum(t["model_seconds"] for t in turns if t["output_tokens"])), 1) if turns else None,
         "input_tokens": all_in,
         "output_tokens": sum(u.output_tokens for u in usage.values()),
-        "cost": cost(usage, prices),
+        "cost": round(sum(cost_by.values()), 5) if cost_by else None,
         "has_replay": "world.jsonl.gz" in files,
         "account": account,
         "start_tick": game.get("start_tick") or (world and world["start_tick"]),
@@ -857,28 +876,30 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
     return run, evl, detail, grid
 
 
-def export(log_dirs: list[str], prices: dict, out: Path):
+def export(log_dirs: list[str], price_source: str, out: Path):
     """Writes index.json, runs/<id>.json, evals/<id>.json and each run's recording; leaves
     screenshots and character renders (runs/<id>.*, made by other scripts) in place."""
     (out / "runs").mkdir(parents=True, exist_ok=True)
     (out / "evals").mkdir(parents=True, exist_ok=True)
     quests = json.loads(QUESTS.read_text()) if QUESTS.exists() else []
     runs, evals, grids = [], {}, {}
-    for log_dir in log_dirs:
-        for info in list_eval_logs(log_dir):
-            log = read_eval_log(info.name, resolve_attachments=True)
-            if log.status != "success" or not log.samples:
-                continue  # failed logs are retried by eval-set; their samples have no scores
-            solver, solver_params = agent_of(log.plan.steps)
-            if solver == "command":
-                continue  # scripted programs play without a model; the site is about models
-            for s in log.samples:
-                if s.error or not s.scores:
-                    continue
-                run, evl, _, grid = export_sample(log, info, s, prices, quests, out, solver, solver_params)
-                runs.append(run)
-                evals.setdefault(run["eval"], evl)
-                grids.setdefault(run["eval"], {})[run["id"]] = grid
+    infos = [info for log_dir in log_dirs for info in list_eval_logs(log_dir)]
+    headers = [read_eval_log(info.name, header_only=True) for info in infos]
+    prices = load_prices(price_source, {canonical_model(h.eval.model) for h in headers})
+    for info in infos:
+        log = read_eval_log(info.name, resolve_attachments=True)
+        if log.status != "success" or not log.samples:
+            continue  # failed logs are retried by eval-set; their samples have no scores
+        solver, solver_params = agent_of(log.plan.steps)
+        if solver == "command":
+            continue  # scripted programs play without a model; the site is about models
+        for s in log.samples:
+            if s.error or not s.scores:
+                continue
+            run, evl, _, grid = export_sample(log, info, s, prices, quests, out, solver, solver_params)
+            runs.append(run)
+            evals.setdefault(run["eval"], evl)
+            grids.setdefault(run["eval"], {})[run["id"]] = grid
     runs.sort(key=lambda r: (r["eval"], r["model"], r["agent"], r["started"], r["epoch"]))
     keep = {r["id"] for r in runs}
     for f in (out / "runs").iterdir():  # this script's files of runs no longer in these logs
@@ -896,14 +917,14 @@ def export(log_dirs: list[str], prices: dict, out: Path):
         if f.suffix == ".json" and f.stem not in evals:
             f.unlink()
     vendors = {v: VENDORS.get(v, v.capitalize()) for v in sorted({r["vendor"] for r in runs if r["vendor"]})}
-    (out / "index.json").write_text(json.dumps({"evals": sorted(evals.values(), key=lambda e: e["id"]), "runs": runs, "prices": prices, "vendors": vendors}))
+    (out / "index.json").write_text(json.dumps({"evals": sorted(evals.values(), key=lambda e: e["id"]), "runs": runs, "prices": {m: {k: v for k, v in p.items() if k != "tiers"} for m, p in prices.items()}, "vendors": vendors}))
     print(f"{len(runs)} runs, {len(evals)} evals:", dict(Counter((r['eval'], r['model'], r['agent_name']) for r in runs)))
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("log_dirs", nargs="+")
-    ap.add_argument("--prices", default="prices.yaml")
+    ap.add_argument("--prices", default="https://models.dev/api.json")
     ap.add_argument("--out", default="site/public/data")
     a = ap.parse_args()
-    export(a.log_dirs, yaml.safe_load(open(a.prices)) if Path(a.prices).exists() else {}, Path(a.out))
+    export(a.log_dirs, a.prices, Path(a.out))
