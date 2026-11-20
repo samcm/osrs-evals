@@ -3,6 +3,7 @@
  *
  * Colours: each model has one fixed colour (a data hue token from tokens.css), used everywhere:
  *   Claude Haiku 5.5 orange, Claude Sonnet 5.5 purple, GPT-5.6 Luna teal, no model (Program) slate.
+ *   Claude Opus 5.5 rose, Claude Fable 5.2 fuchsia, GPT-6.2 Sol blue, GPT-6.2 Astra green.
  * A model not listed gets a stable hash of its id into the chart palette, skipping the hues taken
  * above, never a colour by position. Agents have no colour: each has a fixed line style and point
  * shape, so a variant (model × agent) is drawn in its model's colour with its agent's line and shape.
@@ -32,6 +33,7 @@ const hue = (name: string): SeriesColor => ({
 // bg-data-purple border-data-purple fill-data-purple bg-data-teal border-data-teal fill-data-teal
 // bg-data-slate border-data-slate fill-data-slate bg-data-rose border-data-rose fill-data-rose
 // bg-data-blue border-data-blue fill-data-blue bg-data-green border-data-green fill-data-green
+// bg-data-fuchsia border-data-fuchsia fill-data-fuchsia
 const HUES = {
   rose: hue('rose'),
   blue: hue('blue'),
@@ -40,6 +42,7 @@ const HUES = {
   purple: hue('purple'),
   teal: hue('teal'),
   slate: hue('slate'),
+  fuchsia: hue('fuchsia'),
 };
 
 /** The chart palette (chart-0 to chart-14) minus the fixed model hues, for models not listed. */
@@ -159,6 +162,7 @@ const MODELS: Record<string, Omit<ModelInfo, 'vendor'>> = {
   'anthropic/claude-opus-5-5': { name: 'Claude Opus 5.5', short: 'Opus 5.5', color: HUES.rose },
   'openai/openai-codex/gpt-6.2-sol': { name: 'GPT-6.2 Sol', short: 'GPT-6.2 Sol', color: HUES.blue },
   'openai/openai-codex/gpt-6.2-astra': { name: 'GPT-6.2 Astra', short: 'GPT-6.2 Astra', color: HUES.green },
+  'anthropic/claude-fable-5-2': { name: 'Claude Fable 5.2', short: 'Fable 5.2', color: HUES.fuchsia },
   'none/none': { name: 'No model', short: 'No model', color: HUES.slate },
 };
 
