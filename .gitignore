@@ -4,7 +4,7 @@ __pycache__/
 .venv/
 node_modules/
 .cache/
-.amp/
+.amp/portals/
 site/public/data/
 site/node_modules/
 site/dist/

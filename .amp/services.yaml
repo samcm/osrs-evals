@@ -1,0 +1,13 @@
+services:
+  # The site with its data, rs-world and the world feeds (viewer/serve.ts). Needs the exported data
+  # in site/public/data (site/export.py), the built site in site/dist, and an rs-world build in
+  # .cache/rs-world; without rs-world the game player shows each run's end screenshot instead.
+  site:
+    command: bun viewer/serve.ts
+    port: 7576
+    health: /
+    env:
+      WORLD: .cache/rs-world
+      RUNS: logs
+    portal:
+      title: osrs-evals site
