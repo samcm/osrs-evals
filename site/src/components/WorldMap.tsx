@@ -373,10 +373,18 @@ export function WorldMap({
     }
   }, [colors, dim, image, image2x, markers, meta, overlay, prepared, size, sprites]);
 
+  // One draw per frame, of the latest state. A request while one is pending joins it rather than
+  // replacing it: during playback the page re-renders every frame, and cancelling the pending draw
+  // each time would put it off forever.
+  const drawRef = useRef(draw);
+  drawRef.current = draw;
   const requestDraw = useCallback(() => {
-    cancelAnimationFrame(frame.current);
-    frame.current = requestAnimationFrame(draw);
-  }, [draw]);
+    if (frame.current) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = 0;
+      drawRef.current();
+    });
+  }, []);
 
   // The camera follows `view`, or fits the paths when there is none (not on every time-dot change)
   const fitRef = useRef(fit);
@@ -405,10 +413,8 @@ export function WorldMap({
     // view, geometry and the followed tile are compared by value, not by array identity
   }, [meta, size, viewKey, geometryKey, followKey]);
 
-  useEffect(() => {
-    requestDraw();
-    return () => cancelAnimationFrame(frame.current);
-  }, [requestDraw]);
+  useEffect(() => requestDraw(), [draw, requestDraw]);
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
 
   /** Reports the camera when a gesture ends: a zoom while following keeps following, anything else is a view. */
   const commit = useCallback(
