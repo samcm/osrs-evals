@@ -30,7 +30,7 @@ const route = getRouteApi('/runs/$runId');
 /** Each quest the run completed, as its icon; an inferred one is underlined and says why. */
 function QuestIcons({ quests }: { quests: RunDetail['metrics']['quests'] }) {
   return (
-    <ul className="flex items-center gap-1.5">
+    <ul className="flex flex-wrap items-center gap-1.5">
       {quests.map(q => {
         const inferred = q.source === 'inferred';
         const name = q.name ?? 'A quest';

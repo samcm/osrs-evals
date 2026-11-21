@@ -14,7 +14,7 @@ export const modelSearch = defineSearch({
   /** The race's map view and playhead */
   map: mapViewParam(),
   t: int(undefined, { min: 0 }),
-  sort: sortParam(['-result', 'ticks']),
+  sort: sortParam(['-result']),
   page: int(1, { min: 1 }),
   ...legendParams,
 });

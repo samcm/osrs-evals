@@ -5,7 +5,11 @@
  * page to page); the model page binds them to its own.
  */
 
-import { BrainIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { BrainIcon, ListFilterIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Segmented } from '@/components/bits';
 import { FacetFilter } from '@/components/FacetFilter';
 import { BrandMark } from '@/components/marks';
@@ -17,6 +21,29 @@ const EFFORT_OPTIONS = [
   { value: 'all' as const, label: 'All levels', title: 'Every thinking level of each model in each harness' },
   { value: 'best' as const, label: 'Best level', title: 'Each model in each harness at its best thinking level' },
 ];
+
+/**
+ * Controls that sit in the toolbar from a tablet up and fold into one Filters popover on a phone,
+ * so the toolbar stays one row there. `active` counts the filters set, shown on the button.
+ */
+export function FiltersFold({ active = 0, children }: { active?: number; children: ReactNode }) {
+  const mobile = useIsMobile();
+  if (!mobile) return <>{children}</>;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm">
+          <ListFilterIcon />
+          Filters
+          {active > 0 && <span className="text-muted-foreground tabular-nums">{active}</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="flex flex-wrap gap-2">
+        {children}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function counted(runs: Run[], key: (r: Run) => string): Map<string, number> {
   const out = new Map<string, number>();
@@ -31,6 +58,7 @@ export function PairingFilters({
   onChange,
   effort = true,
   levels: advertised,
+  children,
 }: {
   /** The runs the page could show, for the filters' options and counts */
   runs: Run[];
@@ -41,6 +69,8 @@ export function PairingFilters({
   effort?: boolean;
   /** The thinking levels the model advertises, on a page about one model: the levels to list */
   levels?: string[] | null;
+  /** The page's other view controls, folded with the filters on a phone */
+  children?: ReactNode;
 }) {
   const cut = useEffort();
   const update = useSearchUpdate<{ effort: EffortCut }>();
@@ -49,7 +79,8 @@ export function PairingFilters({
   const levels = [...new Set([...(advertised ?? []), ...counted(runs, level).keys()])].sort(compareThinking);
   const agents = [...new Map(runs.map(r => [r.agent, r])).values()].sort((a, b) => agentInfo(a.agent, a.agent_name).name.localeCompare(agentInfo(b.agent, b.agent_name).name));
   return (
-    <>
+    <FiltersFold active={thinking.length + agent.length + (cut === 'all' ? 0 : 1)}>
+      {children}
       {effort && <Segmented label="Thinking levels shown" value={cut} options={EFFORT_OPTIONS} onChange={v => update({ effort: v === 'all' ? undefined : v } as never)} />}
       <FacetFilter
         title="Thinking"
@@ -65,6 +96,6 @@ export function PairingFilters({
         counts={counted(runs, r => r.agent)}
         onChange={values => onChange({ agent: values })}
       />
-    </>
+    </FiltersFold>
   );
 }

@@ -6,6 +6,7 @@ import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { X } from 'lucide-react';
 import { DataTable } from '@/components/DataTable';
 import { FacetFilter, type FacetOption as Option } from '@/components/FacetFilter';
+import { FiltersFold } from '@/components/PairingFilters';
 import { PageSection, PageToolbar } from '@/components/page';
 import { BrandMark, EvalMark, VariantLabel } from '@/components/marks';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import { indexQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
 import { outcomeWord } from '@/lib/evals';
 import { capitalize, formatClock, formatCost, formatInt, MISSING } from '@/lib/format';
-import { resultValue } from '@/lib/runResult';
+import { resultText, resultValue } from '@/lib/runResult';
 import { useDocumentTitle, useScope, useSearchUpdate } from '@/lib/search';
 import { agentInfo, compareThinking, levelName, modelInfo, thinkingTitle, variantKey, vendorOf } from '@/lib/series';
 import { cn } from '@/lib/utils';
@@ -56,13 +57,14 @@ const col = createColumnHelper<Row>();
 /** The best value the run held; a filled or hollow dot says whether it reached the eval's target. */
 function ResultCell({ run, e }: { run: Run; e: Eval | undefined }) {
   const value = formatInt(resultValue(run));
+  const text = resultText(run, e);
   const word = outcomeWord(run);
   return (
     <span className="inline-flex items-center gap-1.5" title={[e && `${value} ${e.measure.toLowerCase()}`, word !== 'Scored' && word].filter(Boolean).join(', ')}>
       {word !== 'Scored' && (
         <span aria-label={word} role="img" className={cn('size-2 shrink-0 rounded-full', word === 'Finished' ? 'bg-success' : 'border-2 border-destructive')} />
       )}
-      {value}
+      {text}
     </span>
   );
 }
@@ -76,6 +78,8 @@ export function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[]
           col.accessor(r => r.e?.title ?? r.eval, {
             id: 'eval',
             header: 'Eval',
+            // A phone shows the eval's sprite in the pairing's cell, so the result fits beside it
+            meta: { className: 'max-md:hidden' },
             cell: ({ row, getValue }) => (
               <span className="inline-flex items-center gap-2" title={String(getValue())}>
                 <EvalMark evalId={row.original.eval} size={20} title={String(getValue())} />
@@ -87,7 +91,12 @@ export function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[]
     col.accessor(r => `${modelInfo(r.model).short} ${r.thinking} ${agentInfo(r.agent, r.agent_name).name}`, {
       id: 'variant',
       header: 'Pairing',
-      cell: ({ row }) => <VariantLabel run={row.original} compact />,
+      cell: ({ row }) => (
+        <span className="inline-flex min-w-0 items-center gap-2">
+          {!oneEval && <EvalMark evalId={row.original.eval} size={16} title={row.original.e?.title ?? row.original.eval} className="md:hidden" />}
+          <VariantLabel run={row.original} compact />
+        </span>
+      ),
     }),
     col.accessor(r => (r.success ? 1e9 : 0) + (resultValue(r) ?? -1), {
       id: 'result',
@@ -214,16 +223,18 @@ export function RunsPage() {
           value={search.q ?? ''}
           onChange={event => setSearch({ q: event.target.value || undefined }, { resetPage: true })}
         />
-        {shown.map(f => (
-          <FacetFilter
-            key={f}
-            title={titles[f]}
-            options={options[f]}
-            selected={picks[f]}
-            counts={counts(f)}
-            onChange={values => setSearch({ [f]: values } as Partial<Record<Facet, string[]>>, { resetPage: true })}
-          />
-        ))}
+        <FiltersFold active={FACETS.filter(f => picks[f].length > 0).length}>
+          {shown.map(f => (
+            <FacetFilter
+              key={f}
+              title={titles[f]}
+              options={options[f]}
+              selected={picks[f]}
+              counts={counts(f)}
+              onChange={values => setSearch({ [f]: values } as Partial<Record<Facet, string[]>>, { resetPage: true })}
+            />
+          ))}
+        </FiltersFold>
         {filtered && (
           <Button variant="ghost" onClick={reset}>
             Reset

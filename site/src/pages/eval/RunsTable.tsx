@@ -13,6 +13,7 @@ import { cssColor } from '@/lib/chartSeries';
 import { capitalize, formatCost, formatInt } from '@/lib/format';
 import { useSearchUpdate } from '@/lib/search';
 import { variantKey, variantOf } from '@/lib/series';
+import { resultText } from '@/lib/runResult';
 import { resultValue, totalBudgetTicks, type RunCurve } from './model';
 
 const col = createColumnHelper<Run>();
@@ -35,23 +36,16 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
   const target = e.target != null;
   const maxTick = totalBudgetTicks(e);
   const top = e.target ?? Math.max(1, ...[...curves.values()].flatMap(cv => cv.points.map(p => p.value)));
+  // The result next to the pairing (phones keep both in view), then cost; the epoch and ticks last
   return [
     col.accessor(r => variantOf(r).name, { id: 'variant', header: 'Pairing', cell: ({ row }) => <VariantLabel run={row.original} compact /> }),
-    col.accessor('epoch', { header: 'Epoch', meta: { numeric: true } }),
-    col.display({
-      id: 'progress',
-      header: () => <span className="sr-only">Progress</span>,
-      // Phones keep the result columns in view
-      meta: { className: 'max-md:hidden' },
-      cell: ({ row }) => <Spark curve={curves.get(row.original.id)} maxTick={maxTick} top={top} />,
-    }),
-    col.accessor(r => (r.success ? 1e9 : 0) + (resultValue(r) ?? -1), {
+    col.accessor(r => (r.success ? 1e9 - (r.ticks ?? 0) : 0) + (resultValue(r) ?? -1), {
       id: 'result',
-      header: e.measure,
+      header: target ? 'Result' : e.measure,
       meta: { numeric: true },
       cell: ({ row }) => {
         const run = row.original;
-        const value = formatInt(resultValue(run));
+        const value = resultText(run, e);
         if (!target) return value;
         return (
           <span className="inline-flex items-center gap-1.5" title={run.success ? 'Finished' : 'Not finished'}>
@@ -61,17 +55,18 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
         );
       },
     }),
-    col.accessor(r => (target ? (r.ticks ?? Infinity) : (r.game_ticks ?? Infinity)), {
-      id: 'ticks',
-      header: target ? 'Ticks to finish' : 'Ticks played',
-      meta: { numeric: true },
-      cell: ({ row }) => formatInt(target ? row.original.ticks : row.original.game_ticks),
-    }),
     col.accessor(r => r.cost ?? Infinity, {
       id: 'cost',
       header: 'Cost',
       meta: { numeric: true },
       cell: ({ row }) => formatCost(row.original.cost),
+    }),
+    col.display({
+      id: 'progress',
+      header: () => <span className="sr-only">Progress</span>,
+      // Phones keep the result columns in view
+      meta: { className: 'max-md:hidden' },
+      cell: ({ row }) => <Spark curve={curves.get(row.original.id)} maxTick={maxTick} top={top} />,
     }),
     col.accessor(r => r.ended_by ?? '', {
       id: 'ended',
@@ -79,6 +74,17 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
       meta: { className: 'max-md:hidden' },
       cell: ({ row }) => <span className="text-muted-foreground">{capitalize(row.original.ended_by)}</span>,
     }),
+    col.accessor('epoch', { header: 'Epoch', meta: { numeric: true } }),
+    ...(target
+      ? [
+          col.accessor(r => r.ticks ?? Infinity, {
+            id: 'ticks',
+            header: 'Ticks to finish',
+            meta: { numeric: true },
+            cell: ({ row }) => formatInt(row.original.ticks),
+          }),
+        ]
+      : []),
   ] as ColumnDef<Run, unknown>[];
 }
 

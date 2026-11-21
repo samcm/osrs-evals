@@ -172,10 +172,21 @@ function guessModelName(id: string): string {
   return words.join(' ');
 }
 
+/**
+ * A name for where space is short: without the product word its family leads with when the family
+ * names a line within it ("Claude Haiku 5.5", family claude-haiku → "Haiku 5.5"); else the name.
+ */
+function shortName(name: string, family: string | null | undefined): string {
+  const [product, line] = (family ?? '').split('-');
+  const words = name.split(' ');
+  return line && words.length > 2 && words[0].toLowerCase() === product ? words.slice(1).join(' ') : name;
+}
+
 /** A model's name (models.dev's display name), colour and maker. */
 export function modelInfo(id: string): ModelInfo {
-  const name = id === 'none/none' ? 'No model' : (FACTS.get(id)?.name ?? guessModelName(id));
-  return { name, short: name, color: MODEL_COLORS[id] ?? hashColor(id), vendor: vendorOf(id) };
+  const facts = FACTS.get(id);
+  const name = id === 'none/none' ? 'No model' : (facts?.name ?? guessModelName(id));
+  return { name, short: shortName(name, facts?.family), color: MODEL_COLORS[id] ?? hashColor(id), vendor: vendorOf(id) };
 }
 
 export const modelName = (id: string): string => modelInfo(id).name;
