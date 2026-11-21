@@ -10,8 +10,8 @@ interface EvalArt {
   items: { id: string; name: string }[];
   /** What the eval's value counts, for axis names */
   measure: string;
-  /** How the eval is scored, read from the server (as its file in evals/ does), when known */
-  scoring?: string;
+  /** What wins, in a player's terms: the eval page's header and the scoring explainers say it */
+  score?: string;
 }
 
 const ART: Record<string, EvalArt> = {
@@ -19,31 +19,31 @@ const ART: Record<string, EvalArt> = {
     mark: { src: uiSrc('quests'), name: 'Quests' },
     items: [],
     measure: 'Quest points',
-    scoring: "Quest points at the end, from the server's save (varp 101)",
+    score: 'Most quest points',
   },
   dragon_slayer: {
     mark: { src: questSrc('dragon_slayer'), name: 'Dragon Slayer' },
     items: [{ id: '1540', name: 'Anti-dragon shield' }],
     measure: 'Quest stage',
-    scoring: "Ticks until the quest's stage reaches 10, from the server's save (varp 176); the game ends there",
+    score: 'Fastest to finish the quest',
   },
   total_level: {
     mark: { src: uiSrc('stats'), name: 'Skills' },
     items: [],
     measure: 'Total level',
-    scoring: "Every skill's level summed at the end, from the server's save",
+    score: 'Highest total level',
   },
   collection: {
     mark: { src: uiSrc('inventory'), name: 'Inventory' },
     items: [],
     measure: 'Different items',
-    scoring: "Different items held in the inventory, bank and worn at the end, from the server's save; a note counts as its item",
+    score: 'Most different items',
   },
   team_wealth: {
     mark: { src: itemSrc('995-10000'), name: 'Coins' },
     items: [{ id: '995-10000', name: 'Coins' }],
     measure: 'Wealth',
-    scoring: "Store value of everything the accounts hold at the end, from the server's saves; coins at face value",
+    score: 'Richest team',
   },
   coins: { mark: { src: itemSrc(995), name: 'Coins' }, items: [{ id: '995', name: 'Coins' }], measure: 'Coins' },
   gold: { mark: { src: itemSrc('995-10000'), name: 'Coins' }, items: [{ id: '995-10000', name: 'Coins' }], measure: 'Coins' },

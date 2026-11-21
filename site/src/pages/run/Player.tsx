@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RunDetail } from '@/data/types';
 import { cn } from '@/lib/utils';
-import { REAL_TIME, TRANSITION_MS, type Playhead } from './playhead';
+import { play, REAL_TIME, TRANSITION_MS, type Playhead } from './playhead';
 
 /** rs-world's own panels (minimap, live list, render settings, joysticks): the site has its own controls */
 const HIDE_RS_WORLD_UI = '.hud, .live-hud, .joystick-container, .map-viewer > [class*="leva-c-"] { display: none !important; }';
@@ -27,7 +27,7 @@ const STREAM_AHEAD = 200;
 
 type Status = 'loading' | 'ready' | 'unavailable';
 
-export function Player({ run, head }: { run: RunDetail; head: Playhead }) {
+export function Player({ run, head, autoplay, account }: { run: RunDetail; head: Playhead; autoplay: boolean; account: string }) {
   const [status, setStatus] = useState<Status>(run.has_replay ? 'loading' : 'unavailable');
   const session = useMemo(() => `${run.id}-${Math.random().toString(36).slice(2)}`, [run.id]);
   const send = useControl(run, session, setStatus);
@@ -60,13 +60,23 @@ export function Player({ run, head }: { run: RunDetail; head: Playhead }) {
   const src = useMemo(() => {
     const ws = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const feed = `${ws}://${window.location.host}/feed/${encodeURIComponent(run.id)}?drive=${session}`;
-    return `/world/?live=${encodeURIComponent(feed)}&follow=${encodeURIComponent(run.account)}`;
-  }, [run.id, run.account, session]);
+    return `/world/?live=${encodeURIComponent(feed)}&follow=${encodeURIComponent(account)}`;
+  }, [run.id, account, session]);
 
   const frame = useRef<HTMLIFrameElement>(null);
   const drawn = useDrawn(frame, status === 'ready');
   const hold = useRef<HTMLCanvasElement>(null);
   const holding = useHeldFrame(frame, hold, status === 'ready' && drawn && head.playing);
+
+  // A run opened at no moment in particular plays from its start, once the game has drawn the world
+  // (straight away when there is no recording); the next frame, so the page's playhead has its end
+  const started = useRef(false);
+  useEffect(() => {
+    if (!autoplay || started.current || (status !== 'unavailable' && !drawn)) return;
+    started.current = true;
+    const frame = requestAnimationFrame(() => play());
+    return () => cancelAnimationFrame(frame);
+  }, [autoplay, status, drawn]);
 
   const shot = run.screenshot ? `/data/${run.screenshot}` : null;
   const still = (alt: string) => shot && <img src={shot} alt={alt} className="absolute inset-0 size-full object-cover" />;

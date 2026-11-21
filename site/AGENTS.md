@@ -64,10 +64,11 @@ Every page has the same skeleton, and nothing on a page invents its own.
 
 ### Eval page
 
-`PageHeader`: the eval's sprite, the goal (the prompt), then its facts: how it is scored (read from
-the game's server, from `evalArt(…).scoring`), the budget in ticks and the game time it makes (Sam
-asked for both here, the one place they sit side by side; the tick rate is in the tooltip), where
-the character starts, how many runs and the latest. Then tabs: **Race** (`Centerpiece`: every run
+`PageHeader`: the eval's sprite, the goal (the prompt), then what a visitor uses: the score in a
+player's terms (`evalArt(…).score`: "Fastest to finish the quest", "Most quest points"; the same
+line wherever scoring is explained), the budget as game time (its ticks on hover), where the
+characters start, how many runs and the latest. How the server's saves are read (varps, save
+files) is the README's business, never the site's. Then tabs: **Race** (`Centerpiece`: every run
 together in the game, on one playhead; `Progress`: the eval's measure over time; `Leaderboard`:
 the one ranked list), **Cost** (cost against result, finished within a budget, attempts),
 **Behaviour** (time and tool mix, where they went), **Runs** (the table). The toolbar beside the
@@ -152,7 +153,9 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   `t`, `tab`, `lanes`, `code`, `speed`, `eval`, `effort`, `level`, `harness`. Lists are comma-separated. Sorts are a column id with a leading `-` for descending.
 - Paths are readable: an eval is its id in kebab case (`/evals/dragon-slayer`; the old snake-case
   links redirect), a model its name without the provider route (`claude-opus-5-5`, `gpt-6.2-sol`).
-- A run's `t` absent is its first tick: a run opens at the start.
+- A run's `t` absent is its first tick: a click into a run opens it at the start and plays (at the
+  default speed, once the game has drawn the world); a link with `t` is a shared moment and opens
+  paused there. `acct` is the account a team's run follows.
 - Theme is a preference kept in local storage; `?theme=dark` or `?theme=light` overrides it for a
   shared link.
 
@@ -263,7 +266,10 @@ Never letterbox the map or show past its edges: give it `fitHeight` so the frame
 shape (up to `height`), or a height that matches its neighbour. Zoom stops where the map fills the
 frame, and the view is kept on the map.
 Markers are quest icons where a quest was done; level-ups and deaths are not drawn. The race's map
-holds still (fitted once to every run of the eval); the run page's map follows its character.
+holds still (fitted once to every run of the eval); the run page's map follows its character. A
+team's run (several accounts) draws every account: on the race map a pin and trail each in the
+run's colour, on the run page the followed account's path and the others fainter, each account
+named on hover; the game and the map follow one account at a time (`acct`).
 
 ## Layout
 

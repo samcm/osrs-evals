@@ -17,7 +17,10 @@ import type { RunCurve } from '../model';
 
 export interface Track {
   curve: RunCurve;
+  /** The run's first account's path */
   points: readonly PathPoint[];
+  /** A team's other accounts, each a path and a pin of its own in the run's colour */
+  others: { name: string; points: readonly PathPoint[] }[];
   /** Most ticks between two recorded points while walking */
   step: number;
   /** Quests, with where they were done */
@@ -122,6 +125,8 @@ export interface PlacedPin {
   x: number;
   y: number;
   key: string;
+  /** The account it is, named on hover in a team's run */
+  account: string | null;
 }
 
 export function RaceMap({
@@ -190,20 +195,22 @@ export function RaceMap({
         const color = colors.resolve(t.curve.variant.color.token);
         const faint = new Path2D();
         const bold = new Path2D();
-        let last: PathPoint | null = null;
-        for (const p of t.points) {
-          if (p[0] > tick) break;
-          if (last && p[4] !== 1) {
-            const target = p[0] >= tick - trail ? bold : faint;
-            target.moveTo(...toScreen(last[1], surfaceZ(last[2])));
-            target.lineTo(...toScreen(p[1], surfaceZ(p[2])));
+        for (const points of [t.points, ...t.others.map(o => o.points)]) {
+          let last: PathPoint | null = null;
+          for (const p of points) {
+            if (p[0] > tick) break;
+            if (last && p[4] !== 1) {
+              const target = p[0] >= tick - trail ? bold : faint;
+              target.moveTo(...toScreen(last[1], surfaceZ(last[2])));
+              target.lineTo(...toScreen(p[1], surfaceZ(p[2])));
+            }
+            last = p;
           }
-          last = p;
-        }
-        const head = positionAt(t.points, tick, t.step);
-        if (last && head) {
-          bold.moveTo(...toScreen(last[1], surfaceZ(last[2])));
-          bold.lineTo(...toScreen(head.x, head.z));
+          const head = positionAt(points, tick, t.step);
+          if (last && head) {
+            bold.moveTo(...toScreen(last[1], surfaceZ(last[2])));
+            bold.lineTo(...toScreen(head.x, head.z));
+          }
         }
         ctx.strokeStyle = color;
         ctx.setLineDash(DASH[t.curve.variant.line]);
@@ -241,10 +248,13 @@ export function RaceMap({
         }
 
       // Pins, the leader drawn last so it sits on top
-      const at = tracks.map(t => {
-        const p = positionAt(t.points, tick, t.step);
-        return p ? { t, p, xy: toScreen(p.x, p.z) } : null;
-      });
+      // One pin per account: a team's run has one for each of its accounts
+      const at = tracks.flatMap(t =>
+        [{ name: t.others.length ? t.curve.run.account : null, points: t.points }, ...t.others].map(a => {
+          const p = positionAt(a.points, tick, t.step);
+          return p ? { t, account: a.name, p, xy: toScreen(p.x, p.z) } : null;
+        })
+      );
       const drawn = at.filter(a => a != null);
       const spot = spread(
         drawn.map(a => a.xy),
@@ -252,7 +262,7 @@ export function RaceMap({
       );
       const isLit = (t: Track): number => (lit != null && t.curve.variant.key === lit ? 1 : 0);
       const order = drawn.map((a, i) => ({ ...a, s: spot[i] })).sort((a, b) => isLit(a.t) - isLit(b.t) || b.t.rank - a.t.rank);
-      placed.current = order.map(({ t, s }) => ({ x: s[0], y: s[1], key: t.curve.variant.key }));
+      placed.current = order.map(({ t, s, account }) => ({ x: s[0], y: s[1], key: t.curve.variant.key, account }));
       for (const { t, xy, s } of order) {
         const color = colors.resolve(t.curve.variant.color.token);
         ctx.globalAlpha = dim(t) < 1 ? 0.35 : 1;

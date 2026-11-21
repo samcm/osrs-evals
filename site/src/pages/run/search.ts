@@ -3,7 +3,7 @@
 import type { ToolCategory } from '@/data/types';
 import { TOOL_CATEGORIES as TOOLS } from '@/lib/tools';
 import { mapViewParam } from '@/lib/map';
-import { defineSearch, int, legendParams, list, num, oneOf, useSearchUpdate } from '@/lib/search';
+import { defineSearch, int, legendParams, list, num, oneOf, text, useSearchUpdate } from '@/lib/search';
 import { setMoment } from './model';
 import { pause } from './playhead';
 
@@ -21,6 +21,8 @@ export const runSearch = defineSearch({
   turn: int(undefined, { min: 1 }),
   /** The playhead, in game ticks; absent is the run's start */
   t: int(undefined, { min: 0 }),
+  /** The account the game and the map follow, in a team's run; absent is the run's first */
+  acct: text(),
   /** The map's view once the reader moves it; without one the map follows the character */
   map: mapViewParam(),
   /** The map's zoom while it follows, in screen pixels per tile */

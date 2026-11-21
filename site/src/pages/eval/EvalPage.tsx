@@ -8,7 +8,7 @@ import { PairingFilters } from '@/components/PairingFilters';
 import { PageHeader, PageSection, PageTabs, PageToolbar, type MetaItem } from '@/components/page';
 import { SeriesLegend } from '@/components/charts';
 import { variantSeries } from '@/lib/chartSeries';
-import { compareThinking, thinkingOf, variantKey } from '@/lib/series';
+import { variantKey } from '@/lib/series';
 import { bestLevelKeys } from '@/lib/score';
 import { evalArt, evalBySlug } from '@/lib/evals';
 import { evalRunsQuery, indexQuery, runQuery } from '@/data/queries';
@@ -44,38 +44,24 @@ const placeOf = (save: string | null | undefined): string | null =>
   save ? save.replace(/\.sav$/, '').replace(/[_-]+/g, ' ').replace(/^./, c => c.toUpperCase()) : null;
 
 /**
- * The facts a reader needs beside the goal: how it is scored (read from the game's server), the
- * budget in ticks and the game time it makes at the eval's tick rate, where the character starts,
- * and what has run.
+ * What a visitor needs beside the goal: what wins, the budget as game time (its ticks, the charts'
+ * unit, on hover), where the characters start, and what has run.
  */
 function facts(e: Eval, runs: Run[]): MetaItem[] {
-  const seconds = (e.budget_ticks * e.tick_ms) / 1000;
   const place = placeOf(e.start?.save);
   const pairings = new Set(runs.map(variantKey)).size;
-  const levels = [...new Set(runs.map(thinkingOf))].sort(compareThinking);
   const last = runs.map(r => r.sample_started ?? r.started).sort().pop();
-  const scoring = evalArt(e.id).scoring;
+  const score = evalArt(e.id).score;
+  const team = e.accounts.length > 1;
   return [
-    ...(scoring ? [{ term: 'Scored by', value: scoring }] : []),
-    { term: e.attempts > 1 ? 'Budget per attempt' : 'Budget', value: `${formatInt(e.budget_ticks)} ticks` },
-    { term: 'Game time', value: <Hint hint={`${formatInt(e.budget_ticks)} ticks at ${formatInt(e.tick_ms)} ms a tick`}>{formatDuration(seconds)}</Hint> },
-    ...(e.attempts > 1 ? [{ term: 'Attempts', value: formatInt(e.attempts) }] : []),
-    ...(place
-      ? [
-          {
-            term: 'Start',
-            value: (
-              <Hint hint={`A new character from ${e.start?.save}${e.start?.tile ? `, first at tile ${e.start.tile.join(', ')}` : ''}`}>{place}</Hint>
-            ),
-          },
-        ]
-      : []),
+    ...(score ? [{ term: 'Score', value: score }] : []),
     {
-      term: 'Runs',
-      value: (
-        <Hint hint={`${formatInt(pairings)} pairings; thinking ${levels.join(', ')}`}>{formatInt(runs.length)}</Hint>
-      ),
+      term: e.attempts > 1 ? 'Budget per attempt' : 'Budget',
+      value: <Hint hint={`${formatInt(e.budget_ticks)} game ticks`}>{formatDuration((e.budget_ticks * e.tick_ms) / 1000)}</Hint>,
     },
+    ...(e.attempts > 1 ? [{ term: 'Attempts', value: formatInt(e.attempts) }] : []),
+    ...(place ? [{ term: 'Start', value: team ? `${formatInt(e.accounts.length)} new characters in ${place}` : `A new character in ${place}` }] : []),
+    { term: 'Runs', value: <Hint hint={`${formatInt(pairings)} pairings`}>{formatInt(runs.length)}</Hint> },
     ...(last ? [{ term: 'Latest', value: formatDate(last).split(',')[0] }] : []),
   ];
 }

@@ -46,14 +46,12 @@ export interface Lane extends Standing {
 export function Standings({
   rows,
   max,
-  tick,
   showEpoch,
   lit,
   stages,
 }: {
   rows: Lane[];
   max: number;
-  tick: number;
   showEpoch: boolean;
   lit: string | null;
   /** The eval's quest stages, as ticks on every track */
@@ -75,7 +73,8 @@ export function Standings({
             <Link
               to="/runs/$runId"
               params={{ runId: run.id }}
-              search={{ t: Math.round(tick) || undefined } as never}
+              // A click into a run opens it at its start, playing
+              search={{} as never}
               aria-label={`${variant.name}${showEpoch ? `, epoch ${run.epoch}` : ''}: ${formatInt(row.value)}`}
               className="flex h-full flex-col justify-center gap-1 rounded-md outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50"
             >

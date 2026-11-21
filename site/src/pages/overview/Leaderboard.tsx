@@ -18,6 +18,7 @@ import { Progress } from '@/components/ui/progress';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Eval } from '@/data/types';
+import { evalArt } from '@/lib/evals';
 import { formatScore, type Pairing } from '@/lib/score';
 import { cn } from '@/lib/utils';
 
@@ -40,8 +41,8 @@ function HeatCell({ pairing, e }: { pairing: Pairing; e: Eval }) {
   );
 }
 
-/** How the score is made, on demand. */
-function Scoring() {
+/** How the score is made, on demand: what wins each eval, then how runs become one number. */
+function Scoring({ evals }: { evals: Eval[] }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -50,6 +51,14 @@ function Scoring() {
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="flex w-80 flex-col gap-2 text-sm">
+        <ul className="flex flex-col gap-1">
+          {evals.map(e => (
+            <li key={e.id} className="flex items-center gap-2">
+              <EvalMark evalId={e.id} size={16} title={e.title} />
+              <span>{evalArt(e.id).score ?? e.title}</span>
+            </li>
+          ))}
+        </ul>
         <p>Each run scores 0 to 100 on its eval. A finish is worth 50 to 100, more the sooner it came; a miss up to 50 by how far it got. Evals without a target score against the best run.</p>
         <p>A pairing's score is the average plus how far it beat or trailed everyone on each eval it ran. An eval it skipped neither helps nor hurts, and a pairing that ran few evals stays nearer the middle.</p>
       </PopoverContent>
@@ -107,7 +116,7 @@ export function Leaderboard({ pairings, evals, sort, onSortChange }: { pairings:
   );
 
   return (
-    <PageSection title="Leaderboard" actions={<Scoring />}>
+    <PageSection title="Leaderboard" actions={<Scoring evals={evals} />}>
       <DataTable
         data={rows}
         columns={columns}

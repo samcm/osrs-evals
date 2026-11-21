@@ -70,8 +70,10 @@ export function Centerpiece({
       runners.map((curve, i) => {
         const detail = details[i]?.data;
         const points = (detail?.path ?? grid?.runs[curve.run.id]?.path ?? []) as readonly PathPoint[];
+        // A team's run: every other account's path too, from the same source as the first's
+        const others = Object.entries((detail ? detail.paths : grid?.runs[curve.run.id]?.paths) ?? {}).map(([name, path]) => ({ name, points: path as readonly PathPoint[] }));
         const step = detail ? 10 : (grid?.path_every ?? 50);
-        return { curve, detail, points, step, marks: marksOf(detail?.events, points, step), events: laneMarks(detail?.events) };
+        return { curve, detail, points, others, step, marks: marksOf(detail?.events, points, step), events: laneMarks(detail?.events) };
       }),
     // details is a new array every render; what is loaded is what matters
     [runners, grid, loadedKey]
@@ -102,6 +104,8 @@ export function Centerpiece({
     const y = event.clientY - rect.top;
     const hit = placed.current.findLast(p => Math.hypot(p.x - x, p.y - y) <= PIN + 2);
     setHovered(hit?.key);
+    // A team's pins name their account
+    event.currentTarget.title = hit?.account ?? '';
   };
 
   return (
@@ -156,7 +160,7 @@ export function Centerpiece({
         </CardContent>
         {/* The lanes scroll inside the column when there are more than its height holds */}
         <CardContent className="min-h-0 flex-1 overflow-y-auto">
-          <Standings rows={lanes} max={top} tick={head.tick} showEpoch={agg === 'runs'} lit={lit} stages={target != null ? stages : []} />
+          <Standings rows={lanes} max={top} showEpoch={agg === 'runs'} lit={lit} stages={target != null ? stages : []} />
         </CardContent>
       </div>
     </Card>

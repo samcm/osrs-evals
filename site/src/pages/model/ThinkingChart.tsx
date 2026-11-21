@@ -15,6 +15,7 @@ import { formatCost, formatInt } from '@/lib/format';
 import { FADED_OPACITY, setHovered, useHover } from '@/lib/hover';
 import { resultValue } from '@/lib/runResult';
 import { levelColor, modelInfo, thinkingOf } from '@/lib/series';
+import { useWidth } from '@/lib/useWidth';
 import { median } from '@/lib/stats';
 import { formatTick, roundMax, roundTicks } from '../eval/chartBits';
 import { PointTooltip } from '../eval/Cuts';
@@ -26,6 +27,23 @@ function yOf(run: Run, y: ThinkingY): number | null {
   if (y === 'cost') return run.cost != null && run.cost > 0 ? run.cost : null;
   if (y === 'ticks') return run.success ? run.ticks : null;
   return resultValue(run);
+}
+
+/** Short names for the level labels when the full ones don't fit; the tooltip names the level in full. */
+const SHORT: Record<string, string> = { default: 'def', minimal: 'min', medium: 'med', xhigh: 'xhi' };
+/** text-xs at about 6.6px a character, plus a gap between neighbours */
+const labelPx = (text: string): number => text.length * 6.6 + 8;
+
+/**
+ * How the level labels fit the width each level has: in full, shortened, or shortened and slanted
+ * when even the short names would run into each other.
+ */
+function levelLabels(levels: string[], width: number): { names: string[]; slant: boolean } {
+  const each = (width - Y_AXIS_WIDTH - chartMargin().right) / Math.max(1, levels.length);
+  const fits = (names: string[]) => Math.max(...names.map(labelPx)) <= each;
+  if (fits(levels)) return { names: levels, slant: false };
+  const short = levels.map(l => SHORT[l] ?? l);
+  return { names: short, slant: !fits(short) };
 }
 
 const format = (v: number, y: ThinkingY): string => (y === 'cost' ? formatCost(v) : y === 'ticks' ? `${formatInt(v)} ticks` : formatInt(v));
@@ -51,6 +69,8 @@ export function harnessSeries(runs: Run[]): SeriesSpec[] {
 export function ThinkingChart({ e, runs, y, levels, series }: { e: Eval; runs: Run[]; y: ThinkingY; levels: string[]; series: SeriesSpec[] }) {
   const navigate = useNavigate();
   const hover = useHover();
+  const [ref, width] = useWidth();
+  const labels = levelLabels(levels, width);
   const { points, medians } = useMemo(() => {
     const points: Point[] = [];
     const medians = new Map<string, { x: number; y: number }[]>();
@@ -83,16 +103,18 @@ export function ThinkingChart({ e, runs, y, levels, series }: { e: Eval; runs: R
   const empty = points.length === 0 ? (y === 'ticks' ? 'No run here finished.' : y === 'cost' ? 'No run here has a cost.' : 'No run here has a result.') : undefined;
 
   return (
+    <div ref={ref} className="min-w-0">
     <ChartFrame config={config} height="compact" empty={empty} legend={<SeriesLegend series={series} kind="symbol" />}>
       <ComposedChart margin={chartMargin()}>
         <CartesianGrid {...gridProps} />
         <XAxis
-          {...xAxisProps({ domain: [-0.5, levels.length - 0.5], ticks: levels.map((_, i) => i), format: i => levels[i] ?? '' })}
+          {...xAxisProps({ domain: [-0.5, levels.length - 0.5], ticks: levels.map((_, i) => i), format: i => labels.names[i] ?? '' })}
           dataKey="x"
           type="number"
-          // Every level named, however many: they are the chart's categories, slanted when they crowd
+          // Every level named, however many: they are the chart's categories, shortened and then
+          // slanted when the width each one has can't hold its name
           interval={0}
-          {...(levels.length > 4 ? { angle: -35, textAnchor: 'end', height: 52 } : {})}
+          {...(labels.slant ? { angle: -40, textAnchor: 'end', height: 44 } : {})}
         />
         <YAxis {...yAxis} dataKey="y" />
         <ChartTooltip
@@ -155,5 +177,6 @@ export function ThinkingChart({ e, runs, y, levels, series }: { e: Eval; runs: R
         ))}
       </ComposedChart>
     </ChartFrame>
+    </div>
   );
 }

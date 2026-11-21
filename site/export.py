@@ -755,6 +755,9 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
     agent_version = next((e.data.get("version") for e in s.events if e.event == "info" and e.source == "inspect_swe" and isinstance(e.data, dict)), None) or solver_params.get("version")
 
     world = world_of(files["world.jsonl.gz"], account, game.get("start_tick"), end_tick) if "world.jsonl.gz" in files else None
+    # A team's other accounts: where each went, on the same clock as the first
+    names = [a["username"] for a in m["accounts"]]
+    others = {n: world_of(files["world.jsonl.gz"], n, world["start_tick"], end_tick)["path"] for n in names[1:]} if world else {}
     sdk = sdk_of(files["world.log"].decode(errors="replace"), t0.timestamp(), clock, end_tick) if "world.log" in files else None
     states = states_of(files.get("states.jsonl.gz"), end_tick)
     for r in states:
@@ -891,6 +894,7 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
         "cost": round(sum(cost_by.values()), 5) if cost_by else None,
         "has_replay": "world.jsonl.gz" in files,
         "account": account,
+        "accounts": names,
         "start_tick": game.get("start_tick") or (world and world["start_tick"]),
         "screenshot": f"runs/{run_id}.jpg" if (out / "runs" / f"{run_id}.jpg").exists() else None,
         "metrics": metrics,
@@ -910,6 +914,7 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
         "score_metadata": {k: v.metadata for k, v in s.scores.items()},
         "turns": turns,
         "path": downsample(path, PATH_EVERY),
+        **({"paths": {n: downsample(q, PATH_EVERY) for n, q in others.items()}} if others else {}),
         "series": {
             "calls": call_series(turns, run["cost"] is not None),
             "sdk": {"bucket_ticks": BUCKET, "functions": sdk["functions"], "bins": sdk["bins"]} if sdk else None,
@@ -927,6 +932,8 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
         (out / "runs" / f"{run_id}.world.jsonl.gz").write_bytes(files["world.jsonl.gz"])
     grid = resample(grid_of(m["budget_ticks"], attempts), timeline, clock, turns, end_tick, run["cost"] is not None)
     grid["path"] = downsample(path, EVAL_PATH_EVERY)
+    if others:
+        grid["paths"] = {n: downsample(q, EVAL_PATH_EVERY) for n, q in others.items()}
     return run, evl, detail, grid
 
 

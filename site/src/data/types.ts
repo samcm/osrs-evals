@@ -171,7 +171,10 @@ export interface Run {
   /** USD at list price; null when the model has no price */
   cost: number | null;
   has_replay: boolean;
+  /** The account the run is followed by: its first */
   account: string;
+  /** Every account it played, the first first (a team eval has several) */
+  accounts?: string[];
   /** The engine tick the account joined the world at, for seeking the recording */
   start_tick?: number | null;
   /** Path under /data to a screenshot of the run's end, when exported */
@@ -327,7 +330,10 @@ export interface RunDetail extends Run {
   timeline: TimelinePoint[];
   score_metadata: Record<string, Record<string, unknown> | null>;
   turns: Turn[];
+  /** The first account's path */
   path: PathPoint[];
+  /** Each other account's path, by account, in a team's run */
+  paths?: Record<string, PathPoint[]>;
   series: RunSeries;
   events: RunEvent[];
   /** The harness recorded the accounts' saved states over time (xp, items, quest varps) */
@@ -353,6 +359,8 @@ export interface EvalRuns {
       cost: (number | null)[];
       value: (number | null)[];
       path: PathPoint[];
+      /** Each other account's path, by account, in a team's run */
+      paths?: Record<string, PathPoint[]>;
     }
   >;
 }

@@ -44,14 +44,14 @@ export function formatSeconds(value: number | null | undefined): string {
   return value < 100 ? oneDecimal.format(value) : intFormat.format(value);
 }
 
-/** A long span: "4 min 21 s", "1 h 12 min". */
+/** A long span: "4 min 21 s", "1 h 12 min", "30 min", "4 h" (a zero remainder is left off). */
 export function formatDuration(seconds: number | null | undefined): string {
   if (seconds == null || Number.isNaN(seconds)) return MISSING;
   const s = Math.round(seconds);
   if (s < 60) return `${s} s`;
   const minutes = Math.floor(s / 60);
-  if (minutes < 60) return `${minutes} min ${s % 60} s`;
-  return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+  if (minutes < 60) return s % 60 ? `${minutes} min ${s % 60} s` : `${minutes} min`;
+  return minutes % 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${Math.floor(minutes / 60)} h`;
 }
 
 /** A clock position within a run: "4:21", "1:02:03". */

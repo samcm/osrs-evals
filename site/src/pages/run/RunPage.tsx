@@ -1,7 +1,7 @@
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { Outcome } from '@/components/bits';
+import { Outcome, Segmented } from '@/components/bits';
 import { PageHeader, type MetaItem } from '@/components/page';
 import { Card, CardFooter } from '@/components/ui/card';
 import { Sprite } from '@/components/marks';
@@ -208,6 +208,12 @@ export function RunPage() {
 
   const update = useSearchUpdate(runSearch);
   const head = usePlayhead(clock, selected, tick => update({ t: tick || undefined }));
+  // Opened at no moment in particular (a click into the run), it plays from the start; a link to a
+  // moment (`?t=`, `?turn=`) opens paused there
+  const autoplay = useMemo(() => search.t == null && search.turn == null, [runId]);
+  // A team's runs: the game and the map follow one account, the first unless the reader picks another
+  const accounts = run.accounts ?? [run.account];
+  const account = search.acct && accounts.includes(search.acct) ? search.acct : run.account;
 
   /*
    * The debugger, on one playhead. The lead band is the main screen: the game with its playback bar
@@ -220,7 +226,18 @@ export function RunPage() {
       <Header run={run} evalInfo={evalInfo} runs={index.runs} measure={search.x} />
       <div className="grid gap-gutter xl:grid-cols-5">
         <Card className="min-w-0 gap-0 pt-0 xl:col-span-3">
-          <Player run={run} head={head} />
+          <div className="relative">
+            <Player key={run.id} run={run} head={head} autoplay={autoplay} account={account} />
+            {accounts.length > 1 && (
+              <Segmented
+                className="absolute top-2 left-2 bg-card"
+                label="Account followed"
+                value={account}
+                options={accounts.map(a => ({ value: a, label: a }))}
+                onChange={a => update({ acct: a === run.account ? undefined : a })}
+              />
+            )}
+          </div>
           <CardFooter>
             <Playback run={run} clock={clock} measure={search.x} />
           </CardFooter>
@@ -236,7 +253,7 @@ export function RunPage() {
         clock={clock}
         search={search}
         price={index.prices[run.model]}
-        aside={<RunMap run={run} clock={clock} view={search.map} zoom={search.mz} height={420} />}
+        aside={<RunMap run={run} account={account} clock={clock} view={search.map} zoom={search.mz} height={420} />}
       />
     </>
   );

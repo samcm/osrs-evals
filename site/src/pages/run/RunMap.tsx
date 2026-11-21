@@ -3,12 +3,13 @@
  * to the playhead and faint after it. Dragging the map stops following and keeps the view (`?map=`);
  * "Follow" goes back, "Fit" shows the whole path, and zooming while following keeps following
  * (`?mz=`). Upstairs and underground positions are drawn where they are on the surface, with the
- * floor named.
+ * floor named. In a team's run the map follows the account the game does (`?acct=`); the others'
+ * paths are drawn fainter, each with a dot where it is, named on hover.
  */
 
-import { useEffect, useMemo, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { WorldMap, type MapMarker, type MapPath } from '@/components/WorldMap';
+import { WorldMap, type MapMarker, type MapOverlay, type MapPath } from '@/components/WorldMap';
 import type { RunDetail, RunEvent } from '@/data/types';
 import { questSrc, uiSrc } from '@/lib/assets';
 import { indexAt, positionAt, type MapView, type PathPoint } from '@/lib/map';
@@ -58,13 +59,32 @@ function useGlide(target: number, glide: boolean): number {
 /** A dot with no line: the playhead (primary, like every other playhead on the page) or the hover. */
 const dot = (id: string, points: readonly PathPoint[], at: number, color: string): MapPath => ({ id, color, points, opacity: 0, at });
 
-export function RunMap({ run, clock, view, zoom, height }: { run: RunDetail; clock: Clock; view: RunSearch['map']; zoom: number | undefined; height: number }) {
+export function RunMap({
+  run,
+  account,
+  clock,
+  view,
+  zoom,
+  height,
+}: {
+  run: RunDetail;
+  /** The account followed */
+  account: string;
+  clock: Clock;
+  view: RunSearch['map'];
+  zoom: number | undefined;
+  height: number;
+}) {
   const update = useSearchUpdate(runSearch);
   const [committed] = useCommitted(run, clock);
   const head = usePlayhead(clock, committed);
   const time = useGlide(head.at, !head.playing && head.scrub == null);
   const hover = head.scrub == null ? head.hover : null;
-  const points = run.path as unknown as PathPoint[];
+  const all = useMemo(() => ({ [run.account]: run.path, ...run.paths }) as Record<string, PathPoint[]>, [run]);
+  const points = all[account] ?? (run.path as unknown as PathPoint[]);
+  const others = useMemo(() => Object.entries(all).filter(([name]) => name !== account), [all, account]);
+  /** Where each other account's dot was last drawn, for naming it on hover */
+  const placed = useRef<{ name: string; x: number; y: number }[]>([]);
 
   const markers = useMemo(
     () => run.events.flatMap(e => (e.kind === 'quest' ? [questMarker(e, points)].filter(m => m != null) : [])),
@@ -75,17 +95,40 @@ export function RunMap({ run, clock, view, zoom, height }: { run: RunDetail; clo
   const paths = useMemo((): MapPath[] => {
     const trail = trailTo(points, time);
     return [
+      // The other accounts' paths, fainter, with a dot where each is
+      ...others.flatMap(([name, other]): MapPath[] => [
+        { id: `${run.id}-${name}`, color: TIME_RAMP[TIME_RAMP.length - 1], ramp: TIME_RAMP, rampSpan: [0, clock.maxTicks], points: trailTo(other, time), width: 1.5, opacity: 0.45 },
+        dot(`${run.id}-${name}-at`, other, time, '--muted-foreground'),
+      ]),
       // The whole path in its time colours, faint after the playhead, bright up to it
       { id: `${run.id}-all`, color: TIME_RAMP[TIME_RAMP.length - 1], ramp: TIME_RAMP, rampSpan: [0, clock.maxTicks], points, width: 2, opacity: 0.6 },
       { id: `${run.id}-trail`, color: TIME_RAMP[TIME_RAMP.length - 1], ramp: TIME_RAMP, rampSpan: [0, clock.maxTicks], points: trail, width: 3 },
       ...(hover != null ? [dot(`${run.id}-hover`, trailTo(points, hover), hover, '--muted-foreground')] : []),
       dot(`${run.id}-at`, trail, time, '--primary'),
     ];
-  }, [run.id, points, here?.x, here?.z, time, hover, clock.maxTicks]);
+  }, [run.id, points, others, here?.x, here?.z, time, hover, clock.maxTicks]);
+
+  const overlay = useCallback<MapOverlay>(
+    (_ctx, toScreen) => {
+      placed.current = others.flatMap(([name, other]) => {
+        const at = positionAt(other, time);
+        if (!at) return [];
+        const [x, y] = toScreen(at.x, at.z);
+        return [{ name, x, y }];
+      });
+    },
+    [others, time]
+  );
+  /** The other account under the pointer names itself, as the canvas's tooltip. */
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>): void => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const hit = placed.current.find(p => Math.hypot(p.x - (event.clientX - rect.left), p.y - (event.clientY - rect.top)) <= 8);
+    event.currentTarget.title = hit ? hit.name : '';
+  };
 
   if (points.length === 0) return <p className="flex items-center justify-center text-sm text-muted-foreground" style={{ height }}>No path was recorded.</p>;
   return (
-    <div className="relative">
+    <div className="relative" onPointerMove={others.length ? onPointerMove : undefined}>
       <WorldMap
         paths={paths}
         markers={markers}
@@ -95,7 +138,8 @@ export function RunMap({ run, clock, view, zoom, height }: { run: RunDetail; clo
         followZoom={zoom}
         onFollowZoom={mz => update({ mz })}
         height={height}
-        fitKey={run.id}
+        fitKey={`${run.id}-${account}`}
+        overlay={others.length ? overlay : undefined}
         label="The character's path, centred on where it is at the playhead"
       />
       {here?.floor && (
