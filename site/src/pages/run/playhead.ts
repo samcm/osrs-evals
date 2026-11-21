@@ -38,6 +38,12 @@ export const TRANSITION_MS = 150;
 /** Playback speeds, as multiples of the game's own pace */
 export const SPEEDS = [1, 4, 16, 64] as const;
 
+/** Real seconds a run should take to watch at the default speed */
+const WATCH_SECONDS = 120;
+
+/** The default speed for a run of this many ticks: the slowest that plays it in about two minutes, else the fastest. */
+export const defaultSpeed = (ticks: number): (typeof SPEEDS)[number] => SPEEDS.find(s => ticks / (REAL_TIME * s) <= WATCH_SECONDS) ?? SPEEDS[SPEEDS.length - 1];
+
 interface Playback {
   playing: boolean;
   /** Game ticks per real second */

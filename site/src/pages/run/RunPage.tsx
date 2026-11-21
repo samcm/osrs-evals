@@ -11,9 +11,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { indexQuery, runQuery } from '@/data/queries';
 import type { Eval, Run, RunDetail } from '@/data/types';
 import { questSrc, uiSrc } from '@/lib/assets';
-import { capitalize, formatDate, formatDuration, formatInt } from '@/lib/format';
+import { formatCost, formatDate, formatDuration, formatInt } from '@/lib/format';
 import { levelName, modelInfo, variantKey } from '@/lib/series';
-import { resultValue } from '@/lib/runResult';
+import { endedWord, resultValue } from '@/lib/runResult';
 import { useDocumentTitle, useSearchUpdate } from '@/lib/search';
 import { cn } from '@/lib/utils';
 import { Lanes } from './Lanes';
@@ -92,7 +92,7 @@ function RunFacts({ run }: { run: RunDetail }) {
   if (run.agent_version) facts.push([run.agent_name, mono(run.agent_version)]);
   facts.push(['Character', mono(run.account)]);
   facts.push(['Started', `${formatDate(run.sample_started ?? run.started)} UTC`]);
-  if (run.ended_by) facts.push(['Ended by', capitalize(run.ended_by)]);
+  if (run.ended_by) facts.push(['Ended', endedWord(run.ended_by)]);
   if (run.commit) facts.push(['Commit', mono(run.commit)]);
   facts.push(['Log', mono(run.log)]);
   return (
@@ -170,13 +170,33 @@ function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure
 }
 
 /**
- * The result as meta; the run id (its facts behind it) and the epochs on the right. The header bar
- * already names the eval and the pairing, with its marks.
+ * Where a run places among every run of its eval, by the eval's score: finished first and sooner,
+ * else the higher result. Ties share a place.
+ */
+function placeAmong(run: Run, runs: Run[]): { place: number; of: number } {
+  const own = runs.filter(r => r.eval === run.eval);
+  const key = (r: Run): [number, number] => [r.success ? 0 : 1, r.success ? (r.ticks ?? Infinity) : -(resultValue(r) ?? 0)];
+  const [a, b] = key(run);
+  const ahead = own.filter(r => {
+    const [x, y] = key(r);
+    return x < a || (x === a && y < b);
+  }).length;
+  return { place: ahead + 1, of: own.length };
+}
+
+/**
+ * The result, its place among the eval's runs and its cost as meta; the run id (its facts behind it)
+ * and the epochs on the right. The header bar already names the eval and the pairing, with its marks.
  */
 function Header({ run, evalInfo, runs, measure }: { run: RunDetail; evalInfo: Eval | undefined; runs: Run[]; measure: XMeasure }) {
+  const { place, of } = placeAmong(run, runs);
   return (
     <PageHeader
-      meta={resultMeta(run, evalInfo, measure)}
+      meta={[
+        ...resultMeta(run, evalInfo, measure),
+        ...(of > 1 ? [{ term: 'Place', value: `#${formatInt(place)} of ${formatInt(of)} runs` }] : []),
+        ...(run.cost != null ? [{ term: 'Cost', value: formatCost(run.cost) }] : []),
+      ]}
       actions={
         <>
           <RunFacts run={run} />

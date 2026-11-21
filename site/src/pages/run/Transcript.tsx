@@ -1,6 +1,6 @@
 /**
- * What the agent was doing, as a conversation, like a coding agent's message feed: the goal it was
- * given, then what the model said and one quiet line per thing it did ("Ran cook.ts", "Read API.md,
+ * What the agent was doing, as a conversation, like a coding agent's message feed (the goal it was
+ * given is the eval's, named in the header bar): what the model said and one quiet line per thing it did ("Ran cook.ts", "Read API.md,
  * actions.ts", "Waited"; actionLines.ts), with the game steps its script takes on the right ("walk,
  * talk"). No code, output or token counts: those live in the log. A line's dot is its tool
  * category's colour; the same line repeated across calls folds into one with a count. The call at the playhead is marked and kept in view inside the feed's own
@@ -111,8 +111,6 @@ export const Transcript = memo(function Transcript({ run, clock, search, tick }:
   const list = useRef<HTMLOListElement>(null);
   const current = currentTurn(run.turns, clock, tick, search.turn);
   const rows = useMemo(() => feedRows(run), [run]);
-  // The goal as the agent got it, without the harness's own blocks (<system-reminder>, <environment_context>)
-  const prompt = run.prompt?.replace(/<([\w-]+)>[\s\S]*?<\/\1>/g, '').replace(/\n\s*\n/g, '\n').trim();
 
   const body = useMemo(
     () =>
@@ -162,13 +160,6 @@ export const Transcript = memo(function Transcript({ run, clock, search, tick }:
         <CardDescription>{formatInt(run.turns.length)} model calls</CardDescription>
       </CardHeader>
       <ol ref={list} aria-label="What the agent was doing" className="relative min-h-0 flex-1 overflow-y-auto pb-3">
-        {prompt && (
-          <li className="mx-4 mb-2 rounded-lg bg-muted px-3 py-2 text-muted-foreground">
-            <p className="line-clamp-3 whitespace-pre-line" title={prompt}>
-              {prompt}
-            </p>
-          </li>
-        )}
         {body}
         {run.answer && (
           <li className="mx-4 mt-3 border-t pt-3">

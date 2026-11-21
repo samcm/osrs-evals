@@ -27,8 +27,8 @@ export const runSearch = defineSearch({
   map: mapViewParam(),
   /** The map's zoom while it follows, in screen pixels per tile */
   mz: num(undefined),
-  /** Playback speed, as a multiple of the game's 20 ticks a second */
-  speed: oneOf(['1', '4', '16', '64'], '4'),
+  /** Playback speed, as a multiple of the game's 20 ticks a second; absent, the one that plays the run in about two minutes */
+  speed: oneOf(['1', '4', '16', '64'], undefined),
   /** The lanes shown, when not the default ones */
   lanes: list(LANE_IDS),
   /** Lane cuts */

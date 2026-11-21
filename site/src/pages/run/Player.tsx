@@ -8,13 +8,14 @@
  * long a tick lasts at the current speed. serve.ts sends the ticks in between when the playhead moves
  * a little forward (playing), and the world as it was at that tick when it jumps (seek, scrub back),
  * so rs-world itself is unchanged. Without serve.ts (a static host) or a recording, the run's end
- * screenshot stands in. It fills the top of the player card, edge to edge; the playback bar
+ * screenshot stands in, labelled as the end of the run, and the run doesn't start playing by itself. It fills the top of the player card, edge to edge; the playback bar
  * (Playback.tsx) is the card's footer.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RunDetail } from '@/data/types';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import { play, REAL_TIME, TRANSITION_MS, type Playhead } from './playhead';
 
 /** rs-world's own panels (minimap, live list, render settings, joysticks): the site has its own controls */
@@ -68,11 +69,12 @@ export function Player({ run, head, autoplay, account }: { run: RunDetail; head:
   const hold = useRef<HTMLCanvasElement>(null);
   const holding = useHeldFrame(frame, hold, status === 'ready' && drawn && head.playing);
 
-  // A run opened at no moment in particular plays from its start, once the game has drawn the world
-  // (straight away when there is no recording); the next frame, so the page's playhead has its end
+  // A run opened at no moment in particular plays from its start, once the game has drawn the world;
+  // the next frame, so the page's playhead has its end. Without a live game (only the end's still)
+  // nothing moves here, so it waits for the reader to press play
   const started = useRef(false);
   useEffect(() => {
-    if (!autoplay || started.current || (status !== 'unavailable' && !drawn)) return;
+    if (!autoplay || started.current || status !== 'ready' || !drawn) return;
     started.current = true;
     const frame = requestAnimationFrame(() => play());
     return () => cancelAnimationFrame(frame);
@@ -80,7 +82,18 @@ export function Player({ run, head, autoplay, account }: { run: RunDetail; head:
 
   const shot = run.screenshot ? `/data/${run.screenshot}` : null;
   const still = (alt: string) => shot && <img src={shot} alt={alt} className="absolute inset-0 size-full object-cover" />;
-  if (status === 'unavailable') return <div className="relative aspect-video w-full overflow-hidden bg-muted">{still('The game at the end of the run')}</div>;
+  if (status === 'unavailable')
+    return (
+      <div className="relative aspect-video w-full overflow-hidden bg-muted">
+        {still('The game at the end of the run')}
+        {/* A still, not the game at the playhead: it says which moment it is */}
+        {shot && (
+          <Badge variant="secondary" className="absolute top-2 left-2">
+            End of run
+          </Badge>
+        )}
+      </div>
+    );
   return (
     <div className="relative aspect-video w-full overflow-hidden bg-muted">
       {/* Until rs-world has drawn the character: the closest frame we have, dimmed and breathing */}

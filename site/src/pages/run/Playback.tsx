@@ -20,7 +20,7 @@ import { useSearchUpdate } from '@/lib/search';
 import { useWidth } from '@/lib/useWidth';
 import { cn } from '@/lib/utils';
 import { turnTick, type Clock, type XMeasure } from './model';
-import { commit, pause, REAL_TIME, seek, setSpeed, SPEEDS, toggle, useCommitted, usePlayhead } from './playhead';
+import { commit, defaultSpeed, pause, REAL_TIME, seek, setSpeed, SPEEDS, toggle, useCommitted, usePlayhead } from './playhead';
 import { runSearch } from './search';
 
 const route = getRouteApi('/runs/$runId');
@@ -77,7 +77,8 @@ function EventMark({ mark }: { mark: Mark }) {
 export function Playback({ run, clock, measure }: { run: RunDetail; clock: Clock; measure: XMeasure }) {
   const [committed, write] = useCommitted(run, clock);
   const head = usePlayhead(clock, committed, write);
-  const { speed } = route.useSearch();
+  const auto = String(defaultSpeed(clock.maxTicks));
+  const speed = route.useSearch().speed ?? auto;
   const update = useSearchUpdate(runSearch);
   const [trackRef, width] = useWidth();
   const max = clock.maxTicks;
@@ -159,7 +160,7 @@ export function Playback({ run, clock, measure }: { run: RunDetail; clock: Clock
         type="single"
         size="sm"
         value={speed}
-        onValueChange={v => v && update({ speed: v as typeof speed })}
+        onValueChange={v => v && update({ speed: v === auto ? undefined : (v as '1' | '4' | '16' | '64') })}
         aria-label="Playback speed"
         className="ml-auto"
       >
