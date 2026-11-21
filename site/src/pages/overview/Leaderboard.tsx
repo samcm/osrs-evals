@@ -121,11 +121,10 @@ export function Leaderboard({
         ...evals.map(e =>
           col.accessor(p => p.evals.get(e.id)?.score ?? -1, {
             id: `eval-${e.id}`,
+            // The eval's sprite, its name on hover: every eval's column fits beside the score, however many there are
             header: () => (
-              <span className="inline-flex items-center gap-1.5 whitespace-nowrap" title={e.title}>
-                <EvalMark evalId={e.id} size={16} title="" />
-                {/* "Quest points in 30 minutes" → "Quest points": the window is the eval's, not the column's */}
-                {e.title.split(' in ')[0]}
+              <span className="inline-flex items-center" title={e.title}>
+                <EvalMark evalId={e.id} size={20} title={e.title} />
               </span>
             ),
             meta: { className: 'text-center max-md:hidden' },
@@ -138,7 +137,7 @@ export function Leaderboard({
   );
 
   return (
-    <PageSection title="Leaderboard" actions={<Scoring evals={every} />} className="xl:col-span-8">
+    <PageSection title="Leaderboard" actions={<Scoring evals={every} />} className="2xl:col-span-8">
       <DataTable
         page={page}
         pageSize={10}

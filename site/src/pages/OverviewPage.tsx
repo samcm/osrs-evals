@@ -1,6 +1,6 @@
 /**
- * `/`: which model in which harness is best, across every eval and at each. The answer leads, in
- * one row on a wide screen: the one leaderboard of pairings by their blended score (lib/score.ts),
+ * `/`: which model in which harness is best, across every eval and at each. The answer leads (with
+ * the featured eval beside it from 2xl, under it below that, so every eval column fits): the one leaderboard of pairings by their blended score (lib/score.ts),
  * a cell per eval, ten to a page; beside it one featured eval, its best run in the game over every
  * pairing's median progress. Hovering a pairing anywhere lights it up in both. The scope narrows
  * which pairings show; their scores are always computed over every run.
@@ -59,7 +59,7 @@ export function OverviewPage() {
         <Empty>No runs in this scope.</Empty>
       ) : (
         <>
-          <div className="grid gap-gutter xl:grid-cols-12">
+          <div className="grid gap-gutter 2xl:grid-cols-12">
             <Leaderboard
               pairings={pairings}
               evals={evals}

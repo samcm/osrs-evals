@@ -139,6 +139,7 @@ export function RaceMap({
   view,
   onViewChange,
   height,
+  minHeight,
   lit,
   placed,
 }: {
@@ -155,6 +156,8 @@ export function RaceMap({
   view: MapView | undefined;
   onViewChange: (view: MapView | undefined) => void;
   height: number;
+  /** The least the fitted map shrinks to: its neighbour's height */
+  minHeight?: number;
 }) {
   const colors = useThemeColors();
   const [images, setImages] = useState<Map<string, HTMLImageElement | TrimmedSprite>>(new Map());
@@ -331,6 +334,7 @@ export function RaceMap({
       view={view}
       onViewChange={onViewChange}
       height={height}
+      minHeight={minHeight}
       fitHeight
       overlay={overlay}
       className="rounded-none"

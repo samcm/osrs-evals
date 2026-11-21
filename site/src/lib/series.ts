@@ -2,11 +2,9 @@
  * Identity of every model, vendor and agent: display names, brand marks, and fixed chart styles.
  * Models' names and makers come from the data (models.dev, through export.py); colours are ours.
  *
- * Colours: each model has one fixed colour (a data hue token from tokens.css), used everywhere:
- *   Claude Haiku 5.5 orange, Claude Sonnet 5.5 purple, GPT-5.6 Luna teal, no model (Program) slate.
- *   Claude Opus 5.5 rose, Claude Fable 5.2 fuchsia, GPT-6.2 Sol blue, GPT-6.2 Astra green.
- * A model not listed gets a stable hash of its id into the chart palette, skipping the hues taken
- * above, never a colour by position. Agents have no colour: each has a fixed line style and point
+ * Colours: each model has one fixed colour (MODEL_COLORS: a --color-model-* token from theme.css,
+ * a hue arc per model line), used everywhere; no model (Program) is slate. A model not listed gets a
+ * stable hash of its id into the chart palette, never a colour by position. Agents have no colour: each has a fixed line style and point
  * shape. A thinking level is a lightness step of its model's colour (`levelColor`), light for off and
  * dark for max. So a variant (model
  * × thinking level × agent) is drawn in its model's hue, at its level's lightness, with its agent's
@@ -138,19 +136,63 @@ export interface ModelInfo {
   vendor: VendorInfo;
 }
 
+const modelHue = (name: string): SeriesColor => ({
+  token: `--color-model-${name}`,
+  swatchClassName: `bg-model-${name}`,
+  borderClassName: `border-model-${name}`,
+  fillClassName: `fill-model-${name}`,
+});
+
+// Literal class names so Tailwind generates them:
+// bg-model-claude-opus-4-5 border-model-claude-opus-4-5 fill-model-claude-opus-4-5
+// bg-model-claude-opus-4-6 border-model-claude-opus-4-6 fill-model-claude-opus-4-6
+// bg-model-claude-opus-4-7 border-model-claude-opus-4-7 fill-model-claude-opus-4-7
+// bg-model-claude-opus-4-8 border-model-claude-opus-4-8 fill-model-claude-opus-4-8
+// bg-model-claude-opus-5 border-model-claude-opus-5 fill-model-claude-opus-5
+// bg-model-claude-opus-5-5 border-model-claude-opus-5-5 fill-model-claude-opus-5-5
+// bg-model-claude-haiku-4-5 border-model-claude-haiku-4-5 fill-model-claude-haiku-4-5
+// bg-model-claude-haiku-5-5 border-model-claude-haiku-5-5 fill-model-claude-haiku-5-5
+// bg-model-gpt-5-6-terra border-model-gpt-5-6-terra fill-model-gpt-5-6-terra bg-model-gpt-6-1-terra
+// border-model-gpt-6-1-terra fill-model-gpt-6-1-terra bg-model-gpt-5-6-luna
+// border-model-gpt-5-6-luna fill-model-gpt-5-6-luna bg-model-gpt-6-luna border-model-gpt-6-luna
+// fill-model-gpt-6-luna bg-model-gpt-5-6-sol border-model-gpt-5-6-sol fill-model-gpt-5-6-sol
+// bg-model-gpt-6-sol border-model-gpt-6-sol fill-model-gpt-6-sol bg-model-gpt-6-1-sol
+// border-model-gpt-6-1-sol fill-model-gpt-6-1-sol bg-model-gpt-6-2-sol border-model-gpt-6-2-sol
+// fill-model-gpt-6-2-sol bg-model-claude-sonnet-4-5 border-model-claude-sonnet-4-5
+// fill-model-claude-sonnet-4-5 bg-model-claude-sonnet-4-6 border-model-claude-sonnet-4-6
+// fill-model-claude-sonnet-4-6 bg-model-claude-sonnet-5 border-model-claude-sonnet-5
+// fill-model-claude-sonnet-5 bg-model-claude-sonnet-5-5 border-model-claude-sonnet-5-5
+// fill-model-claude-sonnet-5-5
+
 /**
- * Each model's one fixed colour, by full id: the one thing about a model models.dev can't say. A
- * model not listed gets a colour from a hash of its id.
+ * Each model's one fixed colour, by its name without the route that served it: the one thing about
+ * a model models.dev can't say. The big run's models take a hue arc per model line, stepped by
+ * lightness and chroma so the ones that race together stay far apart (styles/theme.css). A model not
+ * listed gets a colour from a hash of its id.
  */
 const MODEL_COLORS: Record<string, SeriesColor> = {
-  'anthropic/claude-haiku-5-5': HUES.orange,
-  'anthropic/claude-sonnet-5-5': HUES.purple,
-  'openai/openai-codex/gpt-5.6-luna': HUES.teal,
-  'anthropic/claude-opus-5-5': HUES.rose,
-  'openai/openai-codex/gpt-6.2-sol': HUES.blue,
-  'openai/openai-codex/gpt-6.2-astra': HUES.green,
-  'anthropic/claude-fable-5-2': HUES.fuchsia,
-  'none/none': HUES.slate,
+  'claude-opus-4-5': modelHue('claude-opus-4-5'),
+  'claude-opus-4-6': modelHue('claude-opus-4-6'),
+  'claude-opus-4-7': modelHue('claude-opus-4-7'),
+  'claude-opus-4-8': modelHue('claude-opus-4-8'),
+  'claude-opus-5': modelHue('claude-opus-5'),
+  'claude-opus-5-5': modelHue('claude-opus-5-5'),
+  'claude-haiku-4-5': modelHue('claude-haiku-4-5'),
+  'claude-haiku-5-5': modelHue('claude-haiku-5-5'),
+  'gpt-5.6-terra': modelHue('gpt-5-6-terra'),
+  'gpt-6.1-terra': modelHue('gpt-6-1-terra'),
+  'gpt-5.6-luna': modelHue('gpt-5-6-luna'),
+  'gpt-6-luna': modelHue('gpt-6-luna'),
+  'gpt-5.6-sol': modelHue('gpt-5-6-sol'),
+  'gpt-6-sol': modelHue('gpt-6-sol'),
+  'gpt-6.1-sol': modelHue('gpt-6-1-sol'),
+  'gpt-6.2-sol': modelHue('gpt-6-2-sol'),
+  'claude-sonnet-4-5': modelHue('claude-sonnet-4-5'),
+  'claude-sonnet-4-6': modelHue('claude-sonnet-4-6'),
+  'claude-sonnet-5': modelHue('claude-sonnet-5'),
+  'claude-sonnet-5-5': modelHue('claude-sonnet-5-5'),
+  'gpt-6.2-astra': HUES.green,
+  'claude-fable-5-2': HUES.fuchsia,
 };
 
 /** A name for a model the data has no facts for: "claude-sonnet-5-1" → "Claude Sonnet 5.1". */
@@ -185,8 +227,9 @@ function shortName(name: string, family: string | null | undefined): string {
 /** A model's name (models.dev's display name), colour and maker. */
 export function modelInfo(id: string): ModelInfo {
   const facts = FACTS.get(id);
-  const name = id === 'none/none' ? 'No model' : (facts?.name ?? guessModelName(id));
-  return { name, short: shortName(name, facts?.family), color: MODEL_COLORS[id] ?? hashColor(id), vendor: vendorOf(id) };
+  // Data exported before the export dropped alias markers names an alias "Claude Haiku 4.5 (latest)"
+  const name = id === 'none/none' ? 'No model' : (facts?.name.replace(/\s+\(latest\)$/i, '') ?? guessModelName(id));
+  return { name, short: shortName(name, facts?.family), color: (id === 'none/none' ? HUES.slate : MODEL_COLORS[id.split('/').pop() ?? id]) ?? hashColor(id), vendor: vendorOf(id) };
 }
 
 export const modelName = (id: string): string => modelInfo(id).name;

@@ -65,12 +65,14 @@ Every page has the same skeleton, and nothing on a page invents its own.
 
 ### Home
 
-No description line (the sidebar names the product). A toolbar with the Filters button, then one
-row: the Leaderboard (eight of twelve columns: rank, pairing, its score of 100 with "How it's
-scored" in the card's action, a heat cell per eval that more than one pairing ran; ten rows a page,
-`?page=`; on a phone the eval cells sit under the pairing's name) and the featured eval (four
-columns: a Select of the evals heads the card, `?eval=` as the eval's slug; its best run's last
-moment, then every pairing's median progress, compact, keyed by the leaderboard beside it).
+No description line (the sidebar names the product). A toolbar with the Filters button, then the
+Leaderboard (rank, pairing, its score of 100 with "How it's scored" in the card's action, a heat
+cell per eval that more than one pairing ran, headed by the eval's sprite with its name on hover so
+every eval's column fits at 1280 without scrolling; ten rows a page, `?page=`; on a phone the eval
+cells sit under the pairing's name) and the featured eval (a Select of the evals heads the card,
+`?eval=` as the eval's slug; its best run's last moment and every pairing's median progress,
+compact, keyed by the leaderboard). The featured eval sits under the leaderboard, its still beside
+its chart, and beside the leaderboard (eight and four of twelve columns) from 2xl.
 
 ### Eval page
 
@@ -87,8 +89,9 @@ Behaviour's rows run in the leaderboard's order; a narrow card shows one effort 
 Cost tab's Pareto points are labelled where they fit (the frontier always) with no legend, and a
 narrow chart has a legend and no labels. Files: `src/pages/eval/`.
 
-The race card is about 420 px tall: the standings in five of twelve columns and the map in seven at
-`fitHeight`, the standings first on a phone. The standings rank the pairings by the eval's score,
+The race card is at most about 420 px tall: the standings in five of twelve columns, as tall as
+their rows (scrolling past 420 px), and the map in seven at `fitHeight`, never shorter than the
+standings beside it; the standings first on a phone. The standings rank the pairings by the eval's score,
 the same as every leaderboard (median result; or how many finished, then the median time to finish
 in game time), in their final order from the first frame. Each row names its pairing (opening the
 model's page on this eval at its level and harness), races its run (the pairing's median run,
@@ -201,7 +204,7 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
 
 - **Models are what models.dev says they are.** A model's display name, maker (the lab, not the
   router that served it: OpenCode Go's `beam-free` is Reflection's "Beam 1.0, free"), description,
-  release, knowledge cutoff, open weights, limits, modalities and advertised thinking levels, and
+  release, knowledge cutoff (an alias's "(latest)" dropped from its name), open weights, limits, modalities and advertised thinking levels, and
   the inference provider its runs went through, come from models.dev's api.json through
   `export.py` (index.json `models` and `providers`). No hand-made name or vendor tables; only the
   colours (`MODEL_COLORS` in `src/lib/series.ts`) are ours.
@@ -226,8 +229,11 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   series colours, alter their shape, or use them as decoration. The harness marks' sources and
   licences are listed in `public/assets/brands/SOURCES.md`.
 - **Every model has one fixed colour and every agent one fixed line style and point shape**, from
-  `src/lib/series.ts`, everywhere. Never colour by index. A model not in `MODEL_COLORS` gets one
-  from a hash of its id; list it there to give it a chosen hue. A thinking level is a lightness step of its model's colour (`levelColor`): light
+  `src/lib/series.ts`, everywhere. Never colour by index. `MODEL_COLORS` (by the model's name
+  without its route) holds a `--color-model-*` token from `theme.css` for every model the big run
+  plays: a hue arc per model line (Opus reds, Haiku ambers, Terra limes, Luna teals, Sol blues,
+  Sonnet purples), lightness and chroma chosen so every pair stays apart. Add a new model there,
+  checking it against the others; one not listed gets a colour from a hash of its id. A thinking level is a lightness step of its model's colour (`levelColor`): light
   for off, dark for max. So a pairing keeps its
   model's hue, its harness's dash and shape, and its level's lightness; legends, tooltips and labels
   name the level too.

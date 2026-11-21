@@ -176,6 +176,8 @@ def load_prices(catalog: dict, models: set[str]) -> dict:
 
 # A variant a router serves under its own name ("Beam Free", "Muse Spark 1.3 Contributor")
 VARIANT = re.compile(r"\s+(free|contributor)$", re.I)
+# An alias entry's marker ("Claude Haiku 4.5 (latest)" for claude-haiku-4-5): the model's name is without it
+ALIAS = re.compile(r"\s+\(latest\)$", re.I)
 # The parameter counts in a maker's model name ("Beam 1.0 501B A23B"): the name is what comes before
 SIZES = re.compile(r"(\s+A?\d+(\.\d+)?[BT])+$", re.I)
 # Inference providers models.dev doesn't list, by their route in the Inspect model name
@@ -242,7 +244,7 @@ def model_facts(catalog: dict, models: set[str]) -> dict:
             served, variant = mine, None
             if mine is None:
                 continue
-        base = SIZES.sub("", VARIANT.sub("", mine.get("name") or name))
+        base = SIZES.sub("", VARIANT.sub("", ALIAS.sub("", mine.get("name") or name)))
         facts[model] = {
             "name": f"{base}, {variant.group(1).lower()}" if variant else base,
             "description": mine.get("description") or served.get("description"),

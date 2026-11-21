@@ -22,7 +22,7 @@ import { useLit } from './lit';
 import type { LegendState } from '@/lib/legend';
 import type { MapView } from '@/lib/map';
 import { useSearchUpdate } from '@/lib/search';
-import { useWidth } from '@/lib/useWidth';
+import { useHeight, useWidth } from '@/lib/useWidth';
 import { niceMax, rankVariants, valueAt, type Agg, type RunCurve } from './model';
 import { pause, play, seek, useEvalPlayhead } from './playhead';
 import { raceRows } from './centerpiece/race';
@@ -71,6 +71,9 @@ export function Centerpiece({
   const span = Math.max(1, Math.min(maxTick, Math.max(0, ...runners.map(cv => cv.points[cv.points.length - 1]?.tick ?? 0))));
   const head = useEvalPlayhead(t, span, tick => update({ t: tick }));
   const mobile = useIsMobile();
+  const [standingsRef, standingsHeight] = useHeight();
+  // Side by side from Tailwind's lg, as the card's grid (re-read as the card's width changes)
+  const beside = width > 0 && window.matchMedia('(min-width: 1024px)').matches;
 
   // Opened at no moment in particular (`?t=` absent), the race plays from the start at its normal pace
   // once the map has its runs, as a run page does; a link to a moment opens paused there
@@ -135,9 +138,10 @@ export function Centerpiece({
 
   return (
     // A media card: the map runs to the card's edges, as an image-first shadcn card does. Beside the
-    // map, the standings take its height and scroll inside it when there are more rows than fit
+    // map, the standings take the height they need, up to the card's, and scroll inside it past that;
+    // the map, fitted to the runs' shape, is never shorter than they are
     <Card ref={ref} className="gap-0 overflow-hidden py-0 lg:grid lg:grid-cols-12" aria-label="Every run in the game">
-      <div className="relative flex min-w-0 flex-col gap-2 py-4 lg:col-span-5 lg:border-r">
+      <div ref={standingsRef} className="relative flex min-w-0 flex-col gap-2 py-4 lg:col-span-5 lg:self-start" style={beside ? { maxHeight: RACE_HEIGHT } : undefined}>
         <CardContent className="flex shrink-0 items-center gap-3">
           <Button
             variant="outline"
@@ -167,13 +171,11 @@ export function Centerpiece({
             {gameTime(e, head.tick)}
           </span>
         </CardContent>
-        <div className="min-h-0 flex-1 lg:relative">
-          <CardContent className="lg:absolute lg:inset-0 lg:overflow-y-auto">
-            <Standings e={e} rows={lanes} max={top} perRun={agg === 'runs'} lit={lit} stages={target != null ? stages : []} />
-          </CardContent>
-        </div>
+        <CardContent className="min-h-0 overflow-y-auto">
+          <Standings e={e} rows={lanes} max={top} perRun={agg === 'runs'} lit={lit} stages={target != null ? stages : []} />
+        </CardContent>
       </div>
-      <div className="relative min-w-0 border-t lg:col-span-7 lg:border-t-0" onPointerMove={onPointerMove} onPointerLeave={() => setHovered(undefined)}>
+      <div className="relative min-w-0 border-t lg:col-span-7 lg:border-t-0 lg:border-l" onPointerMove={onPointerMove} onPointerLeave={() => setHovered(undefined)}>
         {width === 0 || !grid ? (
           <Skeleton className="w-full rounded-none" style={{ height }} />
         ) : (
@@ -187,6 +189,7 @@ export function Centerpiece({
             view={view}
             onViewChange={v => update({ map: v })}
             height={height}
+            minHeight={beside ? standingsHeight : undefined}
           />
         )}
       </div>

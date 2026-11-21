@@ -75,7 +75,7 @@ function MedianProgress({ e, lines, legend }: { e: Eval; lines: PairLine[]; lege
     <ChartFrame config={seriesConfig(series)} height="compact" loading={!data}>
       <LineChart data={rows} margin={chartMargin()}>
         <CartesianGrid {...gridProps} />
-        <XAxis {...xAxisProps({ dataKey: 'tick', domain: [0, end], ticks: roundTicks(end, 3), format: formatTick })} />
+        <XAxis {...xAxisProps({ dataKey: 'tick', domain: [0, end], ticks: roundTicks(end, 4), format: formatTick })} />
         <YAxis {...yAxisProps({ domain: [0, yMax], ticks: roundTicks(yMax, 4), format: formatTick })} />
         <ChartTooltip
           cursor={crosshairCursor}
@@ -138,7 +138,7 @@ export function Featured({
 
   return (
     <PageSection
-      className="xl:col-span-4"
+      className="2xl:col-span-4"
       title={
         evals.length > 1 ? (
           <Select value={featured.id} onValueChange={id => onChange(id === fallback.id ? undefined : id)}>
@@ -171,22 +171,27 @@ export function Featured({
         </Button>
       }
     >
-      {best && (
-        <figure className="flex min-w-0 flex-col gap-2">
-          <Link
-            to="/runs/$runId"
-            params={{ runId: best.id }}
-            {...hoverProps(variantOf(best).key)}
-            className="block overflow-hidden rounded-md bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            <img src={`/data/${best.screenshot}`} alt="The best run's last moment in the game" className="aspect-video w-full animate-fade-in object-cover" />
-          </Link>
-          <figcaption className="flex min-w-0 text-sm">
-            <VariantLabel run={best} compact />
-          </figcaption>
-        </figure>
-      )}
-      <MedianProgress e={featured} lines={lines} legend={legend} />
+      {/* Beside the leaderboard (2xl) the still sits over the chart; under it, beside the chart */}
+      <div className="flex min-w-0 flex-col gap-gutter md:flex-row 2xl:flex-col">
+        {best && (
+          <figure className="flex min-w-0 flex-col gap-2 md:w-2/5 2xl:w-auto">
+            <Link
+              to="/runs/$runId"
+              params={{ runId: best.id }}
+              {...hoverProps(variantOf(best).key)}
+              className="block overflow-hidden rounded-md bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <img src={`/data/${best.screenshot}`} alt="The best run's last moment in the game" className="aspect-video w-full animate-fade-in object-cover" />
+            </Link>
+            <figcaption className="flex min-w-0 text-sm">
+              <VariantLabel run={best} compact />
+            </figcaption>
+          </figure>
+        )}
+        <div className="min-w-0 flex-1">
+          <MedianProgress e={featured} lines={lines} legend={legend} />
+        </div>
+      </div>
     </PageSection>
   );
 }

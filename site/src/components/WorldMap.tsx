@@ -125,6 +125,7 @@ export function WorldMap({
   onViewChange,
   height = 360,
   fitHeight = false,
+  minHeight = 200,
   fitKey,
   padding = 24,
   label,
@@ -144,6 +145,8 @@ export function WorldMap({
   height?: number;
   /** Shrink the frame to the paths' shape at its width, up to `height`, so the map fills it */
   fitHeight?: boolean;
+  /** The least a fitted frame shrinks to, as when it must match a neighbour's height */
+  minHeight?: number;
   /** What the fitted view depends on, when not every path's length (a trail that grows with time) */
   fitKey?: string;
   /** Space around the paths when fitting, in CSS pixels */
@@ -238,8 +241,8 @@ export function WorldMap({
     // At least ~50 tiles across, so a run that stays in one building still shows where it is
     const minSpan = 48 * meta.px_per_tile;
     const aspect = Math.max(y1 - y0, minSpan) / Math.max(x1 - x0, minSpan);
-    return Math.round(Math.min(height, Math.max(200, (size.w - 2 * padding) * aspect + 2 * padding)));
-  }, [fitHeight, height, meta, padding, prepared, size.w]);
+    return Math.round(Math.min(height, Math.max(minHeight, (size.w - 2 * padding) * aspect + 2 * padding)));
+  }, [fitHeight, height, minHeight, meta, padding, prepared, size.w]);
 
   /** The camera that fits every path and marker (or the whole map) with padding. */
   const fit = useCallback((): Camera | null => {
