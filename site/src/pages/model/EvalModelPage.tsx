@@ -20,7 +20,7 @@ import { formatCost, formatInt } from '@/lib/format';
 import { useLegend } from '@/lib/legend';
 import { resultValue } from '@/lib/runResult';
 import { inScope, useDocumentTitle, useScope, useSearchUpdate } from '@/lib/search';
-import { compareThinking, modelInfo, modelSlug, NOT_RECORDED, thinkingOf } from '@/lib/series';
+import { compareThinking, modelInfo, modelSlug } from '@/lib/series';
 import { median } from '@/lib/stats';
 import { Centerpiece } from '../eval/Centerpiece';
 import { buildCurves, rankVariants, totalBudgetTicks, X_OPTIONS, xRange } from '../eval/model';
@@ -36,7 +36,7 @@ const SECTIONS = 'flex flex-col gap-gutter';
 /** What ran: the harnesses as their marks, the thinking levels, and the result and cost over every run. */
 function facts(runs: Run[], target: number | null, measure: string): MetaItem[] {
   const harnesses = [...new Map(runs.map(r => [r.agent, r])).values()];
-  const levels = [...new Set(runs.map(thinkingOf))].filter(l => l != null).sort(compareThinking);
+  const levels = [...new Set(runs.map(r => r.thinking))].sort(compareThinking);
   const results = runs.map(resultValue).filter((v): v is number => v != null);
   return [
     { term: 'Runs', value: formatInt(runs.length) },
@@ -54,7 +54,7 @@ function facts(runs: Run[], target: number | null, measure: string): MetaItem[] 
       term: 'Thinking',
       value: (
         <span className="inline-flex flex-wrap items-center gap-x-2 align-middle">
-          {levels.length ? levels.map(l => <ThinkingLevel key={l} level={l} />) : NOT_RECORDED}
+          {levels.map(l => <ThinkingLevel key={l} level={l} />)}
         </span>
       ),
     },
@@ -78,7 +78,7 @@ export function EvalModelPage() {
   // Every run of this model on this eval, then this page's filters
   const all = useMemo(() => data.runs.filter(r => r.eval === e?.id && modelSlug(r.model) === modelSlug(model) && inScope(r, scope)), [data, e, model, scope]);
   const runs = useMemo(
-    () => all.filter(r => (search.level.length === 0 || search.level.includes(thinkingOf(r) ?? '')) && (search.harness.length === 0 || search.harness.includes(r.agent))),
+    () => all.filter(r => (search.level.length === 0 || search.level.includes(r.thinking)) && (search.harness.length === 0 || search.harness.includes(r.agent))),
     [all, search.level, search.harness]
   );
   const info = modelInfo(all[0]?.model ?? model);
@@ -87,10 +87,8 @@ export function EvalModelPage() {
   const curves = useMemo(() => (e ? buildCurves(e, grid, runs, new Map()) : []), [e, grid, runs]);
   const ranked = useMemo(() => (e ? rankVariants(e, runs, search.x) : []), [e, runs, search.x]);
   const range = useMemo(() => (e ? xRange(e, curves, search.x) : null), [e, curves, search.x]);
-  // The thinking-level charts take only runs whose level was recorded
-  const leveled = useMemo(() => runs.filter(r => thinkingOf(r) != null), [runs]);
-  const levels = useMemo(() => [...new Set(leveled.map(r => thinkingOf(r)!))].sort(compareThinking), [leveled]);
-  const series = useMemo(() => harnessSeries(leveled), [leveled]);
+  const levels = useMemo(() => [...new Set(runs.map(r => r.thinking))].sort(compareThinking), [runs]);
+  const series = useMemo(() => harnessSeries(runs), [runs]);
 
   if (!e || all.length === 0) {
     return (
@@ -130,15 +128,15 @@ export function EvalModelPage() {
           <Centerpiece curves={curves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={totalBudgetTicks(e)} agg="runs" />
           <div className={`grid gap-gutter ${target ? 'xl:grid-cols-3' : 'xl:grid-cols-2'}`}>
             <PageSection title={`${e.measure} by thinking level`}>
-              <ThinkingChart runs={leveled} measure={evalMeasure(e, 'result')} levels={levels} series={series} />
+              <ThinkingChart runs={runs} measure={evalMeasure(e, 'result')} levels={levels} series={series} />
             </PageSection>
             {target && (
               <PageSection title="Ticks to finish by thinking level">
-                <ThinkingChart runs={leveled} measure={evalMeasure(e, 'ticks')} levels={levels} series={series} />
+                <ThinkingChart runs={runs} measure={evalMeasure(e, 'ticks')} levels={levels} series={series} />
               </PageSection>
             )}
             <PageSection title="Cost by thinking level">
-              <ThinkingChart runs={leveled} measure={evalMeasure(e, 'cost')} levels={levels} series={series} />
+              <ThinkingChart runs={runs} measure={evalMeasure(e, 'cost')} levels={levels} series={series} />
             </PageSection>
           </div>
           <PageSection title={e.measure} actions={<ParamSegmented param="x" value={search.x} label="Along" options={X_OPTIONS.filter(o => o.value !== 'calls')} />}>

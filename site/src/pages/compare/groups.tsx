@@ -2,7 +2,7 @@
 
 import type { Run } from '@/data/types';
 import { AgentLabel, BrandMark, HarnessMark, ModelLabel, ThinkingLevel, VariantLabel } from '@/components/marks';
-import { agentInfo, modelInfo, thinkingOf, variantOf, vendorOf } from '@/lib/series';
+import { agentInfo, modelInfo, variantOf, vendorOf } from '@/lib/series';
 
 export type GroupBy = 'model' | 'vendor' | 'agent' | 'variant';
 
@@ -51,7 +51,7 @@ export function GroupLabel({ sample, by, size = 16, stacked }: { sample: Run; by
       <span className="flex flex-col items-end gap-0.5">
         <ModelLabel model={sample.model} compact size={size} />
         <span className="flex items-center gap-1.5">
-          <ThinkingLevel level={thinkingOf(sample)} />
+          <ThinkingLevel level={sample.thinking} />
           <HarnessMark agent={sample.agent} fallback={sample.agent_name} />
         </span>
       </span>
@@ -72,6 +72,5 @@ export function groupScope(sample: Run, by: GroupBy): { model?: string[]; agent?
   if (by === 'model') return { model: [sample.model] };
   if (by === 'vendor') return { vendor: [vendorOf(sample.model).id] };
   if (by === 'agent') return { agent: [sample.agent] };
-  const level = thinkingOf(sample);
-  return { model: [sample.model], agent: [sample.agent], ...(level && { thinking: [level] }) };
+  return { model: [sample.model], agent: [sample.agent], thinking: [sample.thinking] };
 }

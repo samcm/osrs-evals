@@ -134,26 +134,9 @@ export function turnSummary(turn: Turn): { text: string; kind: 'said' | 'sdk' | 
   if (said) return { text: plainLine(said), kind: 'said' };
   const sdk = [...new Set(turn.actions.flatMap(a => a.sdk_calls))].filter(f => f !== 'getState');
   if (sdk.length) return { text: sdk.join(' '), kind: 'sdk' };
-  // Polling a running process (Codex): what the process printed since, not the poll itself
-  if (turn.actions.length > 0 && turn.actions.every(a => a.category === 'wait')) {
-    const printed = turn.actions.map(a => processOutput(a.output)).find(Boolean);
-    return { text: printed ?? 'No new output', kind: 'command' };
-  }
   const command = turn.actions.map(commandLine).find(Boolean);
   if (command) return { text: command, kind: 'command' };
   return turn.stop_reason === 'game_over' ? { text: 'Cut off by the end of the game', kind: 'command' } : null;
-}
-
-/** The last line a polled process printed: Codex wraps it in a header ending "Output:". */
-function processOutput(output: string | null): string | undefined {
-  if (!output) return undefined;
-  const at = output.indexOf('Output:');
-  const body = at >= 0 ? output.slice(at + 'Output:'.length) : output;
-  return body
-    .split('\n')
-    .map(line => line.trim())
-    .filter(Boolean)
-    .at(-1);
 }
 
 /** What one action did, in one line: the game functions its script called, else its command. */

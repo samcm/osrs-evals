@@ -6,7 +6,6 @@
  */
 
 import type { Action } from '@/data/types';
-import { formatInt } from '@/lib/format';
 
 /** One clause of a line: a verb, then what it acted on. */
 export interface Clause {
@@ -272,27 +271,12 @@ export function actionClauses(action: Action): Clause[] {
   switch (action.category) {
     case 'submit':
       return [{ verb: 'Submitted its answer' }];
-    case 'plan': {
-      const plan = args?.plan as { step: string; status: string }[] | undefined;
-      const now = plan?.find(p => p.status === 'in_progress') ?? plan?.findLast(p => p.status === 'completed');
-      return [{ verb: 'Planned', object: now?.step }];
-    }
     case 'state':
       return [{ verb: 'Checked the game' }];
-    case 'stdin':
-      return [{ verb: String(args?.chars ?? '') === '\u0003' ? 'Stopped its script' : 'Typed into its script' }];
     case 'wait': {
-      if (args) {
-        const ms = Number(args.yield_time_ms);
-        return [{ verb: 'Waited', object: ms >= 1000 ? `${formatInt(ms / 1000)} s` : undefined }];
-      }
       const sleep = shellClauses(action.input).find(c => c.verb === 'Waited');
       return [{ verb: 'Waited', object: sleep?.object }];
     }
-    case 'manage':
-      if (action.tool === 'TaskStop') return [{ verb: 'Stopped a task' }];
-      if (action.tool === 'Monitor') return [{ verb: 'Waited' }];
-      return [{ verb: 'Checked its tasks' }];
   }
   if (args) {
     const path = args.file_path ?? args.path;

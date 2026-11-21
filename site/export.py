@@ -30,8 +30,6 @@ from inspect_ai.log import list_eval_logs, read_eval_log
 
 SITE = Path(__file__).resolve().parent
 QUESTS = SITE / "game" / "quests.json"  # written by site/game/quests.py from rs-sdk's content
-# Harnesses by the last part of their solver's name (react, inspect_swe/claude_code, harness/omp ...)
-AGENT_NAMES = {"react": "Model + bash", "claude_code": "Claude Code", "codex_cli": "Codex", "omp": "omp", "command": "Program"}
 EVAL_NAMES = {"quest_points": "Quest points in 30 minutes", "dragon_slayer": "Dragon Slayer", "total_level": "Total level", "collection": "Collection", "team_wealth": "Team wealth", "coins": "Coins", "gold": "Gold"}
 MEASURES = {"quest_points": "Quest points", "dragon_slayer": "Quest stage", "total_level": "Total level", "collection": "Different items", "team_wealth": "Wealth", "coins": "Coins", "gold": "Coins"}
 # Short task names in the batch files (evals/matrix.py names a task <eval>_<agent>)
@@ -117,73 +115,19 @@ def eval_title(eval_id: str) -> str:
 
 
 def agent_name(solver: str) -> str:
-    last = solver.split("/")[-1].split("@")[-1]
-    return AGENT_NAMES.get(last, last)
-
-
-# The thinking level a run ran at when nothing pinned one: what the model gateway its batch played
-# through (omp's) forwarded for a request that asked for no effort, by batch (the log directory),
-# route (the Inspect model name without the model: anthropic, openai/openai-codex, openai/anthropic)
-# and model as its requests named it. The requests these runs recorded asked for no effort:
-#   anthropic            thinking: {type: "adaptive"}
-#   openai/openai-codex  reasoning: {summary: "auto"}
-#   openai/anthropic     reasoning: {summary: "auto"}
-# How the rows were established (the harness thread, 2026-11-21): the same requests replayed through
-# a second omp 19.0.1 gateway behind mitmproxy, to see what it forwarded, and omp 19.0.1's source.
-#   GPT-5.6 Luna, GPT-6.2 Sol, GPT-6.2 Astra  no `reasoning` forwarded; the backend echoed medium
-#   Claude Haiku 5.5                          forwarded thinking: disabled, so off
-#   Claude Sonnet 5.5                         thinking only between tool calls, nothing up front, at
-#                                             Anthropic's default effort: its own level, between_tools
-#   Claude Opus 5.5                           forwarded adaptive with effort: low
-#   Claude Fable 5.2                          not established: no row, so "level not recorded"
-# A batch not listed here (qp-sonnet ran on an unknown gateway version) has no rows: its runs' levels
-# were not recorded. Never guess a row.
-GATEWAY_19 = {  # omp 19.0.0 and 19.0.1
-    ("openai/openai-codex", "gpt-5.6-luna"): "medium",
-    ("openai/openai-codex", "gpt-6.2-sol"): "medium",
-    ("openai/openai-codex", "gpt-6.2-astra"): "medium",
-    ("anthropic", "claude-haiku-5-5"): "off",
-    ("openai/anthropic", "claude-haiku-5-5"): "off",
-    ("anthropic", "claude-sonnet-5-5"): "between_tools",
-    ("openai/anthropic", "claude-sonnet-5-5"): "between_tools",
-    ("anthropic", "claude-opus-5-5"): "low",
-    ("openai/anthropic", "claude-opus-5-5"): "low",
-}
-UNPINNED_THINKING: dict[str, dict[tuple[str, str], str]] = {"qp-models": GATEWAY_19, "ds-batch": GATEWAY_19, "ds-claude": GATEWAY_19}
-LEVELS = {"off", "minimal", "low", "medium", "high", "xhigh", "max"}
-
-
-def requested_thinking(sample, model: str, batch: str) -> str | None:
-    """The thinking level a run's recorded model requests establish: an explicit effort in a request
-    (OpenAI's reasoning.effort, Anthropic's output_config.effort, reasoning_effort; "none" there is
-    reasoning off), else what its batch's gateway applied to a request with none
-    (UNPINNED_THINKING); None when that isn't known."""
-    for e in sample.events:
-        if e.event != "model" or not e.call or not isinstance(e.call.request, dict):
-            continue
-        req = e.call.request
-        for effort in ((req.get("reasoning") or {}).get("effort"), (req.get("output_config") or {}).get("effort"), req.get("reasoning_effort")):
-            if isinstance(effort, str) and effort.lower() in LEVELS | {"none"}:
-                return "off" if effort.lower() == "none" else effort.lower()
-        route, _, name = model.rpartition("/")
-        return UNPINNED_THINKING.get(batch, {}).get((route, name))
-    return None
+    """A harness by the last part of its solver's name: evals/omp.py@omp is omp."""
+    return solver.split("/")[-1].split("@")[-1]
 
 
 def agent_of(log) -> tuple[str, dict, str | None]:
     """The agent (its solver), the parameters worth showing, and the thinking level it pinned: the
-    solver's own `thinking` (omp; "none" for a model without levels) or `effort` (Claude Code),
-    Codex's model_reasoning_effort override, else the run's generate config reasoning_effort; None
-    when nothing pinned one (each sample's requests then say, requested_thinking)."""
+    omp solver's `thinking` ("none" for a model with no thinking levels, which is not off); None
+    when it pinned none."""
     step = log.plan.steps[-1]
     raw = step.params or {}
     params = {k: v for k, v in raw.items() if k in ("version", "cmd") and v not in (None, "auto")}
-    overrides = raw.get("config_overrides") or {}
-    configs = [log.plan.config, log.eval.model_generate_config]
-    thinking = raw.get("thinking") or raw.get("effort") or (overrides.get("model_reasoning_effort") if isinstance(overrides, dict) else None) or next((c.reasoning_effort for c in configs if c is not None and c.reasoning_effort), None)
-    thinking = str(thinking).lower() if thinking else None
-    # Pinned as omp records it: "none" is a model with no thinking levels, not thinking off
-    return step.solver, params, thinking
+    thinking = raw.get("thinking")
+    return step.solver, params, str(thinking).lower() if thinking else None
 
 
 # Inspect providers that name a model's maker: a model reached through another provider's API (an
@@ -346,18 +290,8 @@ SDK_CALL = re.compile(r"\b(?:bot|sdk)\.(\w+)\(")
 
 def category(tool: str, args: dict) -> str:
     """What a tool call was for, the same way for every agent."""
-    if tool in ("update_plan", "TodoWrite"):
-        return "plan"
     if tool == "submit":
         return "submit"
-    if tool == "write_stdin":
-        return "stdin" if args.get("chars") else "wait"
-    if tool in ("Read", "Grep", "Glob", "LS", "WebFetch", "WebSearch"):
-        return "read"
-    if tool in ("Write", "Edit", "MultiEdit", "apply_patch"):
-        return "write"
-    if tool in ("Monitor", "TaskStop", "ListAgents", "BashOutput", "KillShell", "KillBash", "Task", "Agent"):
-        return "manage"
     c = str(args.get("command") or args.get("cmd") or "")
     writes = bool(re.search(r"cat\s*>+\s*\S+\.(ts|js|mjs)", c) or re.search(r"<<\s*'?\w+'?", c))
     runs = bool(re.search(r"\bbun\s+(run\s+)?\S+\.(ts|js|mjs)", c)) and "/opt/sdk/cli.ts" not in c
@@ -399,10 +333,10 @@ def turns_of(sample, prices: dict, clock: Clock, starts) -> list[dict]:
             r = results.get(tc.id)
             te = tool_events.get(tc.id)
             args = tc.arguments or {}
-            text = args.get("command") or args.get("cmd") or json.dumps({k: v for k, v in args.items() if k not in ("intent", "i", "description")})
+            text = args.get("command") or args.get("cmd") or json.dumps({k: v for k, v in args.items() if k not in ("intent", "i")})
             # The model's own few words on what the call is for: omp asks for one on every call (`i`,
-            # or `intent`); Claude Code's shell calls carry a `description`
-            intent = next((v.strip() for v in (args.get("intent"), args.get("i"), args.get("description")) if isinstance(v, str) and v.strip()), None)
+            # or `intent`)
+            intent = next((v.strip() for v in (args.get("intent"), args.get("i")) if isinstance(v, str) and v.strip()), None)
             actions.append({
                 "tool": tc.function,
                 "category": category(tc.function, args),
@@ -413,7 +347,6 @@ def turns_of(sample, prices: dict, clock: Clock, starts) -> list[dict]:
                 "output_chars": len(r.text) if r else None,
                 "truncated": bool(te is not None and te.truncated),
                 "sdk_calls": sorted(set(SDK_CALL.findall(str(text)))),
-                "background": bool(args.get("run_in_background")),
                 "intent": intent[:200] if intent else None,
             })
         done = e.completed or e.timestamp
@@ -804,7 +737,7 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
     account = m["accounts"][0]["username"]
     run_id = f"{spec.run_id[:8]}-{spec.task_id[:6]}-{s.id}-{s.epoch}"
     t0 = next((e.timestamp for e in s.events if e.event == "info" and e.source == "score over time"), s.events[0].timestamp)
-    agent_version = next((e.data.get("version") for e in s.events if e.event == "info" and e.source == "inspect_swe" and isinstance(e.data, dict)), None) or solver_params.get("version")
+    agent_version = solver_params.get("version")
 
     world = world_of(files["world.jsonl.gz"], account, game.get("start_tick"), end_tick) if "world.jsonl.gz" in files else None
     # A team's other accounts: where each went, on the same clock as the first
@@ -912,7 +845,7 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
         "agent": solver,
         "agent_name": agent_name(solver),
         "agent_params": solver_params,
-        "thinking": thinking or requested_thinking(s, spec.model, Path(info.name).parent.name),
+        "thinking": thinking,
         "agent_version": agent_version,
         "model": canonical_model(spec.model),
         "vendor": vendor_of(canonical_model(spec.model)),
@@ -1006,6 +939,9 @@ def export(log_dirs: list[str], price_source: str, out: Path):
         solver, solver_params, thinking = agent_of(log)
         if solver == "command":
             continue  # scripted programs play without a model; the site is about models
+        if thinking is None:
+            print(f"skipped {info.name}: its solver pinned no thinking level")
+            continue
         for s in log.samples:
             if s.error or not s.scores:
                 continue

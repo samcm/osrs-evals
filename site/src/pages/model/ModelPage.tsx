@@ -24,7 +24,7 @@ import { setHovered } from '@/lib/hover';
 import { resultValue } from '@/lib/runResult';
 import { bestLevelKeys, blendedScores, formatScore, runScore, type Pairing } from '@/lib/score';
 import { inScope, useDocumentTitle, useEffort, useScope, useSearchUpdate } from '@/lib/search';
-import { compareThinking, modelInfo, modelSlug, NOT_RECORDED, thinkingOf, variantKey } from '@/lib/series';
+import { compareThinking, modelInfo, modelSlug, variantKey } from '@/lib/series';
 import { median } from '@/lib/stats';
 import { cn } from '@/lib/utils';
 import { tint } from '../overview/Leaderboard';
@@ -81,7 +81,7 @@ export function ModelPage() {
       p =>
         p.variant.model === model &&
         inScope(p.variant, scope) &&
-        (search.level.length === 0 || search.level.includes(p.variant.thinking ?? '')) &&
+        (search.level.length === 0 || search.level.includes(p.variant.thinking)) &&
         (search.harness.length === 0 || search.harness.includes(p.variant.agent))
     );
     if (effort === 'all') return own;
@@ -94,9 +94,8 @@ export function ModelPage() {
   const best = useMemo(() => bests(data.evals, data.runs), [data]);
 
   // Score and cost by thinking level, every eval's runs together
-  const leveled = useMemo(() => runs.filter(r => thinkingOf(r) != null), [runs]);
-  const levels = useMemo(() => [...new Set(leveled.map(r => thinkingOf(r)!))].sort(compareThinking), [leveled]);
-  const series = useMemo(() => harnessSeries(leveled), [leveled]);
+  const levels = useMemo(() => [...new Set(runs.map(r => r.thinking))].sort(compareThinking), [runs]);
+  const series = useMemo(() => harnessSeries(runs), [runs]);
   const byEval = useMemo(() => new Map(data.evals.map(e => [e.id, e])), [data]);
   const scoreMeasure = useMemo<ThinkingMeasure>(
     () => ({
@@ -120,7 +119,7 @@ export function ModelPage() {
   if (!model) return <Empty>No runs of this model.</Empty>;
 
   const harnesses = [...new Map(everyRun.map(r => [r.agent, r])).values()];
-  const allLevels = [...new Set(everyRun.map(thinkingOf))].filter(l => l != null).sort(compareThinking);
+  const allLevels = [...new Set(everyRun.map(r => r.thinking))].sort(compareThinking);
   const meta: MetaItem[] = [
     { term: 'Evals', value: formatInt(evals.length) },
     { term: 'Runs', value: formatInt(everyRun.length) },
@@ -136,7 +135,7 @@ export function ModelPage() {
     },
     {
       term: 'Thinking',
-      value: <span className="inline-flex flex-wrap items-center gap-x-2 align-middle">{allLevels.length ? allLevels.map(l => <ThinkingLevel key={l} level={l} />) : NOT_RECORDED}</span>,
+      value: <span className="inline-flex flex-wrap items-center gap-x-2 align-middle">{allLevels.map(l => <ThinkingLevel key={l} level={l} />)}</span>,
     },
   ];
 
@@ -196,7 +195,7 @@ export function ModelPage() {
                               <TooltipTrigger asChild>
                                 <Link
                                   {...evalLink(e)}
-                                  search={{ ...(p.variant.thinking && { level: [p.variant.thinking] }), harness: [p.variant.agent] } as never}
+                                  search={{ level: [p.variant.thinking], harness: [p.variant.agent] } as never}
                                   className={cn('inline-flex h-6 w-10 items-center justify-center rounded-sm tabular-nums', tint(s.score))}
                                 >
                                   {formatScore(s.score)}
@@ -220,10 +219,10 @@ export function ModelPage() {
 
           <div className="grid gap-gutter xl:grid-cols-2">
             <PageSection title="Score by thinking level">
-              <ThinkingChart runs={leveled} measure={scoreMeasure} levels={levels} series={series} evalOf={evalOf} />
+              <ThinkingChart runs={runs} measure={scoreMeasure} levels={levels} series={series} evalOf={evalOf} />
             </PageSection>
             <PageSection title="Cost by thinking level">
-              <ThinkingChart runs={leveled} measure={costMeasure} levels={levels} series={series} evalOf={evalOf} />
+              <ThinkingChart runs={runs} measure={costMeasure} levels={levels} series={series} evalOf={evalOf} />
             </PageSection>
           </div>
 

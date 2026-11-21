@@ -11,7 +11,7 @@ import { FacetFilter } from '@/components/FacetFilter';
 import { BrandMark } from '@/components/marks';
 import type { Run } from '@/data/types';
 import { useEffort, useSearchUpdate, type EffortCut } from '@/lib/search';
-import { agentInfo, compareThinking, levelName, thinkingOf, thinkingTitle } from '@/lib/series';
+import { agentInfo, compareThinking, levelName, thinkingTitle } from '@/lib/series';
 
 const EFFORT_OPTIONS = [
   { value: 'all' as const, label: 'All levels', title: 'Every thinking level of each model in each harness' },
@@ -41,9 +41,8 @@ export function PairingFilters({
 }) {
   const cut = useEffort();
   const update = useSearchUpdate<{ effort: EffortCut }>();
-  const level = (r: Run): string => thinkingOf(r) ?? '';
-  // Runs whose level was not recorded can't be picked by level
-  const levels = [...counted(runs, level).keys()].filter(Boolean).sort(compareThinking);
+  const level = (r: Run): string => r.thinking;
+  const levels = [...counted(runs, level).keys()].sort(compareThinking);
   const agents = [...new Map(runs.map(r => [r.agent, r])).values()].sort((a, b) => agentInfo(a.agent, a.agent_name).name.localeCompare(agentInfo(b.agent, b.agent_name).name));
   return (
     <>

@@ -129,7 +129,7 @@ export function Leaderboard({ pairings, evals, sort, onSortChange }: { pairings:
           navigate({
             to: '/models/$model',
             params: { model: modelSlug(p.variant.model) },
-            search: { ...(p.variant.thinking && { level: [p.variant.thinking] }), harness: [p.variant.agent] } as never,
+            search: { level: [p.variant.thinking], harness: [p.variant.agent] } as never,
           })
         }
         empty={<Empty>No runs in this scope.</Empty>}

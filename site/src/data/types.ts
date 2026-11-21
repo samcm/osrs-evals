@@ -37,9 +37,8 @@ export interface AttemptResult {
   best_value: number | null;
 }
 
-/** What a tool call was for, the same way for every agent. `wait` includes Codex polling a running
- * process (write_stdin with nothing to write); `manage` is background shells and subagents. */
-export type ToolCategory = 'write+run' | 'run' | 'write' | 'read' | 'state' | 'wait' | 'stdin' | 'plan' | 'manage' | 'submit' | 'other';
+/** What a tool call was for, the same way for every agent. */
+export type ToolCategory = 'write+run' | 'run' | 'write' | 'read' | 'state' | 'wait' | 'submit' | 'other';
 
 /** A quest finished in a run. `source` says how we know: 'varp' read from the server's saves (the
  * quest's own varp), 'inferred' guessed from a quest-points jump, where the account was and whom it
@@ -92,7 +91,7 @@ export interface RunMetrics {
   model_errors: number;
   tool_mix: Partial<Record<ToolCategory, number>>;
   tool_names: Record<string, number>;
-  /** Tool errors by type (Model + bash only: parsing, timeout); calls cut off at the game's end are not counted */
+  /** Tool errors by type; calls cut off at the game's end are not counted */
   tool_errors: Record<string, number>;
   /** rs-sdk actions sent to the game (the gateway's log), the harness's own logouts left out */
   sdk_actions: number | null;
@@ -122,11 +121,9 @@ export interface Run {
   agent: string;
   agent_name: string;
   agent_params: Record<string, string>;
-  /** The thinking level the run ran at: the one it pinned (omp's `thinking`, Claude Code's effort,
-   * reasoning_effort), else the one its recorded requests establish (export.py requested_thinking);
-   * null when neither does: the level was not recorded */
-  thinking: string | null;
-  /** The agent CLI's version (Claude Code, Codex); null for Model + bash and programs */
+  /** The thinking level its omp solver pinned (`thinking`); "none" for a model with no levels */
+  thinking: string;
+  /** The harness's version */
   agent_version: string | null;
   model: string;
   /** Slug of the model's maker (anthropic, openai); a key of Index.vendors. Null for no model */
@@ -218,7 +215,7 @@ export interface Action {
   input: string;
   output: string | null;
   error: string | null;
-  /** The tool's own running time; Model + bash only (Claude Code and Codex run their tools inside the CLI) */
+  /** The tool's own running time, when Inspect timed it */
   seconds: number | null;
   /** Length of the whole result, before `output` was cut to 3000 characters */
   output_chars: number | null;
@@ -226,9 +223,7 @@ export interface Action {
   truncated: boolean;
   /** rs-sdk functions (bot.x, sdk.x) named in the command */
   sdk_calls: string[];
-  /** Started as a background shell (Claude Code) */
-  background: boolean;
-  /** A few words from the model on what the call is for (omp); null when the agent doesn't ask */
+  /** A few words from the model on what the call is for (omp's `i`); null when it gave none */
   intent?: string | null;
 }
 

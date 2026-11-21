@@ -14,7 +14,7 @@ import { agentSeries, cssColor, dashArray, scatterShape, type SeriesSpec } from 
 import { formatCost, formatInt } from '@/lib/format';
 import { FADED_OPACITY, setHovered, useHover } from '@/lib/hover';
 import { resultValue } from '@/lib/runResult';
-import { levelColor, levelName, modelInfo, thinkingOf } from '@/lib/series';
+import { levelColor, levelName, modelInfo } from '@/lib/series';
 import { useWidth } from '@/lib/useWidth';
 import { median } from '@/lib/stats';
 import { formatTick, roundMax, roundTicks } from '../eval/chartBits';
@@ -52,7 +52,7 @@ export const costMeasure: ThinkingMeasure = {
 };
 
 /** Short names for the level labels when the full ones don't fit; the tooltip names the level in full. */
-const SHORT: Record<string, string> = { none: 'none', between_tools: 'btw tools', minimal: 'min', medium: 'med', xhigh: 'xhi' };
+const SHORT: Record<string, string> = { none: 'none', minimal: 'min', medium: 'med', xhigh: 'xhi' };
 /** text-xs at about 6.6px a character, plus a gap between neighbours */
 const labelPx = (text: string): number => text.length * 6.6 + 8;
 
@@ -95,7 +95,6 @@ export function ThinkingChart({
   series,
   evalOf,
 }: {
-  /** Runs with a recorded thinking level */
   runs: Run[];
   measure: ThinkingMeasure;
   levels: string[];
@@ -116,7 +115,7 @@ export function ThinkingChart({
       const own = runs.filter(r => r.agent === spec.id);
       const line: { x: number; y: number }[] = [];
       levels.forEach((level, i) => {
-        const values = own.filter(r => thinkingOf(r) === level).flatMap(run => {
+        const values = own.filter(r => r.thinking === level).flatMap(run => {
           const v = measure.value(run);
           if (v == null) return [];
           points.push({ x: i + offset, y: v, run, spec });
@@ -135,7 +134,7 @@ export function ThinkingChart({
   const yAxis = measure.log
     ? { ...logAxisProps(points.map(p => p.y)), width: Y_AXIS_WIDTH }
     : yAxisProps({ domain: [0, max], ticks: roundTicks(max, measure.ticks ? 'ticks' : 'count'), format: v => (measure.ticks ? formatTick(v, 'ticks') : formatInt(v)) });
-  const empty = runs.length === 0 ? 'No run here has a recorded thinking level.' : points.length === 0 ? measure.empty : undefined;
+  const empty = points.length === 0 ? measure.empty : undefined;
 
   return (
     <div ref={ref} className="min-w-0">
@@ -160,7 +159,7 @@ export function ThinkingChart({
                 const p = d as Point;
                 if (!p?.run) return null;
                 return {
-                  title: <SeriesLabel series={{ ...p.spec, thinking: thinkingOf(p.run) ?? undefined }} />,
+                  title: <SeriesLabel series={{ ...p.spec, thinking: p.run.thinking }} />,
                   values: [
                     ...(evalOf ? [['Eval', evalOf(p.run)] as [string, string]] : []),
                     ['Epoch', formatInt(p.run.epoch)],
@@ -207,7 +206,7 @@ export function ThinkingChart({
             {points
               .filter(p => p.spec.id === s.id)
               .map(p => (
-                <Cell key={p.run.id} fill={cssColor(levelColor(modelInfo(p.run.model).color, thinkingOf(p.run)))} />
+                <Cell key={p.run.id} fill={cssColor(levelColor(modelInfo(p.run.model).color, p.run.thinking))} />
               ))}
           </Scatter>
         ))}

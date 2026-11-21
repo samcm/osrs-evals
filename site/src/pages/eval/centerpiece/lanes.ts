@@ -62,7 +62,7 @@ function actionLine(turn: Turn): string | null {
 
 /**
  * What the agent was doing at a tick, in its own words: the latest model call by then, its tool
- * call's intent (omp asks for one; Claude Code's shell calls carry a description), else the call's
+ * call's intent (omp asks for one), else the call's
  * prose, else its action as the transcript writes it.
  */
 export function statusAt(detail: RunDetail | undefined, tick: number): string | null {

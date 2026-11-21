@@ -106,7 +106,7 @@ export function Leaderboard({ e, ranked, x, legend }: { e: Eval; ranked: RankedV
                 navigate({
                   to: '/evals/$evalId/$model',
                   params: { evalId: evalSlug(e.id), model: modelSlug(r.variant.model) },
-                  search: { ...(r.variant.thinking && { level: [r.variant.thinking] }), harness: [r.variant.agent] } as never,
+                  search: { level: [r.variant.thinking], harness: [r.variant.agent] } as never,
                 });
               return (
                 <TableRow
@@ -121,7 +121,7 @@ export function Leaderboard({ e, ranked, x, legend }: { e: Eval; ranked: RankedV
                     <Link
                       to="/evals/$evalId/$model"
                       params={{ evalId: evalSlug(e.id), model: modelSlug(r.variant.model) }}
-                      search={{ ...(r.variant.thinking && { level: [r.variant.thinking] }), harness: [r.variant.agent] } as never}
+                      search={{ level: [r.variant.thinking], harness: [r.variant.agent] } as never}
                       onClick={event => event.stopPropagation()}
                       className="flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                     >

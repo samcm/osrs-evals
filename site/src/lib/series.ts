@@ -7,7 +7,7 @@
  * A model not listed gets a stable hash of its id into the chart palette, skipping the hues taken
  * above, never a colour by position. Agents have no colour: each has a fixed line style and point
  * shape. A thinking level is a lightness step of its model's colour (`levelColor`), light for off and
- * dark for max; a run whose level was not recorded keeps the model's own colour. So a variant (model
+ * dark for max. So a variant (model
  * × thinking level × agent) is drawn in its model's hue, at its level's lightness, with its agent's
  * line and shape.
  */
@@ -216,21 +216,18 @@ export interface AgentInfo {
 
 /** Harnesses by the last segment of the agent id. */
 const AGENTS: Record<string, AgentInfo> = {
-  bash: { name: 'bash', slug: 'bash', symbol: 'circle', line: 'solid', variant: model => `${model} + bash` },
-  claude_code: { name: 'Claude Code', slug: 'claude-code', symbol: 'rect', line: 'dashed', variant: model => `${model} in Claude Code` },
-  codex: { name: 'Codex', slug: 'codex', symbol: 'diamond', line: 'dotted', variant: model => `${model} in Codex` },
   opencode: { name: 'OpenCode', slug: 'opencode', symbol: 'roundRect', line: 'dashed', variant: model => `${model} in OpenCode` },
   omp: { name: 'omp', slug: 'omp', symbol: 'triangle', line: 'solid', variant: model => `${model} in omp` },
   amp: { name: 'Amp', slug: 'amp', symbol: 'pin', line: 'dotted', variant: model => `${model} in Amp` },
   program: { name: 'Program', slug: 'program', symbol: 'triangle', line: 'solid', variant: () => 'Program' },
 };
 
-const AGENT_ALIASES: Record<string, string> = { react: 'bash', codex_cli: 'codex', command: 'program' };
+const AGENT_ALIASES: Record<string, string> = { command: 'program' };
 
 const FALLBACK_SYMBOLS: AgentSymbol[] = ['roundRect', 'pin', 'circle', 'rect', 'diamond', 'triangle'];
 const FALLBACK_LINES: AgentLine[] = ['dashed', 'dotted', 'solid'];
 
-/** An agent id ("react", "inspect_swe/claude_code", "harness/__init__.py@omp" …) to its harness. */
+/** An agent id ("evals/omp.py@omp" …) to its harness. */
 export function agentInfo(id: string, fallbackName?: string): AgentInfo {
   const last = (id.split('/').pop() ?? id).split('@').pop() ?? id;
   const known = AGENTS[AGENT_ALIASES[last] ?? last];
@@ -252,10 +249,9 @@ export const agentName = (id: string, fallbackName?: string): string => agentInf
 
 /**
  * Each level's step from its model's colour, as a share mixed in of white (positive) or black
- * (negative): light for off, dark for max. A run whose level was not recorded keeps the model's own
- * colour, which no level takes.
+ * (negative): light for off, dark for max; `none` (a model with no levels) keeps the model's own colour.
  */
-const LEVEL_MIX: Record<string, number> = { off: 44, between_tools: 36, minimal: 28, low: 18, medium: 8, high: -8, xhigh: -20, max: -32 };
+const LEVEL_MIX: Record<string, number> = { off: 44, minimal: 28, low: 18, medium: 8, high: -8, xhigh: -20, max: -32 };
 
 const levelRules = new Set<string>();
 let levelSheet: CSSStyleSheet | null = null;
@@ -266,8 +262,8 @@ let levelSheet: CSSStyleSheet | null = null;
  * cannot know these names ahead of time, so the rules are added to one stylesheet the first time a
  * level of a colour is used; everything that reads a SeriesColor works on them unchanged.
  */
-export function levelColor(base: SeriesColor, level: string | null): SeriesColor {
-  const mix = level ? LEVEL_MIX[level] : undefined;
+export function levelColor(base: SeriesColor, level: string): SeriesColor {
+  const mix = LEVEL_MIX[level];
   if (!mix) return base;
   const name = `${base.token.replace(/^--color-/, '')}-${level}`;
   const color: SeriesColor = { token: `--color-${name}`, swatchClassName: `bg-${name}`, borderClassName: `border-${name}`, fillClassName: `fill-${name}` };
@@ -292,22 +288,13 @@ export function levelColor(base: SeriesColor, level: string | null): SeriesColor
 }
 
 /**
- * Thinking levels, lowest first: omp's `thinking`, Inspect's reasoning_effort and Claude Code's
- * effort, plus `between_tools` (Claude thinking only between tool calls, at Anthropic's default
- * effort, what old Sonnet runs got) and `none` (a model with no thinking levels, which is not off).
- * Every run shows one of these, or that its level was not recorded (null); there is no "default".
+ * Thinking levels, lowest first: the `thinking` every run's omp solver pins, and `none` (a model
+ * with no thinking levels, which is not off). There is no "default".
  */
-export const THINKING_LEVELS = ['none', 'off', 'between_tools', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
+export const THINKING_LEVELS = ['none', 'off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
 
-/** A level as words: "between tools", "no thinking levels", "high". */
-const LEVEL_NAMES: Record<string, string> = { between_tools: 'between tools', none: 'no thinking levels' };
-export const levelName = (level: string): string => LEVEL_NAMES[level] ?? level;
-
-/** A run's thinking level; null when it was not recorded. */
-export const thinkingOf = (run: Pick<Run, 'thinking'>): string | null => run.thinking ?? null;
-
-/** What a run with no recorded level says, in place of a level. */
-export const NOT_RECORDED = 'Level not recorded';
+/** A level as words: "no thinking levels", "high". */
+export const levelName = (level: string): string => (level === 'none' ? 'no thinking levels' : level);
 
 /** Order of thinking levels: the known ones lowest first, unknown ones after them by name. */
 export function compareThinking(a: string, b: string): number {
@@ -326,8 +313,7 @@ export interface Variant {
   key: string;
   model: string;
   agent: string;
-  /** The thinking level; null when it was not recorded */
-  thinking: string | null;
+  thinking: string;
   /** Full name, as "Claude Haiku 5.5 in Claude Code, high thinking" */
   name: string;
   /** Chart label, as "Haiku 5.5 in Claude Code, high" */
@@ -340,19 +326,19 @@ export interface Variant {
   agentSlug: string;
 }
 
-export const variantKey = (run: Pick<Run, 'model' | 'agent' | 'thinking'>): string => `${run.model}|${thinkingOf(run) ?? ''}|${run.agent}`;
+export const variantKey = (run: Pick<Run, 'model' | 'agent' | 'thinking'>): string => `${run.model}|${run.thinking}|${run.agent}`;
 
 export function variantOf(run: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thinking'>): Variant {
   const model = modelInfo(run.model);
   const agent = agentInfo(run.agent, run.agent_name);
-  const thinking = thinkingOf(run);
+  const thinking = run.thinking;
   return {
     key: variantKey(run),
     model: run.model,
     agent: run.agent,
     thinking,
-    name: thinking ? `${agent.variant(model.name)}, ${thinking === 'none' ? 'no thinking levels' : `thinking ${levelName(thinking)}`}` : agent.variant(model.name),
-    short: thinking ? `${agent.variant(model.short)}, ${levelName(thinking)}` : agent.variant(model.short),
+    name: `${agent.variant(model.name)}, ${thinking === 'none' ? 'no thinking levels' : `thinking ${thinking}`}`,
+    short: `${agent.variant(model.short)}, ${levelName(thinking)}`,
     color: levelColor(model.color, thinking),
     symbol: agent.symbol,
     line: agent.line,
@@ -363,7 +349,7 @@ export function variantOf(run: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thi
 
 /** Variants in a stable order: by model, harness, then thinking level. */
 export function compareVariants(a: Variant, b: Variant): number {
-  return modelName(a.model).localeCompare(modelName(b.model)) || a.agent.localeCompare(b.agent) || compareThinking(a.thinking ?? '', b.thinking ?? '');
+  return modelName(a.model).localeCompare(modelName(b.model)) || a.agent.localeCompare(b.agent) || compareThinking(a.thinking, b.thinking);
 }
 
 /**

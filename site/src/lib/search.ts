@@ -11,7 +11,7 @@
 import { useCallback, useEffect } from 'react';
 import { getRouteApi, stripSearchParams, useNavigate, type SearchMiddleware, type SearchSchemaInput } from '@tanstack/react-router';
 import type { Run } from '@/data/types';
-import { thinkingOf, vendorOf } from './series';
+import { vendorOf } from './series';
 
 const root = getRouteApi('__root__');
 
@@ -202,7 +202,7 @@ export function useScope(): Scope {
 /** Whether a run is in scope. */
 export function inScope(run: Pick<Run, 'model' | 'agent' | 'thinking'>, scope: Scope): boolean {
   return (
-    (scope.thinking.length === 0 || scope.thinking.includes(thinkingOf(run) ?? '')) &&
+    (scope.thinking.length === 0 || scope.thinking.includes(run.thinking)) &&
     (scope.model.length === 0 || scope.model.includes(run.model)) &&
     (scope.agent.length === 0 || scope.agent.includes(run.agent)) &&
     (scope.vendor.length === 0 || scope.vendor.includes(vendorOf(run.model).id))

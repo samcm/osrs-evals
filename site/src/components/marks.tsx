@@ -8,8 +8,8 @@
  * Mark sizes beside text: 14 with text-xs (legends, tooltips), 16 with text-sm (inline, nav,
  * tables), 20 with text-base or larger (an H1's label), 40 for a page header's mark.
  *
- *   <VariantLabel run={run} />            Anthropic mark, "Claude Haiku 5.5", brain "high", Claude Code mark
- *   <VariantLabel variant={v} compact />  Anthropic mark, "Haiku 5.5", brain "high", Claude Code mark
+ *   <VariantLabel run={run} />            Anthropic mark, "Claude Haiku 5.5", brain "high", omp mark
+ *   <VariantLabel variant={v} compact />  Anthropic mark, "Haiku 5.5", brain "high", omp mark
  *   <ModelLabel model={id} />             in table rows and inline (16)
  */
 
@@ -186,9 +186,7 @@ export function HarnessMark({ agent, fallback, size = 14, className }: { agent: 
 }
 
 /** A thinking level: a brain and the level's word, muted, beside the model it belongs to. */
-export function ThinkingLevel({ level, className }: { level: string | null; className?: string }) {
-  // A level that was not recorded shows nothing here; the run's page says so in words
-  if (!level) return null;
+export function ThinkingLevel({ level, className }: { level: string; className?: string }) {
   return (
     <span className={cn('inline-flex shrink-0 items-center gap-0.5 text-muted-foreground', className)} title={thinkingTitle(level)}>
       <BrainIcon aria-hidden className="size-3" />

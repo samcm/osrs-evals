@@ -16,7 +16,7 @@ import { outcomeWord } from '@/lib/evals';
 import { capitalize, formatClock, formatCost, formatInt, MISSING } from '@/lib/format';
 import { resultValue } from '@/lib/runResult';
 import { useDocumentTitle, useScope, useSearchUpdate } from '@/lib/search';
-import { agentInfo, compareThinking, levelName, modelInfo, thinkingOf, thinkingTitle, variantKey, vendorOf } from '@/lib/series';
+import { agentInfo, compareThinking, levelName, modelInfo, thinkingTitle, variantKey, vendorOf } from '@/lib/series';
 import { cn } from '@/lib/utils';
 
 const route = getRouteApi('/runs/');
@@ -44,7 +44,7 @@ type Facet = (typeof FACETS)[number];
 const facetValue: Record<Facet, (r: Run) => string> = {
   eval: r => r.eval,
   model: r => r.model,
-  thinking: r => thinkingOf(r) ?? '',
+  thinking: r => r.thinking,
   agent: r => r.agent,
   vendor: r => vendorOf(r.model).id,
   outcome: outcomeValue,
@@ -84,7 +84,7 @@ export function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[]
             ),
           }),
         ]),
-    col.accessor(r => `${modelInfo(r.model).short} ${thinkingOf(r) ?? ''} ${agentInfo(r.agent, r.agent_name).name}`, {
+    col.accessor(r => `${modelInfo(r.model).short} ${r.thinking} ${agentInfo(r.agent, r.agent_name).name}`, {
       id: 'variant',
       header: 'Pairing',
       cell: ({ row }) => <VariantLabel run={row.original} compact />,
@@ -184,7 +184,7 @@ export function RunsPage() {
   const options: Record<Facet, Option[]> = {
     eval: data.evals.map(e => ({ value: e.id, label: e.title, mark: <EvalMark evalId={e.id} size={16} title="" /> })),
     model: uniq(r => ({ value: r.model, label: modelInfo(r.model).name, mark: <BrandMark slug={modelInfo(r.model).vendor.slug} size={16} /> })),
-    thinking: uniq(r => ({ value: thinkingOf(r) ?? '', label: levelName(thinkingOf(r) ?? ''), mark: <BrainIcon aria-label={thinkingTitle(thinkingOf(r) ?? '')} /> }))
+    thinking: uniq(r => ({ value: r.thinking, label: levelName(r.thinking), mark: <BrainIcon aria-label={thinkingTitle(r.thinking)} /> }))
       .filter(o => o.value)
       .sort((a, b) => compareThinking(a.value, b.value)),
     agent: uniq(r => ({ value: r.agent, label: agentInfo(r.agent, r.agent_name).name, mark: <BrandMark slug={agentInfo(r.agent, r.agent_name).slug} size={16} /> })),
