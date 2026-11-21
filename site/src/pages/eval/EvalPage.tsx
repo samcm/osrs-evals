@@ -3,6 +3,7 @@ import { getRouteApi } from '@tanstack/react-router';
 import { useQueries, useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Empty, ParamSegmented } from '@/components/bits';
+import { SelectField } from '@/components/SelectField';
 import { EvalMark } from '@/components/marks';
 import { PairingFilters } from '@/components/PairingFilters';
 import { PageHeader, PageSection, PageTabs, PageToolbar, type MetaItem } from '@/components/page';
@@ -13,7 +14,7 @@ import { evalRunsQuery, indexQuery, runQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
 import { formatDuration, formatInt } from '@/lib/format';
 import { useLegend, type LegendState } from '@/lib/legend';
-import { inScope, useDocumentTitle, useEffort, useScope, useScopeUpdate } from '@/lib/search';
+import { inScope, useDocumentTitle, useEffort, useScope, useScopeUpdate, useSearchUpdate } from '@/lib/search';
 import { AttemptsTable, CdfChart, ParetoChart } from './Cuts';
 import { EffortStrips, GROUP_OPTIONS, ToolMix } from './Effort';
 import { buildCurves, callsByTick, rankVariants, totalBudgetTicks, X_OPTIONS, xRange } from './model';
@@ -90,6 +91,7 @@ export function EvalPage() {
   const scope = useScope();
   const effort = useEffort();
   const setScope = useScopeUpdate();
+  const update = useSearchUpdate();
   const urlLegend = useLegend();
   useDocumentTitle(e?.title ?? evalArt(evalIdOf(slug)).title ?? evalId);
 
@@ -207,12 +209,26 @@ export function EvalPage() {
       ) : search.tab === 'behaviour' ? (
         <>
           <PageSection title="Effort per run">
-            <EffortStrips runs={visibleRuns} by={search.by} focus={legend.focus} />
+            <EffortStrips runs={visibleRuns} by={search.by} ranked={ranked} focus={legend.focus} measure={search.measure} onMeasure={m => update({ measure: m === 'calls' ? undefined : m })} />
           </PageSection>
           <PageSection title="Tool calls">
-            <ToolMix runs={visibleRuns} by={search.by} />
+            <ToolMix runs={visibleRuns} by={search.by} ranked={ranked} />
           </PageSection>
-          <PageSection title="Where they spent their time">
+          <PageSection
+            title="Where they spent their time"
+            actions={
+              // One pairing at a time, or everyone pooled: the legend's focus
+              <SelectField
+                label="Pairing"
+                hideLabel
+                className="w-56"
+                value={legend.focus}
+                allLabel="Every pairing"
+                options={ranked.map(r => ({ value: r.variant.key, label: r.variant.short }))}
+                onChange={key => update({ focus: key, hide: undefined })}
+              />
+            }
+          >
             <WhereMap curves={curves} grid={grid} legend={legend} view={search.heat} />
           </PageSection>
         </>

@@ -65,17 +65,18 @@ export type LabelPosition = 'right' | 'left' | 'top' | 'bottom' | 'top-right' | 
 /**
  * Place point labels so they stay in the box and clear each other and the points: each label takes
  * the first of right, left, above, below (centred, then to either side) that fits, from the top point down.
+ * Points marked `optional` are placed after the others and lose their label (null) when none fits.
  */
 export function placePointLabels(
-  points: { px: number; py: number; width: number }[],
+  points: { px: number; py: number; width: number; optional?: boolean }[],
   box: { x: number; y: number; width: number; height: number }
-): [LabelPosition, [number, number]][] {
+): ([LabelPosition, [number, number]] | null)[] {
   type Rect = [number, number, number, number];
   const overlaps = (a: Rect, b: Rect): boolean => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
   const marks: Rect[] = points.map(p => [p.px - 6, p.py - 6, p.px + 6, p.py + 6]);
   const placed: Rect[] = [];
-  const out: [LabelPosition, [number, number]][] = points.map(() => ['right', [0, 0]]);
-  const order = points.map((_, i) => i).sort((a, b) => points[a].py - points[b].py || points[a].px - points[b].px);
+  const out: ([LabelPosition, [number, number]] | null)[] = points.map(() => ['right', [0, 0]]);
+  const order = points.map((_, i) => i).sort((a, b) => Number(!!points[a].optional) - Number(!!points[b].optional) || points[a].py - points[b].py || points[a].px - points[b].px);
   for (const i of order) {
     const { px, py, width: w } = points[i];
     const h = 20;
@@ -93,7 +94,12 @@ export function placePointLabels(
       r[0] >= box.x && r[2] <= box.x + box.width && r[1] >= box.y - 4 && r[3] <= box.y + box.height + 4;
     const fits = (cand: [LabelPosition, Rect]): boolean =>
       inside(cand) && !placed.some(o => overlaps(o, cand[1])) && !marks.some((m, j) => j !== i && overlaps(m, cand[1]));
-    const choice = candidates.find(fits) ?? candidates.find(inside) ?? candidates[0];
+    const fit = candidates.find(fits);
+    if (!fit && points[i].optional) {
+      out[i] = null;
+      continue;
+    }
+    const choice = fit ?? candidates.find(inside) ?? candidates[0];
     out[i] = [choice[0], [choice[1][0], choice[1][1]]];
     placed.push(choice[1]);
   }

@@ -75,7 +75,8 @@ export function Centerpiece({
   // Opened at no moment in particular (`?t=` absent), the race plays from the start at its normal pace
   // once the map has its runs, as a run page does; a link to a moment opens paused there
   const evalKey = runners[0]?.run.eval;
-  const autoplay = useMemo(() => t == null, [evalKey]);
+  // Under reduced motion it opens at the end instead, the answer already drawn
+  const autoplay = useMemo(() => t == null && !matchMedia('(prefers-reduced-motion: reduce)').matches, [evalKey]);
   const played = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!autoplay || played.current === evalKey || !grid || width === 0 || !evalKey) return;

@@ -1,7 +1,8 @@
 /**
  * How the runs went about it, per pairing, model or harness: each measure as one dot per run with
  * the group's median marked (so a spread or an outlier shows), and the mix of tool calls each group
- * made.
+ * made. Rows run in the leaderboard's order (a model or harness at its best pairing's place), so
+ * what the winners did reads down the top. A narrow card shows one measure at a time (`?measure=`).
  */
 
 import { useMemo } from 'react';
@@ -16,26 +17,33 @@ import { faded, useLit } from './lit';
 import { median } from '@/lib/stats';
 import { TOOL_CATEGORIES } from '@/lib/tools';
 import { useWidth } from '@/lib/useWidth';
+import { SelectField } from '@/components/SelectField';
+import { variantKey } from '@/lib/series';
 import { formatTick, formatX, labelWidth, roundMax, roundTicks, type Measure } from './chartBits';
-import { groupRuns, type Group, type GroupBy } from './model';
+import { groupRuns, type Group, type GroupBy, type RankedVariant } from './model';
 
 
 interface Column {
+  id: StripMeasure;
   title: string;
   measure: Measure;
   value: (run: Run) => number | null;
 }
 
 const COLUMNS: Column[] = [
-  { title: 'Model calls', measure: 'count', value: r => (r.model_calls > 0 ? r.model_calls : null) },
-  { title: 'Waiting on the model', measure: 'share', value: r => r.metrics.model_share },
-  { title: 'Game actions', measure: 'count', value: r => r.metrics.sdk_actions },
+  { id: 'calls', title: 'Model calls', measure: 'count', value: r => (r.model_calls > 0 ? r.model_calls : null) },
+  { id: 'waiting', title: 'Waiting on the model', measure: 'share', value: r => r.metrics.model_share },
+  { id: 'actions', title: 'Game actions', measure: 'count', value: r => r.metrics.sdk_actions },
   {
+    id: 'failed',
     title: 'Game actions failed',
     measure: 'share',
     value: r => (r.metrics.sdk_actions ? (r.metrics.sdk_failed ?? 0) / r.metrics.sdk_actions : null),
   },
 ];
+
+export const STRIP_MEASURES = ['calls', 'waiting', 'actions', 'failed'] as const;
+export type StripMeasure = (typeof STRIP_MEASURES)[number];
 
 export const GROUP_OPTIONS = [
   { value: 'variant' as const, label: 'Pairing' },
@@ -60,7 +68,7 @@ function GroupTick({ x, y, payload, groups, width }: { x?: number; y?: number; p
 const MedianMark = (props: { cx?: number; cy?: number }) =>
   props.cx == null || props.cy == null ? <g /> : <rect x={props.cx - 1} y={props.cy - 8} width={2} height={16} rx={1} className="fill-foreground" />;
 
-function Strip({ column, groups, labels, labelRoom, lit }: { column: Column; groups: Group[]; labels: boolean; labelRoom: number; lit: string | null }) {
+function Strip({ column, groups, labels, labelRoom, lit, titled = true }: { column: Column; groups: Group[]; labels: boolean; labelRoom: number; lit: string | null; titled?: boolean }) {
   const navigate = useNavigate();
   const { dots, medians, max } = useMemo(() => {
     const dots = groups.flatMap((g, row) =>
@@ -81,9 +89,11 @@ function Strip({ column, groups, labels, labelRoom, lit }: { column: Column; gro
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <h3 className="text-sm text-muted-foreground" style={{ paddingLeft: labels ? labelRoom : 0 }}>
-        {column.title}
-      </h3>
+      {titled && (
+        <h3 className="text-sm text-muted-foreground" style={{ paddingLeft: labels ? labelRoom : 0 }}>
+          {column.title}
+        </h3>
+      )}
       <ChartFrame config={{}} rows={groups.length}>
         <ScatterChart margin={chartMargin()}>
           <CartesianGrid {...gridProps} vertical horizontal={false} />
@@ -145,32 +155,62 @@ function Strip({ column, groups, labels, labelRoom, lit }: { column: Column; gro
   );
 }
 
-const useGroups = (runs: Run[], by: GroupBy) => useMemo(() => groupRuns(runs, by), [runs, by]);
+/** The groups in the leaderboard's order: a pairing at its place, a model or harness at its best pairing's. */
+function useGroups(runs: Run[], by: GroupBy, ranked: RankedVariant[]): Group[] {
+  return useMemo(() => {
+    const place = new Map(ranked.map((r, i) => [r.variant.key, i]));
+    const best = (g: Group) => Math.min(...g.runs.map(r => place.get(variantKey(r)) ?? Infinity));
+    return groupRuns(runs, by).sort((a, b) => best(a) - best(b));
+  }, [runs, by, ranked]);
+}
 /** The row labels' gutter: the widest label (mark, short name, thinking level, harness mark), at least the y axis width. */
 const roomFor = (groups: Group[]): number =>
   Math.max(Y_AXIS_WIDTH, ...groups.map(g => labelWidth(g.spec.label) + extraLabelWidth(g.spec) + 8));
 
-export function EffortStrips({ runs, by, focus }: { runs: Run[]; by: GroupBy; focus?: string }) {
+export function EffortStrips({
+  runs,
+  by,
+  ranked,
+  focus,
+  measure,
+  onMeasure,
+}: {
+  runs: Run[];
+  by: GroupBy;
+  ranked: RankedVariant[];
+  focus?: string;
+  /** The one measure a narrow card shows */
+  measure: StripMeasure;
+  onMeasure: (measure: StripMeasure) => void;
+}) {
   const [ref, width] = useWidth();
-  const groups = useGroups(runs, by);
+  const groups = useGroups(runs, by, ranked);
   const lit = useLit(focus);
   const wide = width >= 900;
   const labelRoom = roomFor(groups);
   return (
     <div
       ref={ref}
-      className={wide ? 'grid gap-6' : 'flex flex-col gap-6'}
+      className={wide ? 'grid gap-6' : 'flex flex-col gap-3'}
       // Wide, the first column also holds the labels, so every column's plot is the same width
       style={wide ? { gridTemplateColumns: `calc(${labelRoom}px + (100% - ${labelRoom}px - 4.5rem) / 4) repeat(3, minmax(0, 1fr))` } : undefined}
     >
-      {width > 0 && COLUMNS.map((column, i) => <Strip key={column.title} column={column} groups={groups} labels={!wide || i === 0} labelRoom={labelRoom} lit={lit} />)}
+      {width > 0 &&
+        (wide ? (
+          COLUMNS.map((column, i) => <Strip key={column.id} column={column} groups={groups} labels={i === 0} labelRoom={labelRoom} lit={lit} />)
+        ) : (
+          <>
+            <SelectField label="Measure" hideLabel value={measure} options={COLUMNS.map(c => ({ value: c.id, label: c.title }))} onChange={v => v && onMeasure(v as StripMeasure)} />
+            <Strip column={COLUMNS.find(c => c.id === measure)!} groups={groups} labels labelRoom={labelRoom} lit={lit} titled={false} />
+          </>
+        ))}
     </div>
   );
 }
 
 /** What each group's tool calls were for, as shares of its calls. */
-export function ToolMix({ runs, by }: { runs: Run[]; by: GroupBy }) {
-  const groups = useGroups(runs, by);
+export function ToolMix({ runs, by, ranked }: { runs: Run[]; by: GroupBy; ranked: RankedVariant[] }) {
+  const groups = useGroups(runs, by, ranked);
   const labelRoom = roomFor(groups);
   const present = TOOL_CATEGORIES.filter(cat => runs.some(r => (r.metrics.tool_mix[cat.id] ?? 0) > 0));
   const series = present.map(cat => toolSeries(cat.id));

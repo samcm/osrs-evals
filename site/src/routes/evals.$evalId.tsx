@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { EvalPage } from '@/pages/eval/EvalPage';
+import { STRIP_MEASURES } from '@/pages/eval/Effort';
 import { evalRunsQuery } from '@/data/queries';
 import { evalIdOf, evalSlug } from '@/lib/evals';
 import { mapViewParam } from '@/lib/map';
@@ -15,6 +16,8 @@ export const evalSearch = defineSearch({
   px: oneOf(['cost', 'seconds', 'ticks'], 'cost'),
   /** Grouping of the time and effort cuts */
   by: oneOf(['variant', 'model', 'agent'], 'variant'),
+  /** The effort measure a narrow Behaviour tab shows */
+  measure: oneOf(STRIP_MEASURES, 'calls'),
   /** The race map's view and the tick its dots mark */
   map: mapViewParam(),
   /** The Behaviour tab's heat map's view, apart from the race's */

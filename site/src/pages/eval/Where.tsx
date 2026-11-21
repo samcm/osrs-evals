@@ -57,8 +57,8 @@ export function WhereMap({ curves, grid, legend, view, height = 480 }: { curves:
         const [x0, y0] = toScreen(c.x - 0.5, c.z + cell - 0.5);
         const [x1, y1] = toScreen(c.x + cell - 0.5, c.z - 0.5);
         // Log scale, so a few long waits don't wash out everywhere else; squared, so ground only
-        // walked over stays faint and the places they stayed stand out
-        ctx.globalAlpha = 0.04 + 0.86 * (Math.log1p(c.ticks) / Math.log1p(most)) ** 2;
+        // walked over stays fainter and the places they stayed stand out
+        ctx.globalAlpha = 0.04 + 0.86 * (Math.log1p(c.ticks) / Math.log1p(most)) ** 1.5;
         ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
       }
       ctx.globalAlpha = 1;
