@@ -77,6 +77,15 @@ export function formatDate(iso: string | null | undefined): string {
   });
 }
 
+/** A calendar date ("2026-10-05" → "5 Oct 2026"); a month alone ("2026-06" → "Jun 2026"). */
+export function formatDay(iso: string | null | undefined): string {
+  if (!iso) return MISSING;
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m) return iso;
+  const date = new Date(Date.UTC(y, m - 1, d || 1));
+  return date.toLocaleDateString('en-GB', { ...(d ? { day: 'numeric' } : {}), month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
 export function capitalize(text: string | null | undefined): string {
   if (!text) return MISSING;
   return text.charAt(0).toUpperCase() + text.slice(1).replace(/_/g, ' ');

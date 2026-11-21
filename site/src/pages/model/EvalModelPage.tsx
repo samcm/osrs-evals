@@ -20,7 +20,7 @@ import { formatCost, formatInt } from '@/lib/format';
 import { useLegend } from '@/lib/legend';
 import { resultValue } from '@/lib/runResult';
 import { inScope, useDocumentTitle, useScope, useSearchUpdate } from '@/lib/search';
-import { compareThinking, modelInfo, modelSlug } from '@/lib/series';
+import { compareThinking, modelFacts, modelInfo, modelSlug } from '@/lib/series';
 import { median } from '@/lib/stats';
 import { Centerpiece } from '../eval/Centerpiece';
 import { buildCurves, rankVariants, totalBudgetTicks, X_OPTIONS, xRange } from '../eval/model';
@@ -115,6 +115,7 @@ export function EvalModelPage() {
       <PageToolbar label="Filters">
         <PairingFilters
           runs={all}
+          levels={modelFacts(all[0].model)?.levels}
           effort={false}
           thinking={search.level}
           agent={search.harness}

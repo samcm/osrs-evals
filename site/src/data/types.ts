@@ -126,7 +126,7 @@ export interface Run {
   /** The harness's version */
   agent_version: string | null;
   model: string;
-  /** Slug of the model's maker (anthropic, openai); a key of Index.vendors. Null for no model */
+  /** The model's maker (anthropic, reflection), a key of Index.providers; null for no model */
   vendor: string | null;
   epoch: number;
   /** When the log (the batch's task) started */
@@ -193,8 +193,37 @@ export interface Index {
   evals: Eval[];
   runs: Run[];
   prices: Record<string, Price>;
-  /** Vendor slug -> display name */
-  vendors: Record<string, string>;
+  /** Who made each model, what it is and who served it, from models.dev (absent in older data) */
+  models?: Record<string, ModelFacts>;
+  /** Each maker and inference provider by models.dev id (absent in older data) */
+  providers?: Record<string, ProviderInfo>;
+}
+
+/** A model's maker and facts, from models.dev (export.py model_facts). */
+export interface ModelFacts {
+  /** Its display name, with a router's variant after a comma: "Beam 1.0, free" */
+  name: string;
+  description: string | null;
+  /** The maker (the lab), a key of Index.providers; null when no one names it */
+  maker: string | null;
+  family: string | null;
+  /** YYYY-MM-DD */
+  released: string | null;
+  /** Knowledge cutoff, YYYY-MM or YYYY-MM-DD */
+  knowledge: string | null;
+  open_weights: boolean | null;
+  limit: { context: number | null; output: number | null };
+  modalities: { input: string[]; output: string[] } | null;
+  /** The thinking levels it advertises, lowest first ("none" for a model without reasoning); null when unknown */
+  levels: string[] | null;
+  /** The inference provider the runs went through, a key of Index.providers (anthropic, openai-codex, opencode-go) */
+  provider: string;
+}
+
+/** A maker or inference provider: its name and the logo the export saved (/data/logos/<id>.svg), if any. */
+export interface ProviderInfo {
+  name: string;
+  logo: string | null;
 }
 
 /** The harness's sample of the eval's value (every 100 ticks); only the points where the value, a

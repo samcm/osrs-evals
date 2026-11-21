@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from 'react';
 import { BrainIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Run } from '@/data/types';
-import { BRAND_SLUGS, brandSrc, itemSrc, loadTrimmedSprite } from '@/lib/assets';
+import { brandSrc, itemSrc, loadTrimmedSprite } from '@/lib/assets';
 import { evalArt } from '@/lib/evals';
 import { agentInfo, levelName, modelInfo, thinkingTitle, variantOf, type SeriesColor, type Variant } from '@/lib/series';
 
@@ -108,16 +108,16 @@ const LETTER_SIZES = { 14: 'text-xs', 16: 'text-xs', 20: 'text-xs', 40: 'text-xl
 
 export type BrandSize = keyof typeof BRAND_SIZES;
 
-const KNOWN_BRANDS = new Set<string>(BRAND_SLUGS);
-
 /**
  * A vendor's or harness's logo as a one-colour mask in `foreground`, so it suits both themes.
- * `program` is the scripted baseline's game sprite. An unknown slug gets a muted letter tile.
+ * A harness's mark is the site's; a maker's or provider's is the logo the data saved from models.dev.
+ * `program` is the scripted baseline's game sprite. One without a logo gets a muted letter tile.
  */
 export function BrandMark({ slug, size = 16, title, className }: { slug: string; size?: BrandSize; title?: string; className?: string }) {
   const a11y = title ? { role: 'img', 'aria-label': title, title } : { 'aria-hidden': true };
-  if (slug === 'program') return <Sprite src={brandSrc('program')} size={size} alt={title ?? ''} className={className} />;
-  if (!KNOWN_BRANDS.has(slug)) {
+  if (slug === 'program') return <Sprite src={brandSrc('program')!} size={size} alt={title ?? ''} className={className} />;
+  const src = brandSrc(slug);
+  if (!src) {
     return (
       <span
         {...a11y}
@@ -132,7 +132,7 @@ export function BrandMark({ slug, size = 16, title, className }: { slug: string;
       </span>
     );
   }
-  const mask = `url(${brandSrc(slug)})`;
+  const mask = `url(${src})`;
   return (
     <span
       {...a11y}

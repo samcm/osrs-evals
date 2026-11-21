@@ -3,7 +3,8 @@
     python site/export.py <log dir> [<log dir> ...] --out site/public/data
 
 Cost is tokens at list price, from models.dev (--prices takes another copy of its api.json, a URL
-or a file), whatever account actually paid.
+or a file), whatever account actually paid. Who made each model, what it is, who served it and their
+logos come from models.dev too (index.json `models` and `providers`, logos/<id>.svg).
 
 A run is one sample of one log: an eval, an agent, a model, an epoch. Everything here is read from
 the logs and the run folders next to them (the world recording, the engine's log, the accounts'
@@ -21,6 +22,7 @@ import json
 import os
 import re
 import statistics
+import urllib.request
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -47,7 +49,6 @@ EVAL_STEPS = {
         "qp": 32,
     },
 }
-VENDORS = {"anthropic": "Anthropic", "openai": "OpenAI", "google": "Google", "mistral": "Mistral", "grok": "xAI", "deepseek": "DeepSeek", "openrouter": "OpenRouter"}
 
 BUCKET = 100  # ticks per bucket of the binned series (SDK actions, activity)
 PATH_EVERY = 10  # ticks between path points in a run's file
@@ -148,13 +149,17 @@ def vendor_of(model: str) -> str | None:
     return None if vendor == "none" else vendor
 
 
-def load_prices(source: str, models: set[str]) -> dict:
-    """List prices of these models from models.dev's api.json, $ per million tokens:
+def load_catalog(source: str) -> dict:
+    """models.dev's api.json: every provider, its models, their prices and facts."""
+    with fsspec.open(source, "r") as f:
+        return json.load(f)
+
+
+def load_prices(catalog: dict, models: set[str]) -> dict:
+    """List prices of these models from models.dev, $ per million tokens:
     {model: {input, output, input_cache_read, input_cache_write, tiers}}. A model is looked up as its
     maker's own (openai/openai-codex/gpt-6.2-sol is openai's gpt-6.2-sol); unlisted ones are left out.
     A tier prices a whole call whose prompt is over `context` tokens."""
-    with fsspec.open(source, "r") as f:
-        catalog = json.load(f)
 
     def rates(c: dict) -> dict:
         return {"input": c["input"], "output": c["output"], "input_cache_read": c.get("cache_read", c["input"]), "input_cache_write": c.get("cache_write", c["input"])}
@@ -167,6 +172,118 @@ def load_prices(source: str, models: set[str]) -> dict:
             tiers = [{"context": t["tier"]["size"], **rates(t)} for t in c.get("tiers", []) if t.get("tier", {}).get("type") == "context"]
             prices[model] = {**rates(c), "tiers": sorted(tiers, key=lambda t: t["context"])}
     return prices
+
+
+# A variant a router serves under its own name ("Beam Free", "Muse Spark 1.3 Contributor")
+VARIANT = re.compile(r"\s+(free|contributor)$", re.I)
+# The parameter counts in a maker's model name ("Beam 1.0 501B A23B"): the name is what comes before
+SIZES = re.compile(r"(\s+A?\d+(\.\d+)?[BT])+$", re.I)
+# Inference providers models.dev doesn't list, by their route in the Inspect model name
+ROUTE_NAMES = {"openai-codex": "ChatGPT Codex"}
+LOGOS = "https://models.dev/logos/"
+LEVELS = ["none", "off", "minimal", "low", "medium", "high", "xhigh", "max"]  # lowest first, as the site orders them
+
+
+def model_facts(catalog: dict, models: set[str]) -> dict:
+    """Who made each model, what it is and who served it, from models.dev: {model: {name, description,
+    maker, family, released, knowledge, open_weights, limit: {context, output}, modalities: {input,
+    output}, levels, provider}}. `provider` is the inference provider the run went through, its route
+    in the model name (anthropic, openai-codex, opencode-go). A model a router served
+    (openai/opencode-go/beam-free) is its maker's: the router's entry names it (canonical_model_id
+    reflection/beam-1.0-501b-a23b), else its family is matched against the makers' own entries. The
+    name is the maker's display name without its parameter counts, with the router's variant after a
+    comma ("Beam 1.0, free"). `levels` are the thinking levels the route advertises (off when thinking
+    can be turned off, then its efforts; "none" for a model without reasoning; null when unknown). A
+    model models.dev doesn't list is left out."""
+
+    def own(maker: str, canonical: str | None, family: str | None) -> tuple[str, dict] | None:
+        """The maker's own entry: by canonical id anywhere (the maker's provider first), else by family."""
+        entries = [(prov, m) for prov, p in catalog.items() for m in (p.get("models") or {}).values()]
+        if canonical:
+            hits = [(prov, m) for prov, m in entries if (m.get("canonical_model_id") or f"{prov}/{m.get('id')}").lower() == canonical.lower() and not VARIANT.search(m.get("name") or "")]
+            # The maker's own entry under the canonical id first, then any entry under that id (other
+            # providers list variants, such as a faster tier, under the same canonical id)
+            ids = {canonical.lower(), canonical.split("/", 1)[1].lower()}
+            hits.sort(key=lambda h: (h[0] != maker, str(h[1].get("id")).lower() not in ids))
+            return hits[0] if hits else None
+        if family:
+            base = re.sub(r"-(free|contributor)$", "", family)
+            hits = [(prov, m) for prov, m in entries if m.get("family") == base and (m.get("canonical_model_id") or prov).split("/")[0] == prov]
+            return hits[0] if hits else None
+        return None
+
+    def levels(entry: dict) -> list[str] | None:
+        if entry.get("reasoning") is False:
+            return ["none"]
+        options = entry.get("reasoning_options")
+        if not options:
+            return None
+        # An effort of "none" is thinking off (omp's own "none" is a model without levels)
+        out = {"off"} if any(o.get("type") == "toggle" for o in options) else set()
+        out |= {"off" if str(v).lower() == "none" else str(v).lower() for o in options if o.get("type") == "effort" for v in o.get("values", [])}
+        return sorted(out, key=lambda v: (LEVELS.index(v) if v in LEVELS else len(LEVELS), v)) or None
+
+    facts = {}
+    for model in sorted(models):
+        parts = model.split("/")
+        name = parts[-1]
+        provider = parts[1] if len(parts) > 2 else parts[0]
+        served = (catalog.get(provider) or {}).get("models", {}).get(name)
+        if served is not None and len(parts) > 2:
+            # A router's entry: the maker's own entry says what the model is
+            canonical = served.get("canonical_model_id")
+            found = own(canonical.split("/")[0] if canonical else "", canonical, served.get("family"))
+            maker = canonical.split("/")[0] if canonical else (found[0] if found else None)
+            mine = found[1] if found else served
+            variant = VARIANT.search(served.get("name") or "")
+        else:
+            maker = vendor_of(model)
+            mine = served if served is not None else (catalog.get(maker or "") or {}).get("models", {}).get(name)
+            served, variant = mine, None
+            if mine is None:
+                continue
+        base = SIZES.sub("", VARIANT.sub("", mine.get("name") or name))
+        facts[model] = {
+            "name": f"{base}, {variant.group(1).lower()}" if variant else base,
+            "description": mine.get("description") or served.get("description"),
+            "maker": maker,
+            "family": mine.get("family"),
+            "released": mine.get("release_date"),
+            "knowledge": mine.get("knowledge"),
+            "open_weights": mine.get("open_weights"),
+            "limit": {k: (served.get("limit") or mine.get("limit") or {}).get(k) for k in ("context", "output")},
+            "modalities": served.get("modalities") or mine.get("modalities"),
+            "levels": levels(served),
+            "provider": provider,
+        }
+    return facts
+
+
+def fetch_logos(catalog: dict, ids: set[str], out: Path) -> dict:
+    """Each maker's and inference provider's name, and its logo from models.dev saved beside the data
+    (out/logos/<id>.svg, so the site never hotlinks): {id: {name, logo}}. A provider models.dev has no
+    logo for (it answers with its generic mark) has logo null."""
+    (out / "logos").mkdir(parents=True, exist_ok=True)
+
+    def get(url: str) -> bytes | None:
+        try:
+            return urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "osrs-evals export"}), timeout=30).read()
+        except OSError as e:
+            print(f"no logo from {url}: {e}")
+            return None
+
+    generic = get(f"{LOGOS}no-such-provider.svg")
+    providers = {}
+    for id in sorted(ids):
+        name = (catalog.get(id) or {}).get("name") or ROUTE_NAMES.get(id) or id.capitalize()
+        svg = get(f"{LOGOS}{id}.svg")
+        logo = None
+        if svg and svg != generic and svg.lstrip().startswith(b"<svg"):
+            (out / "logos" / f"{id}.svg").write_bytes(svg)
+            logo = f"/data/logos/{id}.svg"
+        # "MiniMax (minimax.io)", "StepFun (China)": the name without the region
+        providers[id] = {"name": re.sub(r"\s*\(.*\)$", "", name), "logo": logo}
+    return providers
 
 
 def usage_cost(model: str, u, prices: dict) -> dict | None:
@@ -931,7 +1048,10 @@ def export(log_dirs: list[str], price_source: str, out: Path):
     runs, evals, grids = [], {}, {}
     infos = [info for log_dir in log_dirs for info in list_eval_logs(log_dir)]
     headers = [read_eval_log(info.name, header_only=True) for info in infos]
-    prices = load_prices(price_source, {canonical_model(h.eval.model) for h in headers})
+    catalog = load_catalog(price_source)
+    models = {canonical_model(h.eval.model) for h in headers}
+    prices = load_prices(catalog, models)
+    facts = model_facts(catalog, models)
     for info in infos:
         log = read_eval_log(info.name, resolve_attachments=True)
         if log.status != "success" or not log.samples:
@@ -965,15 +1085,25 @@ def export(log_dirs: list[str], price_source: str, out: Path):
     for f in (out / "evals").iterdir():
         if f.suffix == ".json" and f.stem not in evals:
             f.unlink()
-    vendors = {v: VENDORS.get(v, v.capitalize()) for v in sorted({r["vendor"] for r in runs if r["vendor"]})}
-    (out / "index.json").write_text(json.dumps({"evals": sorted(evals.values(), key=lambda e: e["id"]), "runs": runs, "prices": {m: {k: v for k, v in p.items() if k != "tiers"} for m, p in prices.items()}, "vendors": vendors}))
+    # A run's vendor is its model's maker, also for a model a router served
+    for r in runs:
+        r["vendor"] = (facts.get(r["model"]) or {}).get("maker") or r["vendor"]
+    facts = {m: f for m, f in facts.items() if any(r["model"] == m for r in runs)}
+    providers = fetch_logos(catalog, {r["vendor"] for r in runs if r["vendor"]} | {f["provider"] for f in facts.values()}, out)
+    (out / "index.json").write_text(json.dumps({
+        "evals": sorted(evals.values(), key=lambda e: e["id"]),
+        "runs": runs,
+        "prices": {m: {k: v for k, v in p.items() if k != "tiers"} for m, p in prices.items()},
+        "models": facts,
+        "providers": providers,
+    }))
     print(f"{len(runs)} runs, {len(evals)} evals:", dict(Counter((r['eval'], r['model'], r['agent_name'], r['thinking']) for r in runs)))
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("log_dirs", nargs="+")
-    ap.add_argument("--prices", default="https://models.dev/api.json")
+    ap.add_argument("--prices", default="https://models.dev/api.json", help="models.dev's api.json: prices and who made each model")
     ap.add_argument("--out", default="site/public/data")
     a = ap.parse_args()
     export(a.log_dirs, a.prices, Path(a.out))

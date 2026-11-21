@@ -88,7 +88,9 @@ opens the model's page, filtered to the row's thinking level and harness.
 ### Model pages
 
 `/models/$model` (e.g. `/models/gpt-6-2-astra`): one model across every eval. The header bar names
-the model; `PageHeader` has the vendor's mark and what ran. Then its score on every eval as on Home,
+the model; `PageHeader` has the maker's mark, the models.dev description and its facts as meta
+(maker, released, weights, context, knowledge cutoff, the inference provider when it isn't the
+maker), then what ran. Its thinking filter lists the levels the model advertises. Then its score on every eval as on Home,
 a row per thinking level and harness (each cell opens the eval's model page with that row's level
 and harness); score and cost by thinking level across evals; per eval, its place among the models
 (by each model's best pairing), result, time and cost; then its runs. Filtered by `level` and
@@ -174,10 +176,18 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
 
 ## Identity: logos, colours, sprites
 
-- **Models** show their vendor's mark (Anthropic, OpenAI, Google, …) beside the model name. Marks
-  are in `public/assets/brands/`, drawn by `BrandMark` as a one-colour CSS mask in the text colour,
-  so they suit both themes. Sizes: 14px in legends and tooltips, 16px inline and in nav, 20px in
-  table rows, 40px in page headers.
+- **Models are what models.dev says they are.** A model's display name, maker (the lab, not the
+  router that served it: OpenCode Go's `beam-free` is Reflection's "Beam 1.0, free"), description,
+  release, knowledge cutoff, open weights, limits, modalities and advertised thinking levels, and
+  the inference provider its runs went through, come from models.dev's api.json through
+  `export.py` (index.json `models` and `providers`). No hand-made name or vendor tables; only the
+  colours (`MODEL_COLORS` in `src/lib/series.ts`) are ours.
+- **Models** show their maker's mark beside the model name. Makers' and inference providers' logos
+  are models.dev's (`https://models.dev/logos/<id>.svg`), saved by `export.py` into the data
+  (`data/logos/<id>.svg`) so they ship with it and the site never hotlinks; harness marks are in
+  `public/assets/brands/`. `BrandMark` draws both as a one-colour CSS mask in the text colour, so
+  they suit both themes. Sizes: 14px in legends and tooltips, 16px inline and in nav, 20px in table
+  rows, 40px in page headers.
 - **Agent harnesses** are their mark (`HarnessMark`: omp …) after the
   model's name and thinking level, in the muted colour so the vendor's mark leads; the name is its
   tooltip. A harness on its own (grouped by harness) is its mark and its name. The scripted baseline
@@ -190,11 +200,11 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   (`evals/omp.py@omp`), and a run's level is its solver's `thinking` param; the export skips a run
   without one, and says so. Never infer a level or fill one in.
 - Logos are trademarks of their owners, used only to name their products. Never recolour them into
-  series colours, alter their shape, or use them as decoration. Sources and licences are listed in
-  `public/assets/brands/SOURCES.md`.
+  series colours, alter their shape, or use them as decoration. The harness marks' sources and
+  licences are listed in `public/assets/brands/SOURCES.md`.
 - **Every model has one fixed colour and every agent one fixed line style and point shape**, from
-  `src/lib/series.ts`, everywhere. Never colour by index. Add a new model to `series.ts` when it
-  first appears. A thinking level is a lightness step of its model's colour (`levelColor`): light
+  `src/lib/series.ts`, everywhere. Never colour by index. A model not in `MODEL_COLORS` gets one
+  from a hash of its id; list it there to give it a chosen hue. A thinking level is a lightness step of its model's colour (`levelColor`): light
   for off, dark for max. So a pairing keeps its
   model's hue, its harness's dash and shape, and its level's lightness; legends, tooltips and labels
   name the level too.
@@ -299,7 +309,9 @@ named on hover; the game and the map follow one account at a time (`acct`).
 
 ## Data
 
-`public/data/index.json` has `evals`, `runs` (one summary per run, with `metrics`) and `prices`.
+`public/data/index.json` has `evals`, `runs` (one summary per run, with `metrics`), `prices`,
+`models` (each model's models.dev facts) and `providers` (each maker and inference provider: name,
+logo in `public/data/logos/`).
 `public/data/runs/<id>.json` has one run's detail: turns, timeline, path, and the time series
 derived from the logs and the world recording. `public/data/evals/<id>.json` has every run of one
 eval resampled for overlays. Shapes are in `src/data/types.ts`; keep them in step with

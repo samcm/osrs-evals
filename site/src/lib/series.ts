@@ -1,5 +1,6 @@
 /**
  * Identity of every model, vendor and agent: display names, brand marks, and fixed chart styles.
+ * Models' names and makers come from the data (models.dev, through export.py); colours are ours.
  *
  * Colours: each model has one fixed colour (a data hue token from tokens.css), used everywhere:
  *   Claude Haiku 5.5 orange, Claude Sonnet 5.5 purple, GPT-5.6 Luna teal, no model (Program) slate.
@@ -12,7 +13,7 @@
  * line and shape.
  */
 
-import type { Run } from '@/data/types';
+import type { ModelFacts, ProviderInfo, Run } from '@/data/types';
 
 export interface SeriesColor {
   /** The token, as a CSS custom property name, for charts to resolve */
@@ -80,71 +81,51 @@ export function hashColor(key: string): SeriesColor {
   return PALETTE[hash(key) % PALETTE.length];
 }
 
-// Vendors
+// Vendors and models: from the data (index.json `models` and `providers`, from models.dev)
+
+/**
+ * What the data says of each model and provider (export.py model_facts, fetch_logos): a model's
+ * maker, display name and facts, also for a model a router served (openai/opencode-go/beam-free is
+ * Reflection's Beam 1.0), and each maker's and inference provider's name and logo. Filled once the
+ * index loads (data/queries.ts), before anything names a model.
+ */
+const FACTS = new Map<string, ModelFacts>();
+const PROVIDERS = new Map<string, ProviderInfo>();
+
+export function registerModels(models: Record<string, ModelFacts>, providers: Record<string, ProviderInfo>): void {
+  for (const [id, facts] of Object.entries(models)) FACTS.set(id, facts);
+  for (const [id, info] of Object.entries(providers)) PROVIDERS.set(id, info);
+}
+
+/** A model's facts from the data, when it has them. */
+export const modelFacts = (model: string): ModelFacts | undefined => FACTS.get(model);
+
+/** A maker's or inference provider's name and logo, by its models.dev id. */
+export function providerInfo(id: string): ProviderInfo {
+  return PROVIDERS.get(id) ?? { name: id.charAt(0).toUpperCase() + id.slice(1), logo: null };
+}
+
+/** A logo the data saved for a maker or inference provider (/data/logos/<id>.svg); null when it has none. */
+export const providerLogo = (id: string): string | null => PROVIDERS.get(id)?.logo ?? null;
 
 export interface VendorInfo {
-  /** The vendor id used in `vendor=` and by `inScope` */
+  /** The vendor id used in `vendor=` and by `inScope`: the maker's models.dev id */
   id: string;
   name: string;
-  /** Brand mark slug under /assets/brands */
+  /** Its mark for BrandMark: the maker's id (its logo from the data) */
   slug: string;
 }
 
-const VENDORS: Record<string, VendorInfo> = {
-  anthropic: { id: 'anthropic', name: 'Anthropic', slug: 'anthropic' },
-  openai: { id: 'openai', name: 'OpenAI', slug: 'openai' },
-  google: { id: 'google', name: 'Google', slug: 'google' },
-  meta: { id: 'meta', name: 'Meta', slug: 'meta' },
-  xai: { id: 'xai', name: 'xAI', slug: 'xai' },
-  deepseek: { id: 'deepseek', name: 'DeepSeek', slug: 'deepseek' },
-  moonshot: { id: 'moonshot', name: 'Moonshot AI', slug: 'moonshot' },
-  qwen: { id: 'qwen', name: 'Qwen', slug: 'qwen' },
-  zhipu: { id: 'zhipu', name: 'Zhipu AI', slug: 'zhipu' },
-  mistral: { id: 'mistral', name: 'Mistral AI', slug: 'mistral' },
-  none: { id: 'none', name: 'No model', slug: 'program' },
-};
-
-/** Provider prefixes that name a vendor under another id. */
-const VENDOR_ALIASES: Record<string, string> = {
-  'meta-llama': 'meta',
-  'x-ai': 'xai',
-  grok: 'xai',
-  moonshotai: 'moonshot',
-  kimi: 'moonshot',
-  alibaba: 'qwen',
-  'z-ai': 'zhipu',
-  zai: 'zhipu',
-  mistralai: 'mistral',
-  gemini: 'google',
-  vertex: 'google',
-};
-
-/** Model-name patterns, for ids served through a router (openrouter/, bedrock/, together/ …). */
-const VENDOR_PATTERNS: [RegExp, string][] = [
-  [/claude/i, 'anthropic'],
-  [/\bgpt|^o\d|codex/i, 'openai'],
-  [/gemini|gemma/i, 'google'],
-  [/llama/i, 'meta'],
-  [/grok/i, 'xai'],
-  [/deepseek/i, 'deepseek'],
-  [/kimi|moonshot/i, 'moonshot'],
-  [/qwen/i, 'qwen'],
-  [/glm/i, 'zhipu'],
-  [/mistral|mixtral|codestral|devstral|magistral/i, 'mistral'],
-];
-
-/** The vendor of a model id: its provider prefix, or a pattern on its name. */
+/**
+ * The maker of a model id, as the data names it; else its provider prefix. The scripted baseline
+ * ("none") has no model.
+ */
 export function vendorOf(model: string): VendorInfo {
   const parts = model.split('/');
-  for (const part of parts.slice(0, -1)) {
-    const id = VENDOR_ALIASES[part] ?? part;
-    if (VENDORS[id]) return VENDORS[id];
-  }
-  const name = parts[parts.length - 1] ?? model;
-  const match = VENDOR_PATTERNS.find(([re]) => re.test(name));
-  if (match) return VENDORS[match[1]];
-  const id = parts.length > 1 ? parts[0] : model;
-  return { id, name: id.charAt(0).toUpperCase() + id.slice(1), slug: id };
+  if (parts[0] === 'none') return { id: 'none', name: 'No model', slug: 'program' };
+  const facts = FACTS.get(model);
+  const id = facts ? (facts.maker ?? 'unknown') : parts[0];
+  return { id, name: facts && !facts.maker ? 'Maker not named' : providerInfo(id).name, slug: id };
 }
 
 // Models
@@ -157,19 +138,22 @@ export interface ModelInfo {
   vendor: VendorInfo;
 }
 
-/** Every model seen so far, by full id. Add a model here when it first appears. */
-const MODELS: Record<string, Omit<ModelInfo, 'vendor'>> = {
-  'anthropic/claude-haiku-5-5': { name: 'Claude Haiku 5.5', short: 'Haiku 5.5', color: HUES.orange },
-  'anthropic/claude-sonnet-5-5': { name: 'Claude Sonnet 5.5', short: 'Sonnet 5.5', color: HUES.purple },
-  'openai/openai-codex/gpt-5.6-luna': { name: 'GPT-5.6 Luna', short: 'GPT-5.6 Luna', color: HUES.teal },
-  'anthropic/claude-opus-5-5': { name: 'Claude Opus 5.5', short: 'Opus 5.5', color: HUES.rose },
-  'openai/openai-codex/gpt-6.2-sol': { name: 'GPT-6.2 Sol', short: 'GPT-6.2 Sol', color: HUES.blue },
-  'openai/openai-codex/gpt-6.2-astra': { name: 'GPT-6.2 Astra', short: 'GPT-6.2 Astra', color: HUES.green },
-  'anthropic/claude-fable-5-2': { name: 'Claude Fable 5.2', short: 'Fable 5.2', color: HUES.fuchsia },
-  'none/none': { name: 'No model', short: 'No model', color: HUES.slate },
+/**
+ * Each model's one fixed colour, by full id: the one thing about a model models.dev can't say. A
+ * model not listed gets a colour from a hash of its id.
+ */
+const MODEL_COLORS: Record<string, SeriesColor> = {
+  'anthropic/claude-haiku-5-5': HUES.orange,
+  'anthropic/claude-sonnet-5-5': HUES.purple,
+  'openai/openai-codex/gpt-5.6-luna': HUES.teal,
+  'anthropic/claude-opus-5-5': HUES.rose,
+  'openai/openai-codex/gpt-6.2-sol': HUES.blue,
+  'openai/openai-codex/gpt-6.2-astra': HUES.green,
+  'anthropic/claude-fable-5-2': HUES.fuchsia,
+  'none/none': HUES.slate,
 };
 
-/** "claude-sonnet-5-1" → "Claude Sonnet 5.1", "gpt-5.6-mini" → "GPT-5.6 Mini". */
+/** A name for a model the data has no facts for: "claude-sonnet-5-1" → "Claude Sonnet 5.1". */
 function guessModelName(id: string): string {
   const last = id.split('/').pop() ?? id;
   const words: string[] = [];
@@ -188,12 +172,10 @@ function guessModelName(id: string): string {
   return words.join(' ');
 }
 
+/** A model's name (models.dev's display name), colour and maker. */
 export function modelInfo(id: string): ModelInfo {
-  const vendor = vendorOf(id);
-  const known = MODELS[id];
-  if (known) return { ...known, vendor };
-  const name = guessModelName(id);
-  return { name, short: name, color: hashColor(id), vendor };
+  const name = id === 'none/none' ? 'No model' : (FACTS.get(id)?.name ?? guessModelName(id));
+  return { name, short: name, color: MODEL_COLORS[id] ?? hashColor(id), vendor: vendorOf(id) };
 }
 
 export const modelName = (id: string): string => modelInfo(id).name;

@@ -30,6 +30,7 @@ export function PairingFilters({
   agent,
   onChange,
   effort = true,
+  levels: advertised,
 }: {
   /** The runs the page could show, for the filters' options and counts */
   runs: Run[];
@@ -38,11 +39,14 @@ export function PairingFilters({
   onChange: (patch: { thinking?: string[]; agent?: string[] }) => void;
   /** Offer the best-level cut (not on a page that compares the levels themselves) */
   effort?: boolean;
+  /** The thinking levels the model advertises, on a page about one model: the levels to list */
+  levels?: string[] | null;
 }) {
   const cut = useEffort();
   const update = useSearchUpdate<{ effort: EffortCut }>();
   const level = (r: Run): string => r.thinking;
-  const levels = [...counted(runs, level).keys()].sort(compareThinking);
+  // One model's page lists the levels it advertises (a level not run yet counts none); else the levels run
+  const levels = [...new Set([...(advertised ?? []), ...counted(runs, level).keys()])].sort(compareThinking);
   const agents = [...new Map(runs.map(r => [r.agent, r])).values()].sort((a, b) => agentInfo(a.agent, a.agent_name).name.localeCompare(agentInfo(b.agent, b.agent_name).name));
   return (
     <>

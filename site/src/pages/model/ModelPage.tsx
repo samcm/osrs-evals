@@ -19,12 +19,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { indexQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
 import { evalSlug } from '@/lib/evals';
-import { formatCost, formatDuration, formatInt } from '@/lib/format';
+import { formatCost, formatDay, formatDuration, formatInt, formatTokens } from '@/lib/format';
 import { setHovered } from '@/lib/hover';
 import { resultValue } from '@/lib/runResult';
 import { bestLevelKeys, blendedScores, formatScore, runScore, type Pairing } from '@/lib/score';
 import { inScope, useDocumentTitle, useEffort, useScope, useSearchUpdate } from '@/lib/search';
-import { compareThinking, modelInfo, modelSlug, variantKey } from '@/lib/series';
+import { compareThinking, modelFacts, modelInfo, modelSlug, providerInfo, variantKey } from '@/lib/series';
 import { median } from '@/lib/stats';
 import { cn } from '@/lib/utils';
 import { tint } from '../overview/Leaderboard';
@@ -120,9 +120,21 @@ export function ModelPage() {
 
   const harnesses = [...new Map(everyRun.map(r => [r.agent, r])).values()];
   const allLevels = [...new Set(everyRun.map(r => r.thinking))].sort(compareThinking);
+  // What the model is, from models.dev (the header bar names it, its maker's mark leads), then what ran
+  const facts = modelFacts(model);
+  const named = (id: string) => (
+    <span className="inline-flex items-center gap-1.5 align-middle">
+      <BrandMark slug={id} size={16} />
+      {providerInfo(id).name}
+    </span>
+  );
   const meta: MetaItem[] = [
-    { term: 'Evals', value: formatInt(evals.length) },
-    { term: 'Runs', value: formatInt(everyRun.length) },
+    ...(facts?.maker ? [{ term: 'Maker', value: named(facts.maker) }] : []),
+    ...(facts?.released ? [{ term: 'Released', value: formatDay(facts.released) }] : []),
+    ...(facts?.open_weights != null ? [{ term: 'Weights', value: facts.open_weights ? 'Open' : 'Closed' }] : []),
+    ...(facts?.limit.context ? [{ term: 'Context', value: `${formatTokens(facts.limit.context)} tokens` }] : []),
+    ...(facts?.knowledge ? [{ term: 'Knowledge', value: formatDay(facts.knowledge) }] : []),
+    ...(facts && facts.provider !== facts.maker ? [{ term: 'Served by', value: named(facts.provider) }] : []),
     {
       term: 'Harnesses',
       value: (
@@ -143,10 +155,11 @@ export function ModelPage() {
 
   return (
     <div className={SECTIONS}>
-      <PageHeader mark={<BrandMark slug={info.vendor.slug} size={40} title={info.vendor.name} />} meta={meta} />
+      <PageHeader mark={<BrandMark slug={info.vendor.slug} size={40} title={info.vendor.name} />} description={facts?.description} meta={meta} />
       <PageToolbar label="Filters">
         <PairingFilters
           runs={everyRun}
+          levels={facts?.levels}
           thinking={search.level}
           agent={search.harness}
           onChange={patch => update({ ...(patch.thinking && { level: patch.thinking }), ...(patch.agent && { harness: patch.agent }) }, { resetPage: true })}

@@ -1,4 +1,5 @@
 import { queryOptions } from '@tanstack/react-query';
+import { registerModels } from '@/lib/series';
 import type { EvalRuns, Index, RunDetail } from './types';
 
 async function getJson<T>(path: string): Promise<T> {
@@ -10,7 +11,12 @@ async function getJson<T>(path: string): Promise<T> {
 /** Every eval, run summary, price and idea. */
 export const indexQuery = queryOptions({
   queryKey: ['index'],
-  queryFn: () => getJson<Index>('/data/index.json'),
+  // The models' makers and names are known from here on, wherever a model is named
+  queryFn: () =>
+    getJson<Index>('/data/index.json').then(index => {
+      registerModels(index.models ?? {}, index.providers ?? {});
+      return index;
+    }),
   staleTime: Infinity,
 });
 

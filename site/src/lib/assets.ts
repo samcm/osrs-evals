@@ -1,28 +1,16 @@
 /** Paths of the static art under public/assets and public/data, per the asset contract. */
 
-/** Brand marks: one-colour SVGs, drawn as masks by BrandMark. */
-export const BRAND_SLUGS = [
-  'anthropic',
-  'openai',
-  'google',
-  'meta',
-  'xai',
-  'deepseek',
-  'moonshot',
-  'qwen',
-  'zhipu',
-  'mistral',
-  'claude',
-  'gemini',
-  'claude-code',
-  'codex',
-  'opencode',
-  'amp',
-  'bash',
-  'omp',
-] as const;
+import { providerLogo } from './series';
 
-export const brandSrc = (slug: string): string => (slug === 'program' ? '/assets/brands/program.png' : `/assets/brands/${slug}.svg`);
+/** Harness marks: one-colour SVGs, drawn as masks by BrandMark. Makers' and inference providers'
+ * logos come with the data (models.dev, saved by export.py), by their models.dev id. */
+export const BRAND_SLUGS = ['claude-code', 'codex', 'opencode', 'amp', 'bash', 'omp'] as const;
+
+/** A mark's file: a harness's from the site, a maker's or provider's from the data; null when there is none. */
+export function brandSrc(slug: string): string | null {
+  if (slug === 'program') return '/assets/brands/program.png';
+  return (BRAND_SLUGS as readonly string[]).includes(slug) ? `/assets/brands/${slug}.svg` : providerLogo(slug);
+}
 /** An item sprite by cache id ("995", "995-10000" for a stack). */
 export const itemSrc = (id: string | number): string => `/assets/items/${id}.png`;
 /** A skill icon by lowercase skill name ("cooking"). */

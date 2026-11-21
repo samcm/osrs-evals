@@ -69,7 +69,9 @@ function loadBrand(slug: string): Promise<HTMLImageElement> {
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = reject;
-      img.src = brandSrc(slug);
+      const src = brandSrc(slug);
+      if (src) img.src = src;
+      else reject(new Error(`no mark for ${slug}`));
     });
     brandImages.set(slug, promise);
   }
