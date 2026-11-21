@@ -283,8 +283,9 @@ named on hover; the game and the map follow one account at a time (`acct`).
 
 ## Layout
 
-- dashboard-01's inset `Sidebar` (a sheet on small screens): Home, Compare, Runs, then the evals,
-  all with lucide icons. The header has `SidebarTrigger`, a separator and the `Breadcrumb`, which
+- dashboard-01's inset `Sidebar` (a sheet on small screens): Home, Compare, Runs, then the evals
+  (every eval the project runs, one without runs yet too: its page says so in one sentence), all
+  with lucide icons, then the models with their vendors' marks. The header has `SidebarTrigger`, a separator and the `Breadcrumb`, which
   never loses its last crumb, and the theme toggle.
 - One page container with the library's spacing; sections are `Card`s in grids with one gap size.
 - Tables are shadcn `Table` driven by TanStack Table: numbers right-aligned, headers on one line,

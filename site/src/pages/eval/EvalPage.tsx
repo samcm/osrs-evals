@@ -10,7 +10,7 @@ import { SeriesLegend } from '@/components/charts';
 import { variantSeries } from '@/lib/chartSeries';
 import { variantKey } from '@/lib/series';
 import { bestLevelKeys } from '@/lib/score';
-import { evalArt, evalBySlug } from '@/lib/evals';
+import { evalArt, evalBySlug, evalIdOf } from '@/lib/evals';
 import { evalRunsQuery, indexQuery, runQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
 import { formatDate, formatDuration, formatInt } from '@/lib/format';
@@ -99,7 +99,7 @@ export function EvalPage() {
   const effort = useEffort();
   const setScope = useScopeUpdate();
   const urlLegend = useLegend();
-  useDocumentTitle(e?.title ?? evalId);
+  useDocumentTitle(e?.title ?? evalArt(evalIdOf(slug)).title ?? evalId);
 
   const all = useMemo(() => data.runs.filter(r => r.eval === evalId), [data, evalId]);
   const scoped = useMemo(() => all.filter(r => inScope(r, scope)), [all, scope]);
@@ -138,9 +138,12 @@ export function EvalPage() {
   );
 
   if (!e) {
+    // An eval the project runs that has no runs yet: what wins, and that nothing has run
+    const art = evalArt(evalIdOf(slug));
     return (
       <div className={SECTIONS}>
-        <Empty>No eval with this id has runs.</Empty>
+        {art.score && <PageHeader mark={<EvalMark evalId={evalIdOf(slug)} size={40} />} meta={[{ term: 'Score', value: art.score }]} />}
+        <Empty>{art.title ? 'No runs yet.' : 'No eval with this id.'}</Empty>
       </div>
     );
   }

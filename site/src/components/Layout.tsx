@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { indexQuery } from '@/data/queries';
 import { setHovered } from '@/lib/hover';
 import { useSearchUpdate } from '@/lib/search';
-import { evalBySlug, evalSlug } from '@/lib/evals';
+import { evalArt, evalBySlug, evalIdOf, evalSlug, siteEvals } from '@/lib/evals';
 import { modelInfo, modelSlug, variantOf } from '@/lib/series';
 import { BrandMark } from '@/components/marks';
 import { setTheme, useTheme, type Theme } from '@/lib/theme';
@@ -61,7 +61,7 @@ function NavItem({ to, path, params, icon, children }: { to: string; path: strin
 
 function AppSidebar() {
   const { data } = useQuery(indexQuery);
-  const evals = [...(data?.evals ?? [])].sort((a, b) => a.title.localeCompare(b.title));
+  const evals = siteEvals(data?.evals ?? []);
   const models = [...new Set((data?.runs ?? []).map(r => r.model))].sort((a, b) => modelInfo(a).name.localeCompare(modelInfo(b).name));
   return (
     <Sidebar collapsible="offcanvas" variant="inset">
@@ -94,24 +94,24 @@ function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
-          <SidebarGroupLabel>Models</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {models.map(m => (
-                <NavItem key={m} to="/models/$model" path={`/models/${modelSlug(m)}`} params={{ model: modelSlug(m) }} icon={<BrandMark slug={modelInfo(m).vendor.slug} size={16} />}>
-                  {modelInfo(m).name}
-                </NavItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
           <SidebarGroupLabel>Evals</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {evals.map(e => (
                 <NavItem key={e.id} to="/evals/$evalId" path={`/evals/${evalSlug(e.id)}`} params={{ evalId: evalSlug(e.id) }} icon={<FlaskConicalIcon />}>
                   {e.title}
+                </NavItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Models</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {models.map(m => (
+                <NavItem key={m} to="/models/$model" path={`/models/${modelSlug(m)}`} params={{ model: modelSlug(m) }} icon={<BrandMark slug={modelInfo(m).vendor.slug} size={16} />}>
+                  {modelInfo(m).name}
                 </NavItem>
               ))}
             </SidebarMenu>
@@ -159,7 +159,7 @@ function useCrumbs(): Crumb[] {
   if (parts.length === 0) return [{ label: 'Home' }];
   if (parts[0] === 'evals' && parts[1]) {
     const e = data && evalBySlug(data.evals, parts[1]);
-    const title = { label: e?.title ?? parts[1] };
+    const title = { label: e?.title ?? evalArt(evalIdOf(parts[1])).title ?? parts[1] };
     if (!parts[2]) return [title];
     const run = data?.runs.find(r => modelSlug(r.model) === modelSlug(parts[2]));
     return [{ ...title, to: '/evals/$evalId', params: { evalId: evalSlug(parts[1]) } }, { label: run ? modelInfo(run.model).name : parts[2] }];

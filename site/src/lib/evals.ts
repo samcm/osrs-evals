@@ -12,6 +12,8 @@ interface EvalArt {
   measure: string;
   /** What wins, in a player's terms: the eval page's header and the scoring explainers say it */
   score?: string;
+  /** The eval's name, for one the site lists before it has runs (the evals the project runs now) */
+  title?: string;
 }
 
 const ART: Record<string, EvalArt> = {
@@ -26,12 +28,14 @@ const ART: Record<string, EvalArt> = {
     items: [{ id: '1540', name: 'Anti-dragon shield' }],
     measure: 'Quest stage',
     score: 'Fastest to finish the quest',
+    title: 'Dragon Slayer',
   },
   total_level: {
     mark: { src: uiSrc('stats'), name: 'Skills' },
     items: [],
     measure: 'Total level',
     score: 'Highest total level',
+    title: 'Total level',
   },
   collection: {
     mark: { src: uiSrc('inventory'), name: 'Inventory' },
@@ -44,10 +48,21 @@ const ART: Record<string, EvalArt> = {
     items: [{ id: '995-10000', name: 'Coins' }],
     measure: 'Wealth',
     score: 'Richest team',
+    title: 'Team wealth',
   },
   coins: { mark: { src: itemSrc(995), name: 'Coins' }, items: [{ id: '995', name: 'Coins' }], measure: 'Coins' },
   gold: { mark: { src: itemSrc('995-10000'), name: 'Coins' }, items: [{ id: '995-10000', name: 'Coins' }], measure: 'Coins' },
 };
+
+/**
+ * Every eval the site lists, by title: the data's, and the ones the project runs that have no runs
+ * yet (an eval page says so).
+ */
+export function siteEvals(evals: Pick<Eval, 'id' | 'title'>[]): { id: string; title: string }[] {
+  const have = new Set(evals.map(e => evalBase(e.id)));
+  const waiting = Object.entries(ART).flatMap(([id, art]) => (art.title && !have.has(id) ? [{ id, title: art.title }] : []));
+  return [...evals, ...waiting].sort((a, b) => a.title.localeCompare(b.title));
+}
 
 /** The eval an id is a variant of: quest_points_x5 → quest_points. */
 export const evalBase = (evalId: string): string => evalId.replace(/_x\d+$/, '');
