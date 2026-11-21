@@ -199,10 +199,12 @@ release binary (pinned, 19.0.1, installed in the world image) in print mode as t
 omp talks to the model through its own provider for that model (its request format, context window
 and thinking levels), pointed at Inspect's agent bridge, which serves every call with `--model` and
 logs it with its tokens; the bridge passes omp's thinking settings through. Every omp role (smol,
-slow, plan) is the same model, and omp's auxiliary services stay on it. omp's tool-call intents
+slow, plan) is the same model, omp's bundled subagents run at the run's thinking level, and omp's
+auxiliary services stay on the model. omp's tool-call intents
 (`tools.intentTracing`) are on, so each tool call carries a few words on what it is for (its `i`
 argument). The thinking level is the solver's `thinking` argument (`off`, `minimal`, `low`,
-`medium`, `high`, `xhigh`, `max`; default `high`), recorded in the log's plan.
+`medium`, `high`, `xhigh`, `max`, always passed to omp; default `high`; `none` for a model with no
+thinking levels), recorded in the log's plan.
 
 Any other agent or program goes through `command()`, which runs it with `$EVAL` (below) and, when
 the eval has a model, with `OPENAI_BASE_URL` and `ANTHROPIC_BASE_URL` pointing at Inspect's agent
@@ -231,8 +233,9 @@ PYTHONPATH=. inspect eval-set evals/matrix.py --model anthropic/claude-haiku-5-5
 PYTHONPATH=. inspect eval-set evals/matrix.py --model anthropic/claude-haiku-5-5 -T thinking=low --log-dir logs/haiku --log-dir-allow-dirty
 ```
 
-Run it again on the same log dir and it runs only what is missing or failed. A model with no
-thinking levels takes `-T thinking=null`, which passes omp no level.
+Run it again on the same log dir and it runs only what is missing or failed. Every run pins its
+thinking level; a model with no thinking levels takes `-T thinking=none` (omp sends it no thinking
+setting), recorded as such.
 
 ## The evals
 

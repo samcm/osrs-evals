@@ -5,8 +5,8 @@ model is not fixed here, and neither is omp's thinking level: give them at run t
 
 eval-set runs every task x model x epoch into <dir>, and run again on the same dir it does only what
 is missing or failed. Each thinking level is its own run: give another -T thinking=<level> on the
-same dir (with --log-dir-allow-dirty) to add it. -T thinking=null passes no level, for a model
-that has none.
+same dir (with --log-dir-allow-dirty) to add it. A model with no thinking levels takes
+-T thinking=none (omp sends it no thinking setting).
 """
 
 from inspect_ai import task, task_with
@@ -22,25 +22,25 @@ EPOCHS = 2
 
 
 @task
-def qp_omp(thinking: str | None = "high"):
+def qp_omp(thinking: str = "high"):
     return task_with(quest_points(), solver=omp(thinking=thinking), epochs=EPOCHS)
 
 
 @task
-def ds_omp(thinking: str | None = "high"):
+def ds_omp(thinking: str = "high"):
     return task_with(dragon_slayer(), solver=omp(thinking=thinking), epochs=EPOCHS)
 
 
 @task
-def total_level_omp(thinking: str | None = "high"):
+def total_level_omp(thinking: str = "high"):
     return task_with(total_level(), solver=omp(thinking=thinking), epochs=EPOCHS)
 
 
 @task
-def collection_omp(thinking: str | None = "high"):
+def collection_omp(thinking: str = "high"):
     return task_with(collection(), solver=omp(thinking=thinking), epochs=EPOCHS)
 
 
 @task
-def team_wealth_omp(thinking: str | None = "high"):
+def team_wealth_omp(thinking: str = "high"):
     return task_with(team_wealth(), solver=omp(thinking=thinking), epochs=EPOCHS)
