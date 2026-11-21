@@ -1,15 +1,16 @@
 /**
  * Every racing run on the world map at the playhead: its trail so far (the last stretch bold, the
  * rest faint, in its harness's dash), its character as a pin in its model's colour with its
- * vendor's mark, and the quests it has done by then. The map follows the pack until the reader
- * moves it; "Follow" goes back to it and "Fit" shows every whole path.
+ * vendor's mark, and the quests it has done by then. The map holds still: it is fitted once to where
+ * every run of the eval went (`bounds`), so it never reshuffles as the race plays. The reader can pan
+ * and zoom; "Fit" goes back to it.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { WorldMap, type MapOverlay, type MapPath } from '@/components/WorldMap';
 import type { PathPoint } from '@/data/types';
 import { brandSrc, loadTrimmedSprite, questSrc, uiSrc, type TrimmedSprite } from '@/lib/assets';
-import { positionAt, surfaceZ, type MapView } from '@/lib/map';
+import { positionAt, surfaceZ, UNDERGROUND_Z, type MapView } from '@/lib/map';
 import type { AgentLine } from '@/lib/series';
 import { useThemeColors } from '@/lib/theme';
 import type { RunCurve } from '../model';
@@ -23,6 +24,33 @@ export interface Track {
   marks: { tick: number; x: number; z: number; src: string; inferred: boolean }[];
   /** Place at the playhead, from 0 */
   rank: number;
+}
+
+/** Where the runs went: the tiles the view is fitted to. */
+export interface Bounds {
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+}
+
+/**
+ * The tiles every run of an eval went to, as drawn on the surface map, without the stray far-off
+ * points: the middle 99% of every recorded position on each axis.
+ */
+export function pathBounds(paths: readonly (readonly PathPoint[])[]): Bounds | null {
+  const xs: number[] = [];
+  const zs: number[] = [];
+  for (const path of paths)
+    for (const p of path) {
+      xs.push(p[1]);
+      zs.push(p[2] >= UNDERGROUND_Z ? p[2] - UNDERGROUND_Z : p[2]);
+    }
+  if (xs.length === 0) return null;
+  xs.sort((a, b) => a - b);
+  zs.sort((a, b) => a - b);
+  const at = (values: number[], q: number): number => values[Math.min(values.length - 1, Math.floor(q * values.length))];
+  return { x0: at(xs, 0.005), z0: at(zs, 0.005), x1: at(xs, 0.995), z1: at(zs, 0.995) };
 }
 
 export const PIN = 10;
@@ -98,6 +126,7 @@ export interface PlacedPin {
 
 export function RaceMap({
   tracks,
+  bounds,
   tick,
   trail,
   view,
@@ -107,6 +136,8 @@ export function RaceMap({
   placed,
 }: {
   tracks: Track[];
+  /** What the view is fitted to: where every run of the eval went */
+  bounds: Bounds | null;
   tick: number;
   /** The pairing lit by a hover or focus; the others fade */
   lit: string | null;
@@ -138,10 +169,10 @@ export function RaceMap({
     };
   }, [srcKey]);
 
-  // The whole of each path, undrawn, so the map fits where the runs go rather than where they are
+  // The bounds as an undrawn path from corner to corner: the one thing the map fits to
   const fitPaths = useMemo<MapPath[]>(
-    () => tracks.map(t => ({ id: t.curve.run.id, color: t.curve.variant.color.token, points: t.points as unknown as MapPath["points"], opacity: 0 })),
-    [tracks]
+    () => (bounds ? [{ id: 'bounds', color: '', opacity: 0, points: [[0, bounds.x0, bounds.z0, 0], [1, bounds.x1, bounds.z1, 0]] }] : []),
+    [bounds]
   );
 
   const overlay = useCallback<MapOverlay>(
@@ -281,14 +312,10 @@ export function RaceMap({
     [colors, images, lit, placed, tick, trail, tracks]
   );
 
-  // The map follows the pack: every pin in view, as close as one character allows
-  const follow = useMemo(() => tracks.flatMap(t => positionAt(t.points, tick, t.step) ?? []), [tracks, tick]);
-
   return (
     <WorldMap
       paths={fitPaths}
-      follow={follow}
-      followZoom={8}
+      fitKey={bounds ? `${bounds.x0},${bounds.z0},${bounds.x1},${bounds.z1}` : ''}
       view={view}
       onViewChange={onViewChange}
       height={height}

@@ -14,9 +14,9 @@ const OUT = `${SITE}/public/assets`;
 for (const d of ['items', 'quests', 'skills', 'ui', 'brands', 'map']) fs.mkdirSync(`${OUT}/${d}`, { recursive: true });
 
 // ---- items ------------------------------------------------------------------------------------
-// The site's sprites: Cook's Assistant, shrimps, coins, plus a few for ideas (Demon Slayer, Dragon
-// Slayer, woodcutting, combat). `id-count` renders a stack (995-10000 = a big pile of coins).
-const ITEMS = ['303', '315', '317', '323', '590', '995', '995-10000', '1511', '1925', '1927', '1929', '1931', '1933', '1944', '1947',
+// The site's sprites: coins, plus a few for ideas (Demon Slayer, Dragon Slayer, woodcutting,
+// combat). `id-count` renders a stack (995-10000 = a big pile of coins).
+const ITEMS = ['303', '590', '995', '995-10000', '1511', '1925', '1929', '1931', '1947',
     '1351', '1277', '1540', '2402', '1735', '1737'];
 const PROGRAM = 21; // Black cog (Clock Tower): the scripted baseline, clockwork rather than a mind
 

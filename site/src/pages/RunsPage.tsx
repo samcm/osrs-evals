@@ -1,24 +1,22 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
+import { BrainIcon } from 'lucide-react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
-import { CirclePlus, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { DataTable } from '@/components/DataTable';
+import { FacetFilter, type FacetOption as Option } from '@/components/FacetFilter';
 import { PageSection, PageToolbar } from '@/components/page';
 import { BrandMark, EvalMark, VariantLabel } from '@/components/marks';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Separator } from '@/components/ui/separator';
 import { indexQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
 import { outcomeWord } from '@/lib/evals';
 import { capitalize, formatClock, formatCost, formatInt, MISSING } from '@/lib/format';
 import { resultValue } from '@/lib/runResult';
 import { useDocumentTitle, useScope, useSearchUpdate } from '@/lib/search';
-import { agentInfo, modelInfo, variantKey, vendorOf } from '@/lib/series';
+import { agentInfo, compareThinking, modelInfo, thinkingOf, thinkingTitle, variantKey, vendorOf } from '@/lib/series';
 import { cn } from '@/lib/utils';
 
 const route = getRouteApi('/runs/');
@@ -40,96 +38,18 @@ interface Row extends Run {
 }
 
 /** The filters, each a URL list; a run passes a filter when the list is empty or holds the run's value. */
-const FACETS = ['eval', 'model', 'agent', 'vendor', 'outcome', 'batch'] as const;
+const FACETS = ['eval', 'model', 'thinking', 'agent', 'vendor', 'outcome', 'batch'] as const;
 type Facet = (typeof FACETS)[number];
 
 const facetValue: Record<Facet, (r: Run) => string> = {
   eval: r => r.eval,
   model: r => r.model,
+  thinking: thinkingOf,
   agent: r => r.agent,
   vendor: r => vendorOf(r.model).id,
   outcome: outcomeValue,
   batch: r => r.batch,
 };
-
-interface Option {
-  value: string;
-  label: string;
-  mark?: ReactNode;
-}
-
-/** shadcn's faceted filter: a dashed button naming the filter and its picks, opening a checklist with counts. */
-function FacetFilter({
-  title,
-  options,
-  selected,
-  counts,
-  onChange,
-}: {
-  title: string;
-  options: Option[];
-  selected: string[];
-  counts: Map<string, number>;
-  onChange: (values: string[]) => void;
-}) {
-  const picked = options.filter(o => selected.includes(o.value));
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" className="border-dashed">
-          <CirclePlus />
-          {title}
-          {picked.length > 0 && (
-            <>
-              <Separator orientation="vertical" className="h-4 data-vertical:self-center" />
-              <Badge variant="secondary" className="rounded-sm sm:hidden">
-                {picked.length}
-              </Badge>
-              <Badge variant="secondary" className="max-w-40 rounded-sm max-sm:hidden">
-                <span className="truncate">{picked.length > 1 ? `${picked.length} selected` : picked[0].label}</span>
-              </Badge>
-            </>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-64 p-0" align="start">
-        <Command>
-          {options.length > 6 && <CommandInput placeholder={title} />}
-          <CommandList>
-            <CommandEmpty>No match.</CommandEmpty>
-            <CommandGroup>
-              {options.map(o => {
-                const on = selected.includes(o.value);
-                return (
-                  <CommandItem
-                    key={o.value}
-                    value={o.label}
-                    data-checked={on}
-                    onSelect={() => onChange(on ? selected.filter(v => v !== o.value) : [...selected, o.value])}
-                  >
-                    {o.mark}
-                    <span className="flex-1 truncate">{o.label}</span>
-                    <span className="text-xs text-muted-foreground tabular-nums">{counts.get(o.value) ?? 0}</span>
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-            {picked.length > 0 && (
-              <>
-                <CommandSeparator />
-                <CommandGroup>
-                  <CommandItem onSelect={() => onChange([])}>
-                    Clear
-                  </CommandItem>
-                </CommandGroup>
-              </>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 const col = createColumnHelper<Row>();
 
@@ -164,7 +84,7 @@ function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[] {
             ),
           }),
         ]),
-    col.accessor(r => `${modelInfo(r.model).short} ${agentInfo(r.agent, r.agent_name).name}`, {
+    col.accessor(r => `${modelInfo(r.model).short} ${thinkingOf(r)} ${agentInfo(r.agent, r.agent_name).name}`, {
       id: 'variant',
       header: 'Pairing',
       cell: ({ row }) => <VariantLabel run={row.original} compact />,
@@ -264,12 +184,13 @@ export function RunsPage() {
   const options: Record<Facet, Option[]> = {
     eval: data.evals.map(e => ({ value: e.id, label: e.title, mark: <EvalMark evalId={e.id} size={16} title="" /> })),
     model: uniq(r => ({ value: r.model, label: modelInfo(r.model).name, mark: <BrandMark slug={modelInfo(r.model).vendor.slug} size={16} /> })),
-    agent: uniq(r => ({ value: r.agent, label: agentInfo(r.agent, r.agent_name).name })),
+    thinking: uniq(r => ({ value: thinkingOf(r), label: thinkingOf(r), mark: <BrainIcon aria-label={thinkingTitle(thinkingOf(r))} /> })).sort((a, b) => compareThinking(a.value, b.value)),
+    agent: uniq(r => ({ value: r.agent, label: agentInfo(r.agent, r.agent_name).name, mark: <BrandMark slug={agentInfo(r.agent, r.agent_name).slug} size={16} /> })),
     vendor: uniq(r => ({ value: vendorOf(r.model).id, label: vendorOf(r.model).name, mark: <BrandMark slug={vendorOf(r.model).slug} size={16} /> })),
     outcome: (['finished', 'not_finished', 'scored'] as const).map(v => ({ value: v, label: capitalize(v.replace('_', ' ')) })),
     batch: uniq(r => ({ value: r.batch, label: r.batch })),
   };
-  const titles: Record<Facet, string> = { eval: 'Eval', model: 'Model', agent: 'Harness', vendor: 'Vendor', outcome: 'Outcome', batch: 'Batch' };
+  const titles: Record<Facet, string> = { eval: 'Eval', model: 'Model', thinking: 'Thinking', agent: 'Harness', vendor: 'Vendor', outcome: 'Outcome', batch: 'Batch' };
   // Vendor narrows the same way Model does, so it shows only when a link brought it in
   const shown = FACETS.filter(f => f !== 'vendor' || picks.vendor.length > 0);
 

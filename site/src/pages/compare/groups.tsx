@@ -1,8 +1,8 @@
 /** Grouping runs by model, vendor, agent or variant, with each group's label. */
 
 import type { Run } from '@/data/types';
-import { AgentLabel, BrandMark, HarnessBadge, ModelLabel, VariantLabel } from '@/components/marks';
-import { agentInfo, modelInfo, variantOf, vendorOf } from '@/lib/series';
+import { AgentLabel, BrandMark, HarnessMark, ModelLabel, ThinkingLevel, VariantLabel } from '@/components/marks';
+import { agentInfo, modelInfo, thinkingOf, variantOf, vendorOf } from '@/lib/series';
 
 export type GroupBy = 'model' | 'vendor' | 'agent' | 'variant';
 
@@ -50,7 +50,10 @@ export function GroupLabel({ sample, by, size = 16, stacked }: { sample: Run; by
     return (
       <span className="flex flex-col items-end gap-0.5">
         <ModelLabel model={sample.model} compact size={size} />
-        <HarnessBadge agent={sample.agent} fallback={sample.agent_name} />
+        <span className="flex items-center gap-1.5">
+          <ThinkingLevel level={thinkingOf(sample)} />
+          <HarnessMark agent={sample.agent} fallback={sample.agent_name} />
+        </span>
       </span>
     );
   }
@@ -65,9 +68,9 @@ export function GroupLabel({ sample, by, size = 16, stacked }: { sample: Run; by
 }
 
 /** Scope params that narrow every page to one group. */
-export function groupScope(sample: Run, by: GroupBy): { model?: string[]; agent?: string[]; vendor?: string[] } {
+export function groupScope(sample: Run, by: GroupBy): { model?: string[]; agent?: string[]; vendor?: string[]; thinking?: string[] } {
   if (by === 'model') return { model: [sample.model] };
   if (by === 'vendor') return { vendor: [vendorOf(sample.model).id] };
   if (by === 'agent') return { agent: [sample.agent] };
-  return { model: [sample.model], agent: [sample.agent] };
+  return { model: [sample.model], agent: [sample.agent], thinking: [thinkingOf(sample)] };
 }

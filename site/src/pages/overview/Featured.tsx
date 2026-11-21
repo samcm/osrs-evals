@@ -12,6 +12,7 @@ import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'rec
 import { ChartFrame, chartMargin, crosshairCursor, gridProps, lineProps, SeriesLegend, seriesConfig, SeriesTooltip, xAxisProps, yAxisProps } from '@/components/charts';
 import { PageSection } from '@/components/page';
 import { EvalMark, VariantLabel } from '@/components/marks';
+import { evalSlug } from '@/lib/evals';
 import { ChartTooltip } from '@/components/ui/chart';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { evalRunsQuery } from '@/data/queries';
@@ -138,7 +139,7 @@ export function Featured({
       title={
         <>
           <EvalMark evalId={featured.id} size={20} title="" />
-          <Link to="/evals/$evalId" params={{ evalId: featured.id }} className="truncate hover:underline hover:underline-offset-4">
+          <Link to="/evals/$evalId" params={{ evalId: evalSlug(featured.id) }} className="truncate hover:underline hover:underline-offset-4">
             {featured.title}
           </Link>
         </>

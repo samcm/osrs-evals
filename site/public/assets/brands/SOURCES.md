@@ -29,6 +29,7 @@ ampcode.com/press-kit, kimi.ai/resources/kimi-brand, facebook.com/brand/resource
 | `opencode.svg` | OpenCode | https://unpkg.com/@lobehub/icons-static-svg@1.104.0/icons/opencode.svg | @lobehub/icons-static-svg 1.104.0 | MIT (lobehub/lobe-icons) |  |
 | `amp.svg` | Amp | https://ampcode.com/press-kit (https://ampcode.com/logo-light.svg) | fetched 2026-11-19 | Amp's press kit; trademark of Amp | The press kit's `logo-light.svg` wordmark, placed as in its square `app-icon.svg` (1024 box, wordmark at translate(113 302.27) scale(2.8363)) without the icon's background. The press kit has only this wordmark and the app icon (lobehub's `amp` mark is not in it). |
 | `bash.svg` | bash | https://unpkg.com/simple-icons@16.38.0/icons/gnubash.svg | simple-icons 16.38.0 | MIT (odb/official-bash-logo); simple-icons package CC0-1.0 | The GNU Bash logo, MIT licensed (github.com/odb/official-bash-logo), for model + bash agents. |
+| `omp.svg` | omp (oh-my-pi) | https://raw.githubusercontent.com/can1357/oh-my-pi/c61a4881a55389ca576662d62dbee0399463a0c1/assets/icon.svg | can1357/oh-my-pi c61a488 | MIT (can1357/oh-my-pi) | The repository's `assets/icon.svg` (the pi with its plugin connector), one colour: the connector's two dark pins cut out of it, the 120×90 box centred in a square. |
 
 ## Fonts
 

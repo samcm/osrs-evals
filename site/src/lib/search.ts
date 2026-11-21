@@ -11,7 +11,9 @@
 import { useCallback, useEffect } from 'react';
 import { getRouteApi, stripSearchParams, useNavigate, type SearchMiddleware, type SearchSchemaInput } from '@tanstack/react-router';
 import type { Run } from '@/data/types';
-import { vendorOf } from './series';
+import { thinkingOf, vendorOf } from './series';
+
+const root = getRouteApi('__root__');
 
 /** One search param: a loose parser (undefined for a bad or absent value) and its default. */
 export interface Param<T> {
@@ -164,31 +166,43 @@ export function useSearchUpdate<V extends object = Record<string, unknown>>(
 export const legendParams = { hide: list(), focus: text() };
 
 /** Scope params, on the root route and carried on every internal link: they narrow every page. */
-export const scopeParams = { model: list(), agent: list(), vendor: list() };
+export const scopeParams = { model: list(), agent: list(), vendor: list(), thinking: list() };
 
 /** The root route's params: scope plus a theme override for shared links. */
-export const rootSearch = defineSearch({ ...scopeParams, theme: oneOf(['light', 'dark'], undefined) });
+export const rootSearch = defineSearch({
+  ...scopeParams,
+  theme: oneOf(['light', 'dark'], undefined),
+  /** EthIQ's cut: every thinking level of each model in each harness, or only its best one. A view
+   * param on every page, not carried from page to page */
+  effort: oneOf(['all', 'best'], 'all'),
+});
+
+export type EffortCut = 'all' | 'best';
+
+/** The page's thinking-level cut (`effort`). */
+export const useEffort = (): EffortCut => root.useSearch().effort;
 
 /** Keys carried from page to page. */
-export const RETAINED_PARAMS = ['model', 'agent', 'vendor', 'theme'] as const;
+export const RETAINED_PARAMS = ['model', 'agent', 'vendor', 'thinking', 'theme'] as const;
 
 export interface Scope {
   model: string[];
   agent: string[];
   vendor: string[];
+  /** Thinking levels, `default` for runs that set none */
+  thinking: string[];
 }
-
-const root = getRouteApi('__root__');
 
 /** The current scope (empty lists mean everything). */
 export function useScope(): Scope {
-  const { model, agent, vendor } = root.useSearch();
-  return { model, agent, vendor };
+  const { model, agent, vendor, thinking } = root.useSearch();
+  return { model, agent, vendor, thinking };
 }
 
 /** Whether a run is in scope. */
-export function inScope(run: Pick<Run, 'model' | 'agent'>, scope: Scope): boolean {
+export function inScope(run: Pick<Run, 'model' | 'agent' | 'thinking'>, scope: Scope): boolean {
   return (
+    (scope.thinking.length === 0 || scope.thinking.includes(thinkingOf(run))) &&
     (scope.model.length === 0 || scope.model.includes(run.model)) &&
     (scope.agent.length === 0 || scope.agent.includes(run.agent)) &&
     (scope.vendor.length === 0 || scope.vendor.includes(vendorOf(run.model).id))

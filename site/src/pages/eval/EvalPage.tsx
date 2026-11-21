@@ -3,15 +3,19 @@ import { getRouteApi } from '@tanstack/react-router';
 import { useQueries, useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Empty, ParamSegmented } from '@/components/bits';
+import { EvalMark } from '@/components/marks';
+import { PairingFilters } from '@/components/PairingFilters';
 import { PageHeader, PageSection, PageTabs, PageToolbar, type MetaItem } from '@/components/page';
 import { SeriesLegend } from '@/components/charts';
 import { variantSeries } from '@/lib/chartSeries';
-import { variantKey } from '@/lib/series';
+import { compareThinking, thinkingOf, variantKey } from '@/lib/series';
+import { bestLevelKeys } from '@/lib/score';
+import { evalArt, evalBySlug } from '@/lib/evals';
 import { evalRunsQuery, indexQuery, runQuery } from '@/data/queries';
-import type { Eval } from '@/data/types';
-import { formatDecimal, formatInt } from '@/lib/format';
+import type { Eval, Run } from '@/data/types';
+import { formatDate, formatDuration, formatInt } from '@/lib/format';
 import { useLegend, type LegendState } from '@/lib/legend';
-import { inScope, useDocumentTitle, useScope } from '@/lib/search';
+import { inScope, useDocumentTitle, useEffort, useScope, useScopeUpdate } from '@/lib/search';
 import { AttemptsTable, CdfChart, ParetoChart } from './Cuts';
 import { EffortStrips, GROUP_OPTIONS, ToolMix } from './Effort';
 import { buildCurves, callsByTick, rankVariants, totalBudgetTicks, X_OPTIONS, xRange } from './model';
@@ -25,22 +29,54 @@ import { WhereMap } from './Where';
 
 const route = getRouteApi('/evals/$evalId');
 
-/** The facts a reader needs beside the goal: the budget (its minutes on hover), attempts, accounts. */
-function facts(e: Eval): MetaItem[] {
-  const minutes = (e.budget_ticks * e.tick_ms) / 60_000;
+/** A tooltip on a value, for the one line of how it is known. */
+function Hint({ children, hint }: { children: React.ReactNode; hint: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger className="cursor-help underline decoration-dotted underline-offset-4">{children}</TooltipTrigger>
+      <TooltipContent className="max-w-72">{hint}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** "lumbridge.sav" → "Lumbridge": the start saves are named for where they put the character. */
+const placeOf = (save: string | null | undefined): string | null =>
+  save ? save.replace(/\.sav$/, '').replace(/[_-]+/g, ' ').replace(/^./, c => c.toUpperCase()) : null;
+
+/**
+ * The facts a reader needs beside the goal: how it is scored (read from the game's server), the
+ * budget in ticks and the game time it makes at the eval's tick rate, where the character starts,
+ * and what has run.
+ */
+function facts(e: Eval, runs: Run[]): MetaItem[] {
+  const seconds = (e.budget_ticks * e.tick_ms) / 1000;
+  const place = placeOf(e.start?.save);
+  const pairings = new Set(runs.map(variantKey)).size;
+  const levels = [...new Set(runs.map(thinkingOf))].sort(compareThinking);
+  const last = runs.map(r => r.sample_started ?? r.started).sort().pop();
+  const scoring = evalArt(e.id).scoring;
   return [
+    ...(scoring ? [{ term: 'Scored by', value: scoring }] : []),
+    { term: e.attempts > 1 ? 'Budget per attempt' : 'Budget', value: `${formatInt(e.budget_ticks)} ticks` },
+    { term: 'Game time', value: <Hint hint={`${formatInt(e.budget_ticks)} ticks at ${formatInt(e.tick_ms)} ms a tick`}>{formatDuration(seconds)}</Hint> },
+    ...(e.attempts > 1 ? [{ term: 'Attempts', value: formatInt(e.attempts) }] : []),
+    ...(place
+      ? [
+          {
+            term: 'Start',
+            value: (
+              <Hint hint={`A new character from ${e.start?.save}${e.start?.tile ? `, first at tile ${e.start.tile.join(', ')}` : ''}`}>{place}</Hint>
+            ),
+          },
+        ]
+      : []),
     {
-      term: e.attempts > 1 ? 'Budget per attempt' : 'Budget',
+      term: 'Runs',
       value: (
-        <Tooltip>
-          <TooltipTrigger className="cursor-help underline decoration-dotted underline-offset-4">{formatInt(e.budget_ticks)} ticks</TooltipTrigger>
-          <TooltipContent>
-            {formatDecimal(minutes).replace(/\.0$/, '')} min at {formatInt(e.tick_ms)} ms a tick
-          </TooltipContent>
-        </Tooltip>
+        <Hint hint={`${formatInt(pairings)} pairings; thinking ${levels.join(', ')}`}>{formatInt(runs.length)}</Hint>
       ),
     },
-    ...(e.attempts > 1 ? [{ term: 'Attempts', value: formatInt(e.attempts) }] : []),
+    ...(last ? [{ term: 'Latest', value: formatDate(last).split(',')[0] }] : []),
   ];
 }
 
@@ -67,17 +103,26 @@ const PX_OPTIONS = [
 ];
 
 export function EvalPage() {
-  const { evalId } = route.useParams();
+  const { evalId: slug } = route.useParams();
   const search = route.useSearch();
   const { data } = useSuspenseQuery(indexQuery);
+  const e = evalBySlug(data.evals, slug);
+  const evalId = e?.id ?? slug;
   const { data: grid } = useQuery(evalRunsQuery(evalId));
   const scope = useScope();
+  const effort = useEffort();
+  const setScope = useScopeUpdate();
   const urlLegend = useLegend();
-  const e = data.evals.find(x => x.id === evalId);
   useDocumentTitle(e?.title ?? evalId);
 
   const all = useMemo(() => data.runs.filter(r => r.eval === evalId), [data, evalId]);
-  const runs = useMemo(() => all.filter(r => inScope(r, scope)), [all, scope]);
+  const scoped = useMemo(() => all.filter(r => inScope(r, scope)), [all, scope]);
+  // EthIQ's cut: each model in each harness at every thinking level, or only at its best one here
+  const runs = useMemo(() => {
+    if (effort === 'all' || !e) return scoped;
+    const keep = bestLevelKeys(rankVariants(e, scoped, search.x).map(r => r.variant));
+    return scoped.filter(r => keep.has(variantKey(r)));
+  }, [scoped, effort, e, search.x]);
 
   // Model calls as x need each run's calls, from its detail: loaded only when asked for
   const details = useQueries({
@@ -114,7 +159,8 @@ export function EvalPage() {
     );
   }
   const target = e.target != null;
-  const quests = e.measure === 'Quest points';
+  // The quests strip shows wherever the runs finished quests, whatever the eval measures
+  const quests = runs.some(r => r.metrics.quests.length > 0);
   const pending = search.x === 'calls' && details.some(d => d.isPending);
   const maxTick = totalBudgetTicks(e);
 
@@ -133,11 +179,14 @@ export function EvalPage() {
 
   return (
     <div className={SECTIONS}>
-      <PageHeader description={e.goal} meta={facts(e)} />
+      <PageHeader mark={<EvalMark evalId={e.id} size={40} />} description={e.goal} meta={facts(e, all)} />
       {/* The views and the controls that drive the open one share a row, as shadcn's dashboards do */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PageTabs value={search.tab} tabs={[...TABS]} />
-        {runs.length > 0 && controls && <PageToolbar label="View controls">{controls}</PageToolbar>}
+        <PageToolbar label="View controls">
+          {runs.length > 0 && controls}
+          <PairingFilters runs={all} thinking={scope.thinking} agent={scope.agent} onChange={setScope} />
+        </PageToolbar>
       </div>
 
       {runs.length === 0 ? (

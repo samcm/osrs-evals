@@ -1,16 +1,19 @@
 /**
- * The eval's one list of model + harness pairings, ranked by result: how many finished (or the median
- * result), every run as a dot on one shared scale (each opens its run), and the median cost. A click
- * on a pairing hides it on every chart; a double click shows only it; hovering lights it everywhere.
+ * The eval's one list of pairings (a model at a thinking level in a harness), ranked by result: how
+ * many finished (or the median result), every run as a dot on one shared scale (each opens its run),
+ * and the median cost. A row opens the model's page on this eval, filtered to the row's thinking
+ * level and harness; hovering lights the pairing everywhere.
  */
 
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { VariantLabel } from '@/components/marks';
 import type { Eval, Run } from '@/data/types';
 import { formatCost, formatInt } from '@/lib/format';
 import { setHovered } from '@/lib/hover';
+import { evalSlug } from '@/lib/evals';
+import { modelSlug } from '@/lib/series';
 import { faded, useLit } from './lit';
 import type { LegendState } from '@/lib/legend';
 import { median } from '@/lib/stats';
@@ -67,6 +70,7 @@ function Spread({ e, r, x, max }: { e: Eval; r: RankedVariant; x: XMeasure; max:
 }
 
 export function Leaderboard({ e, ranked, x, legend }: { e: Eval; ranked: RankedVariant[]; x: XMeasure; legend: LegendState }) {
+  const navigate = useNavigate();
   const target = e.target != null;
   const lit = useLit(legend.focus);
   // One scale for every row: the slowest finish (or the best result)
@@ -98,6 +102,12 @@ export function Leaderboard({ e, ranked, x, legend }: { e: Eval; ranked: RankedV
             {ranked.map(r => {
               const key = r.variant.key;
               const focused = legend.focus === key;
+              const open = () =>
+                navigate({
+                  to: '/evals/$evalId/$model',
+                  params: { evalId: evalSlug(e.id), model: modelSlug(r.variant.model) },
+                  search: { level: [r.variant.thinking], harness: [r.variant.agent] } as never,
+                });
               return (
                 <TableRow
                   key={key}
@@ -105,23 +115,19 @@ export function Leaderboard({ e, ranked, x, legend }: { e: Eval; ranked: RankedV
                   className={cn('cursor-pointer transition-opacity duration-150', (!legend.visible(key) || faded(lit, key)) && 'opacity-40')}
                   onMouseEnter={() => legend.visible(key) && setHovered(key)}
                   onMouseLeave={() => setHovered(undefined)}
-                  onClick={event => (event.detail >= 2 ? legend.isolate(key) : legend.toggle(key))}
+                  onClick={open}
                 >
                   <TableCell>
-                    <button
-                      type="button"
-                      aria-pressed={legend.visible(key)}
-                      title={focused ? 'Show every pairing' : 'Hide; double-click to show only this'}
-                      onClick={event => {
-                        event.stopPropagation();
-                        if (event.detail >= 2) legend.isolate(key);
-                        else legend.toggle(key);
-                      }}
+                    <Link
+                      to="/evals/$evalId/$model"
+                      params={{ evalId: evalSlug(e.id), model: modelSlug(r.variant.model) }}
+                      search={{ level: [r.variant.thinking], harness: [r.variant.agent] } as never}
+                      onClick={event => event.stopPropagation()}
                       className="flex min-w-0 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                     >
                       <span aria-hidden className={cn('w-4 shrink-0 border-t-2', r.variant.color.borderClassName, LINE[r.variant.line])} />
                       <VariantLabel variant={r.variant} run={r.runs[0]} compact />
-                    </button>
+                    </Link>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {target ? (

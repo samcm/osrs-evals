@@ -10,7 +10,7 @@ import { Bar, BarChart, CartesianGrid, Cell, Scatter, ScatterChart, XAxis, YAxis
 import { ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { ChartFrame, chartMargin, KeyLegend, Y_AXIS_WIDTH, SeriesLabel, SeriesTooltip, gridProps, xAxisProps } from '@/components/charts';
 import type { Run } from '@/data/types';
-import { toolSeries } from '@/lib/chartSeries';
+import { extraLabelWidth, toolSeries } from '@/lib/chartSeries';
 import { FADED_OPACITY, setHovered } from '@/lib/hover';
 import { faded, useLit } from './lit';
 import { median } from '@/lib/stats';
@@ -43,7 +43,7 @@ export const GROUP_OPTIONS = [
   { value: 'agent' as const, label: 'Harness' },
 ];
 
-/** A group's label in the left gutter: its marks, short name and harness badge. */
+/** A group's label in the left gutter: its marks, short name, thinking level and harness mark. */
 function GroupTick({ x, y, payload, groups, width }: { x?: number; y?: number; payload?: { value: number }; groups: Group[]; width: number }) {
   const g = groups[payload?.value ?? -1];
   if (!g || x == null || y == null) return null;
@@ -146,9 +146,9 @@ function Strip({ column, groups, labels, labelRoom, lit }: { column: Column; gro
 }
 
 const useGroups = (runs: Run[], by: GroupBy) => useMemo(() => groupRuns(runs, by), [runs, by]);
-/** The row labels' gutter: the widest label (mark, short name, harness badge), at least the y axis width. */
+/** The row labels' gutter: the widest label (mark, short name, thinking level, harness mark), at least the y axis width. */
 const roomFor = (groups: Group[]): number =>
-  Math.max(Y_AXIS_WIDTH, ...groups.map(g => labelWidth(g.spec.label) + (g.spec.harness ? g.spec.harness.length * 7 + 26 : 0) + 8));
+  Math.max(Y_AXIS_WIDTH, ...groups.map(g => labelWidth(g.spec.label) + extraLabelWidth(g.spec) + 8));
 
 export function EffortStrips({ runs, by, focus }: { runs: Run[]; by: GroupBy; focus?: string }) {
   const [ref, width] = useWidth();

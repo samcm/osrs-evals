@@ -21,7 +21,7 @@ import {
   yAxisProps,
 } from '@/components/charts';
 import type { Eval, Run } from '@/data/types';
-import { scatterShape, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
+import { extraLabelWidth, scatterShape, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
 import { variantKey } from '@/lib/series';
 import { capitalize, formatInt } from '@/lib/format';
 import { FADED_OPACITY, setHovered } from '@/lib/hover';
@@ -54,7 +54,7 @@ interface Point {
 }
 
 /** A tooltip of named values, built from shadcn's ChartTooltipContent, titled by a series. */
-function PointTooltip({
+export function PointTooltip({
   active,
   payload,
   rows,
@@ -87,7 +87,7 @@ function PointLabels({ points }: { points: Point[] }) {
   const x = useXAxisScale();
   const y = useYAxisScale();
   if (!plot || !x || !y) return null;
-  const width = (p: Point) => labelWidth(p.spec.label) + (p.spec.harness ? p.spec.harness.length * 7 + 26 : 0);
+  const width = (p: Point) => labelWidth(p.spec.label) + extraLabelWidth(p.spec);
   const placed = points.map(p => ({ p, px: Number(x(p.x)), py: Number(y(p.y)), width: width(p) }));
   // Labels may run into the chart's margins, not past its edges
   const positions = placePointLabels(placed, { x: 0, y: plot.y, width: plot.x + plot.width + 16, height: plot.height });

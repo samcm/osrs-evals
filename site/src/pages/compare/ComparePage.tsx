@@ -18,7 +18,10 @@ import { PageSection, PageTabs, PageToolbar } from '@/components/page';
 import { indexQuery } from '@/data/queries';
 import type { Eval, Price, Run } from '@/data/types';
 import { useLegend } from '@/lib/legend';
-import { inScope, useDocumentTitle, useScope, useSearchUpdate } from '@/lib/search';
+import { inScope, useDocumentTitle, useEffort, useScope, useScopeUpdate, useSearchUpdate } from '@/lib/search';
+import { PairingFilters } from '@/components/PairingFilters';
+import { bestLevelKeys, blendedScores } from '@/lib/score';
+import { variantKey } from '@/lib/series';
 import { modelInfo, vendorOf } from '@/lib/series';
 import { median } from '@/lib/stats';
 import { StripChart, ToolMixChart, type MixGroup, type RankedGroup } from './charts';
@@ -47,10 +50,18 @@ export function ComparePage() {
   const search = route.useSearch();
   const update = useSearchUpdate(compareSearch);
   const scope = useScope();
+  const setScope = useScopeUpdate();
+  const effort = useEffort();
   const legend = useLegend();
 
   const metric = metricById(search.metric);
-  const scoped = useMemo(() => data.runs.filter(r => inScope(r, scope)), [data, scope]);
+  // EthIQ's cut: every thinking level, or each model in each harness at its best blended score
+  const scoped = useMemo(() => {
+    const runs = data.runs.filter(r => inScope(r, scope));
+    if (effort === 'all') return runs;
+    const keep = bestLevelKeys(blendedScores(data.evals, runs).map(p => p.variant));
+    return runs.filter(r => keep.has(variantKey(r)));
+  }, [data, scope, effort]);
   const evals = data.evals.filter(e => scoped.some(r => r.eval === e.id));
   // Outcome measures read one eval: the chosen one if the measure applies to it, else the first that fits
   const oneEval = search.tab === 'measure' && Boolean(metric.outcome);
@@ -148,6 +159,7 @@ export function ComparePage() {
               onChange={scale => update({ scale: scale === metric.scale ? undefined : scale })}
             />
           )}
+          <PairingFilters runs={data.runs} thinking={scope.thinking} agent={scope.agent} onChange={setScope} />
         </PageToolbar>
       )}
 

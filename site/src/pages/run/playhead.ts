@@ -3,7 +3,8 @@
  * marker and the transcript all show. Every part of the debugger reads it here and changes it here,
  * so they never drift apart.
  *
- *   committed  `?t=` in the URL (or the selected call's tick): where the page opens, what a link shares
+ *   committed  `?t=` in the URL (or the selected call's tick): where the page opens, what a link shares;
+ *              absent means the run's start, so a run opens at its first tick
  *   scrub      while dragging or playing: the moving playhead, not written to the URL every frame
  *   hover      the lanes' crosshair: a preview, shown over the committed moment while hovering
  *
@@ -15,7 +16,7 @@
  *                       pausing commits where it stopped
  *   setSpeed(speed)
  *
- * `tick` is what to show: scrub, then hover, then the committed tick, then the run's end; `at` is the
+ * `tick` is what to show: scrub, then hover, then the committed tick, then the run's start; `at` is the
  * same without the hover. Moves the eye follows (a jump, not a drag or playing) take TRANSITION_MS. Playback
  * runs once per page however many components read the playhead; the latest `usePlayhead` given a
  * `write` is the one that commits.
@@ -125,7 +126,8 @@ export function useCommitted(run: RunDetail, clock: Clock): [number | null, (tic
   const update = useSearchUpdate(runSearch);
   const turn = search.turn != null ? run.turns[search.turn - 1] : undefined;
   const committed = search.t ?? (turn ? turnTick(turn, clock) : null);
-  const write = useCallback((tick: number) => update({ t: tick }), [update]);
+  // The start is the default: it leaves the URL clean
+  const write = useCallback((tick: number) => update({ t: tick || undefined }), [update]);
   return [committed, write];
 }
 
@@ -156,6 +158,6 @@ export function usePlayhead(clock: Clock, committed: number | null, write?: (tic
     };
   }, [drives]);
 
-  const at = scrub ?? pending ?? committed ?? max;
+  const at = scrub ?? pending ?? committed ?? 0;
   return { tick: scrub ?? hover ?? at, at, hover, scrub, playing, speed };
 }

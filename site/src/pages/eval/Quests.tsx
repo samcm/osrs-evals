@@ -1,5 +1,5 @@
 /**
- * For quest-point evals, under the progress chart on its x: one lane per run, in the leaderboard's
+ * For evals whose runs finish quests, under the progress chart on its x: one lane per run, in the leaderboard's
  * order, each quest's icon where the run finished it. A lane starts with the run's pin (as on the
  * map and in the race) and runs in its line, colour and dash, for as long as the run did. Icons are
  * one size on a fixed grid of slots, so two quests close together sit side by side, never on top of

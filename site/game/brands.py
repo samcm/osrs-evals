@@ -9,6 +9,7 @@ from pathlib import Path
 OUT = Path(__file__).resolve().parent.parent / "public/assets/brands"
 LOBE, SIMPLE = "@lobehub/icons-static-svg@1.104.0", "simple-icons@16.38.0"
 AMP = "https://ampcode.com/logo-light.svg"
+OMP = "https://raw.githubusercontent.com/can1357/oh-my-pi/c61a4881a55389ca576662d62dbee0399463a0c1/assets/icon.svg"
 FONTS = "https://github.com/RuneStar/fonts/releases/download/1.103-0/RuneScape-Fonts.zip"
 
 # slug: (source, file in package, product it names, note)
@@ -30,7 +31,22 @@ MARKS = {
     "opencode": ("lobe", "opencode", "OpenCode", ""),
     "amp": ("amp", None, "Amp", "The press kit's `logo-light.svg` wordmark, placed as in its square `app-icon.svg` (1024 box, wordmark at translate(113 302.27) scale(2.8363)) without the icon's background. The press kit has only this wordmark and the app icon (lobehub's `amp` mark is not in it)."),
     "bash": ("simple", "gnubash", "bash", "The GNU Bash logo, MIT licensed (github.com/odb/official-bash-logo), for model + bash agents."),
+    "omp": ("omp", None, "omp (oh-my-pi)", "The repository's `assets/icon.svg` (the pi with its plugin connector), one colour: the connector's two dark pins cut out of it, the 120×90 box centred in a square."),
 }
+
+
+def omp_mark(svg: str, title: str) -> str:
+    """omp's icon as one shape: its light and orange parts filled, its dark parts (the connector's
+    pins) cut out, in a square box."""
+    shapes = re.findall(r"<(rect|circle)\b([^>]*?)/>", svg)
+    keep, cut = [], []
+    for tag, attrs in shapes:
+        fill = re.search(r'fill="([^"]+)"', attrs).group(1).lower()
+        bare = re.sub(r'\s*(fill|opacity)="[^"]*"', "", attrs).strip()
+        (cut if fill == "#0d0d0d" else keep).append(f"<{tag} {bare}/>")
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -15 120 120"><title>{title}</title>'
+            f'<mask id="m"><rect x="0" y="-15" width="120" height="120" fill="#fff"/><g fill="#000">{"".join(cut)}</g></mask>'
+            f'<g mask="url(#m)">{"".join(keep)}</g></svg>\n')
 
 
 def npm(spec: str, into: Path) -> Path:
@@ -64,7 +80,10 @@ def main() -> None:
         amp = get(AMP).decode()
         rows = []
         for slug, (src, file, product, note) in MARKS.items():
-            if src == "amp":
+            if src == "omp":
+                svg = omp_mark(get(OMP).decode(), product)
+                url, version, licence = OMP, "can1357/oh-my-pi c61a488", "MIT (can1357/oh-my-pi)"
+            elif src == "amp":
                 d = re.search(r'<path d="([^"]+)"', amp).group(1)
                 svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><title>{product}</title><path transform="translate(113 302.27) scale(2.8362989324)" d="{d}"/></svg>\n'
                 url, version, licence = "https://ampcode.com/press-kit (" + AMP + ")", "fetched " + datetime.date.today().isoformat(), "Amp's press kit; trademark of Amp"

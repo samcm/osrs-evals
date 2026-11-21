@@ -217,6 +217,7 @@ const AGENTS: Record<string, AgentInfo> = {
   claude_code: { name: 'Claude Code', slug: 'claude-code', symbol: 'rect', line: 'dashed', variant: model => `${model} in Claude Code` },
   codex: { name: 'Codex', slug: 'codex', symbol: 'diamond', line: 'dotted', variant: model => `${model} in Codex` },
   opencode: { name: 'OpenCode', slug: 'opencode', symbol: 'roundRect', line: 'dashed', variant: model => `${model} in OpenCode` },
+  omp: { name: 'omp', slug: 'omp', symbol: 'triangle', line: 'solid', variant: model => `${model} in omp` },
   amp: { name: 'Amp', slug: 'amp', symbol: 'pin', line: 'dotted', variant: model => `${model} in Amp` },
   program: { name: 'Program', slug: 'program', symbol: 'triangle', line: 'solid', variant: () => 'Program' },
 };
@@ -226,9 +227,9 @@ const AGENT_ALIASES: Record<string, string> = { react: 'bash', codex_cli: 'codex
 const FALLBACK_SYMBOLS: AgentSymbol[] = ['roundRect', 'pin', 'circle', 'rect', 'diamond', 'triangle'];
 const FALLBACK_LINES: AgentLine[] = ['dashed', 'dotted', 'solid'];
 
-/** An agent id ("react", "inspect_swe/claude_code", "command" …) to its harness. */
+/** An agent id ("react", "inspect_swe/claude_code", "harness/__init__.py@omp" …) to its harness. */
 export function agentInfo(id: string, fallbackName?: string): AgentInfo {
-  const last = id.split('/').pop() ?? id;
+  const last = (id.split('/').pop() ?? id).split('@').pop() ?? id;
   const known = AGENTS[AGENT_ALIASES[last] ?? last];
   if (known) return known;
   const name = fallbackName || last;
@@ -244,16 +245,39 @@ export function agentInfo(id: string, fallbackName?: string): AgentInfo {
 
 export const agentName = (id: string, fallbackName?: string): string => agentInfo(id, fallbackName).name;
 
+// Thinking levels
+
+/**
+ * Thinking levels, lowest first: omp's `thinking`, Inspect's reasoning_effort and Claude Code's
+ * effort. `default` is a run that set none, so its harness and model decided.
+ */
+export const THINKING_LEVELS = ['default', 'off', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
+
+/** A run's thinking level as the site names it: its level, or `default`. */
+export const thinkingOf = (run: Pick<Run, 'thinking'>): string => run.thinking ?? 'default';
+
+/** Order of thinking levels: the known ones lowest first, unknown ones after them by name. */
+export function compareThinking(a: string, b: string): number {
+  const ia = THINKING_LEVELS.indexOf(a as (typeof THINKING_LEVELS)[number]);
+  const ib = THINKING_LEVELS.indexOf(b as (typeof THINKING_LEVELS)[number]);
+  return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+}
+
+/** What a level means, for tooltips. */
+export const thinkingTitle = (level: string): string => (level === 'default' ? "Thinking: the harness's default" : `Thinking: ${level}`);
+
 // Variants
 
-/** A variant is one model run by one agent. */
+/** A variant is one model at one thinking level run by one agent harness. */
 export interface Variant {
   key: string;
   model: string;
   agent: string;
-  /** Full name, as "Claude Haiku 5.5 in Claude Code" */
+  /** The thinking level, `default` when the run set none */
+  thinking: string;
+  /** Full name, as "Claude Haiku 5.5 in Claude Code, high thinking" */
   name: string;
-  /** Chart label, as "Haiku 5.5 in Claude Code" */
+  /** Chart label, as "Haiku 5.5 in Claude Code, high" */
   short: string;
   color: SeriesColor;
   symbol: AgentSymbol;
@@ -263,17 +287,19 @@ export interface Variant {
   agentSlug: string;
 }
 
-export const variantKey = (run: Pick<Run, 'model' | 'agent'>): string => `${run.model}|${run.agent}`;
+export const variantKey = (run: Pick<Run, 'model' | 'agent' | 'thinking'>): string => `${run.model}|${thinkingOf(run)}|${run.agent}`;
 
-export function variantOf(run: Pick<Run, 'model' | 'agent' | 'agent_name'>): Variant {
+export function variantOf(run: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thinking'>): Variant {
   const model = modelInfo(run.model);
   const agent = agentInfo(run.agent, run.agent_name);
+  const thinking = thinkingOf(run);
   return {
     key: variantKey(run),
     model: run.model,
     agent: run.agent,
-    name: agent.variant(model.name),
-    short: agent.variant(model.short),
+    thinking,
+    name: `${agent.variant(model.name)}, ${thinking} thinking`,
+    short: `${agent.variant(model.short)}, ${thinking}`,
     color: model.color,
     symbol: agent.symbol,
     line: agent.line,
@@ -282,7 +308,10 @@ export function variantOf(run: Pick<Run, 'model' | 'agent' | 'agent_name'>): Var
   };
 }
 
-/** Variants in a stable order: by name. */
+/** Variants in a stable order: by model, harness, then thinking level. */
 export function compareVariants(a: Variant, b: Variant): number {
-  return a.name.localeCompare(b.name);
+  return modelName(a.model).localeCompare(modelName(b.model)) || a.agent.localeCompare(b.agent) || compareThinking(a.thinking, b.thinking);
 }
+
+/** A model as it appears in a URL: its name without the provider route (openai/openai-codex/gpt-6.2-sol → gpt-6.2-sol). */
+export const modelSlug = (model: string): string => model.split('/').pop() ?? model;

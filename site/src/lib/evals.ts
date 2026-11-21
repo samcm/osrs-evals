@@ -10,38 +10,31 @@ interface EvalArt {
   items: { id: string; name: string }[];
   /** What the eval's value counts, for axis names */
   measure: string;
+  /** How the eval is scored, read from the server (as its file in evals/ does), when known */
+  scoring?: string;
 }
 
 const ART: Record<string, EvalArt> = {
-  cooks_assistant: {
-    mark: { src: questSrc('cooks_assistant'), name: "Cook's Assistant" },
-    items: [
-      { id: '1944', name: 'Egg' },
-      { id: '1927', name: 'Bucket of milk' },
-      { id: '1933', name: 'Pot of flour' },
-    ],
-    measure: 'Quest stage',
-  },
-  shrimps: {
-    mark: { src: itemSrc(315), name: 'Shrimps' },
-    items: [
-      { id: '317', name: 'Raw shrimps' },
-      { id: '315', name: 'Shrimps' },
-      { id: '323', name: 'Burnt shrimp' },
-    ],
-    measure: 'Shrimps cooked',
+  quest_points: {
+    mark: { src: uiSrc('quests'), name: 'Quests' },
+    items: [],
+    measure: 'Quest points',
+    scoring: "Quest points at the end, from the server's save (varp 101)",
   },
   dragon_slayer: {
     mark: { src: questSrc('dragon_slayer'), name: 'Dragon Slayer' },
     items: [{ id: '1540', name: 'Anti-dragon shield' }],
     measure: 'Quest stage',
+    scoring: "Ticks until the quest's stage reaches 10, from the server's save (varp 176); the game ends there",
   },
-  quest_points: { mark: { src: uiSrc('quests'), name: 'Quests' }, items: [], measure: 'Quest points' },
+  total_level: { mark: { src: uiSrc('stats'), name: 'Skills' }, items: [], measure: 'Total level' },
+  collection: { mark: { src: uiSrc('inventory'), name: 'Inventory' }, items: [], measure: 'Items collected' },
+  team_wealth: { mark: { src: itemSrc('995-10000'), name: 'Coins' }, items: [{ id: '995-10000', name: 'Coins' }], measure: 'Coins' },
   coins: { mark: { src: itemSrc(995), name: 'Coins' }, items: [{ id: '995', name: 'Coins' }], measure: 'Coins' },
   gold: { mark: { src: itemSrc('995-10000'), name: 'Coins' }, items: [{ id: '995-10000', name: 'Coins' }], measure: 'Coins' },
 };
 
-/** The eval an id is a variant of: cooks_assistant_x5 → cooks_assistant. */
+/** The eval an id is a variant of: quest_points_x5 → quest_points. */
 export const evalBase = (evalId: string): string => evalId.replace(/_x\d+$/, '');
 
 export function evalArt(evalId: string): EvalArt {
@@ -60,3 +53,12 @@ export function outcomeWord(run: Pick<Run, 'success'>): 'Finished' | 'Not finish
 /** Budget in minutes of wall-clock at the eval's tick rate. */
 export const budgetMinutes = (e: Pick<Eval, 'budget_ticks' | 'tick_ms'>): number =>
   (e.budget_ticks * e.tick_ms) / 60_000;
+
+/** An eval as it appears in a URL: its id in kebab case (dragon_slayer → dragon-slayer). */
+export const evalSlug = (evalId: string): string => evalId.replace(/_/g, '-');
+
+/** The eval id a URL's slug names (dragon-slayer → dragon_slayer). */
+export const evalIdOf = (slug: string): string => slug.replace(/-/g, '_');
+
+/** The eval a URL names, by its slug or its old snake-case id. */
+export const evalBySlug = <E extends Pick<Eval, 'id'>>(evals: E[], slug: string): E | undefined => evals.find(e => evalSlug(e.id) === evalSlug(slug));

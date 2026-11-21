@@ -11,9 +11,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { indexQuery, runQuery } from '@/data/queries';
 import type { Eval, Run, RunDetail } from '@/data/types';
 import { questSrc, uiSrc } from '@/lib/assets';
-import { evalBase } from '@/lib/evals';
 import { capitalize, formatDate, formatDuration, formatInt } from '@/lib/format';
-import { modelInfo } from '@/lib/series';
+import { modelInfo, thinkingOf, variantKey } from '@/lib/series';
 import { resultValue } from '@/lib/runResult';
 import { useDocumentTitle, useSearchUpdate } from '@/lib/search';
 import { cn } from '@/lib/utils';
@@ -61,7 +60,7 @@ function resultMeta(run: RunDetail, evalInfo: Eval | undefined, measure: XMeasur
   const term = evalInfo?.measure ?? 'Score';
   const value = resultValue(run) ?? 0;
   if (run.target == null) {
-    const quests = evalBase(run.eval) === 'quest_points' ? run.metrics.quests : [];
+    const quests = run.metrics.quests;
     return [
       {
         term,
@@ -91,6 +90,7 @@ function RunFacts({ run }: { run: RunDetail }) {
   const facts: [string, ReactNode][] = [];
   if (run.model_calls > 0) facts.push(['Model', mono(run.model)]);
   if (run.agent_version) facts.push([run.agent_name, mono(run.agent_version)]);
+  facts.push(['Thinking', thinkingOf(run) === 'default' ? "The harness's default" : thinkingOf(run)]);
   facts.push(['Character', mono(run.account)]);
   facts.push(['Started', `${formatDate(run.sample_started ?? run.started)} UTC`]);
   if (run.ended_by) facts.push(['Ended by', capitalize(run.ended_by)]);
@@ -121,8 +121,8 @@ function RunFacts({ run }: { run: RunDetail }) {
 function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure: XMeasure }) {
   const navigate = useNavigate();
   const siblings = useMemo(
-    () => runs.filter(r => r.eval === run.eval && r.model === run.model && r.agent === run.agent).sort((a, b) => a.epoch - b.epoch || a.id.localeCompare(b.id)),
-    [runs, run.eval, run.model, run.agent]
+    () => runs.filter(r => r.eval === run.eval && variantKey(r) === variantKey(run)).sort((a, b) => a.epoch - b.epoch || a.id.localeCompare(b.id)),
+    [runs, run]
   );
   const at = siblings.findIndex(r => r.id === run.id);
   const prev = at > 0 ? siblings[at - 1] : undefined;
@@ -200,14 +200,14 @@ export function RunPage() {
     return { ...summary, ...detail, screenshot: detail.screenshot ?? summary?.screenshot, replay_url: detail.replay_url ?? summary?.replay_url };
   }, [detail, index.runs, runId]);
   const evalInfo = index.evals.find(e => e.id === run.eval);
-  useDocumentTitle(`${modelInfo(run.model).name}, ${evalInfo?.title ?? run.eval}, epoch ${run.epoch}`);
+  useDocumentTitle(`${modelInfo(run.model).name} ${thinkingOf(run)}, ${evalInfo?.title ?? run.eval}, epoch ${run.epoch}`);
 
   const clock = useMemo(() => makeClock(run), [run]);
   const selectedTurn = search.turn != null ? run.turns[search.turn - 1] : undefined;
   const selected = search.t ?? (selectedTurn ? turnTick(selectedTurn, clock) : null);
 
   const update = useSearchUpdate(runSearch);
-  const head = usePlayhead(clock, selected, tick => update({ t: tick }));
+  const head = usePlayhead(clock, selected, tick => update({ t: tick || undefined }));
 
   /*
    * The debugger, on one playhead. The lead band is the main screen: the game with its playback bar

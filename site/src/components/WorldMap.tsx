@@ -414,7 +414,14 @@ export function WorldMap({
   }, [meta, size, viewKey, geometryKey, followKey]);
 
   useEffect(() => requestDraw(), [draw, requestDraw]);
-  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+  // A draw cancelled on unmount must not block the next one (StrictMode mounts twice)
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(frame.current);
+      frame.current = 0;
+    },
+    []
+  );
 
   /** Reports the camera when a gesture ends: a zoom while following keeps following, anything else is a view. */
   const commit = useCallback(

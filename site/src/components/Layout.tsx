@@ -11,7 +11,8 @@ import { useQuery } from '@tanstack/react-query';
 import { indexQuery } from '@/data/queries';
 import { setHovered } from '@/lib/hover';
 import { useSearchUpdate } from '@/lib/search';
-import { variantOf } from '@/lib/series';
+import { evalBySlug, evalSlug } from '@/lib/evals';
+import { modelInfo, modelSlug, variantOf } from '@/lib/series';
 import { setTheme, useTheme, type Theme } from '@/lib/theme';
 import { Button } from '@/components/ui/button';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
@@ -40,7 +41,7 @@ function useIsActive(path: string): boolean {
   if (path === '/runs') return pathname === '/runs';
   if (pathname === path || pathname.startsWith(`${path}/`)) return true;
   const run = pathname.startsWith('/runs/') ? data?.runs.find(r => r.id === decodeURIComponent(pathname.slice(6))) : undefined;
-  return run != null && path === `/evals/${run.eval}`;
+  return run != null && path === `/evals/${evalSlug(run.eval)}`;
 }
 
 function NavItem({ to, path, params, icon, children }: { to: string; path: string; params?: Record<string, string>; icon: ReactNode; children: string }) {
@@ -95,7 +96,7 @@ function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {evals.map(e => (
-                <NavItem key={e.id} to="/evals/$evalId" path={`/evals/${e.id}`} params={{ evalId: e.id }} icon={<FlaskConicalIcon />}>
+                <NavItem key={e.id} to="/evals/$evalId" path={`/evals/${evalSlug(e.id)}`} params={{ evalId: evalSlug(e.id) }} icon={<FlaskConicalIcon />}>
                   {e.title}
                 </NavItem>
               ))}
@@ -136,18 +137,24 @@ interface Crumb {
   params?: Record<string, string>;
 }
 
-/** The page's name: "Home", "Compare", "Runs", an eval's title, or a run under its eval. */
+/** The page's name: "Home", "Compare", "Runs", an eval's title, a model under its eval, or a run under its eval. */
 function useCrumbs(): Crumb[] {
   const pathname = useRouterState({ select: s => s.location.pathname });
   const { data } = useQuery(indexQuery);
   const parts = pathname.split('/').filter(Boolean).map(decodeURIComponent);
   if (parts.length === 0) return [{ label: 'Home' }];
-  if (parts[0] === 'evals' && parts[1]) return [{ label: data?.evals.find(x => x.id === parts[1])?.title ?? parts[1] }];
+  if (parts[0] === 'evals' && parts[1]) {
+    const e = data && evalBySlug(data.evals, parts[1]);
+    const title = { label: e?.title ?? parts[1] };
+    if (!parts[2]) return [title];
+    const run = data?.runs.find(r => modelSlug(r.model) === parts[2]);
+    return [{ ...title, to: '/evals/$evalId', params: { evalId: evalSlug(parts[1]) } }, { label: run ? modelInfo(run.model).name : parts[2] }];
+  }
   if (parts[0] === 'runs' && parts[1]) {
     const run = data?.runs.find(r => r.id === parts[1]);
     const e = run && data?.evals.find(x => x.id === run.eval);
     return [
-      ...(e ? [{ label: e.title, to: '/evals/$evalId', params: { evalId: e.id } }] : []),
+      ...(e ? [{ label: e.title, to: '/evals/$evalId', params: { evalId: evalSlug(e.id) } }] : []),
       { label: run ? `${variantOf(run).name}, epoch ${run.epoch}` : parts[1] },
     ];
   }

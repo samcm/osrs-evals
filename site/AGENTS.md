@@ -15,8 +15,9 @@ way to dig into that answer.
 
 | Page | Question it answers first |
 | --- | --- |
-| `/` (Home) | Which model in which harness is best, across every eval and at each? (one blended leaderboard that scales to many evals, then a featured eval) |
+| `/` (Home) | Which model at which thinking level in which harness is best, across every eval and at each? (one blended leaderboard that scales to many evals, then a featured eval) |
 | `/evals/$evalId` | How did each run progress through the game, and what did it cost? |
+| `/evals/$evalId/$model` | How did one model do on one eval, across thinking levels and harnesses? |
 | `/runs/$runId` | What did this agent do, minute by minute, in the game and in its head? |
 | `/compare` | How do models and agents differ on any one measure, cut any way? |
 | `/runs` | Every run, filterable and sortable. |
@@ -55,17 +56,40 @@ Every page has the same skeleton, and nothing on a page invents its own.
 - **Motion** is 150 ms of opacity or position, off under reduced motion; loading holds the final
   size with a skeleton. Nothing jumps.
 - **Marks beside text:** 14 with `text-xs`, 16 with `text-sm`, 20 with `text-base` or larger, 40
-  only as the `PageHeader` mark. The harness is always `HarnessBadge`.
+  only as the `PageHeader` mark. The harness is always `HarnessMark`, the thinking level always
+  `ThinkingLevel`.
 - **A page's name appears once in the content area: in the header bar.**
 - **Only model-driven runs.** The scripted baseline ("Program") is not on the site; the export skips
   it. There is no ideas page.
 
 ### Eval page
 
-`PageHeader` (sprite, title, the goal, budget), then tabs: **Overview** (`Centerpiece`: every run
+`PageHeader`: the eval's sprite, the goal (the prompt), then its facts: how it is scored (read from
+the game's server, from `evalArt(…).scoring`), the budget in ticks and the game time it makes (Sam
+asked for both here, the one place they sit side by side; the tick rate is in the tooltip), where
+the character starts, how many runs and the latest. Then tabs: **Race** (`Centerpiece`: every run
 together in the game, on one playhead; `Progress`: the eval's measure over time; `Leaderboard`:
 the one ranked list), **Cost** (cost against result, finished within a budget, attempts),
-**Behaviour** (time and tool mix, where they went), **Runs** (the table). Files: `src/pages/eval/`.
+**Behaviour** (time and tool mix, where they went), **Runs** (the table). The toolbar beside the
+tabs holds the open view's controls and the pairing filters (`PairingFilters`). Files:
+`src/pages/eval/`.
+
+The race is the map in eight of twelve columns and the lanes in four beside it, stacked on a phone.
+The map's view is fitted once to where every run of the eval went (the middle 99% of their
+positions, so a stray far-off point doesn't widen it) and never follows the pins. Each lane names
+its run and value, draws its progress with the eval's quest stages as ticks, the eval's events so
+far as sprites (quests, the quest points its quest needs) and what the agent was doing at the
+playhead in its own words: its tool call's intent (omp's `i`, Claude Code's description), else its
+prose, else its action as the transcript writes it (`centerpiece/lanes.ts`). A leaderboard row
+opens the model's page, filtered to the row's thinking level and harness.
+
+### Model page
+
+`/evals/$evalId/$model`: one model on one eval, every thinking level and harness it ran at. The
+header bar names the eval and the model; `PageHeader` has the vendor's mark and what ran. Then its
+runs race (the eval's `Centerpiece`), the result, ticks to finish and cost by thinking level (levels
+along x, each harness a series), its progress over time, and its runs. Filtered by `level` and
+`harness`, this page's own params. Files: `src/pages/model/`.
 
 ### Run page
 
@@ -119,11 +143,16 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
 - Defaults are not written to the URL. Reading applies the default; writing a default removes the
   param. A clean URL means the default view.
 - Write with `replace: true` and `resetScroll: false`. Changing a filter resets `page`.
-- **Scope params** (`model`, `agent`, `vendor`: comma-separated lists) narrow every page and are
-  carried on every internal link, so a scoped view stays scoped as you move around. View params (a
-  chart's x measure, a sort) belong to one page and are not carried.
+- **Scope params** (`model`, `agent`, `vendor`, `thinking`: comma-separated lists) narrow every page
+  and are carried on every internal link, so a scoped view stays scoped as you move around. View
+  params (a chart's x measure, a sort) belong to one page and are not carried. `effort` (`best`:
+  each model in each harness at its best thinking level only, as EthIQ's "best effort") is a view
+  param every page reads from the root.
 - Names are short and plain: `x`, `by`, `agg`, `scale`, `sort`, `page`, `hide`, `focus`, `turn`,
-  `t`, `tab`, `lanes`, `code`, `speed`, `eval`. Lists are comma-separated. Sorts are a column id with a leading `-` for descending.
+  `t`, `tab`, `lanes`, `code`, `speed`, `eval`, `effort`, `level`, `harness`. Lists are comma-separated. Sorts are a column id with a leading `-` for descending.
+- Paths are readable: an eval is its id in kebab case (`/evals/dragon-slayer`; the old snake-case
+  links redirect), a model its name without the provider route (`claude-opus-5-5`, `gpt-6.2-sol`).
+- A run's `t` absent is its first tick: a run opens at the start.
 - Theme is a preference kept in local storage; `?theme=dark` or `?theme=light` overrides it for a
   shared link.
 
@@ -133,9 +162,16 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   are in `public/assets/brands/`, drawn by `BrandMark` as a one-colour CSS mask in the text colour,
   so they suit both themes. Sizes: 14px in legends and tooltips, 16px inline and in nav, 20px in
   table rows, 40px in page headers.
-- **Agent harnesses** are a quiet `Badge` with the harness's name after the model ("Claude Code",
-  "Codex", "bash"), never a second logo: two marks side by side read as noise. The scripted
-  baseline ("Program") has no model; it shows its game sprite and its name.
+- **Agent harnesses** are their mark (`HarnessMark`: bash, Claude Code, Codex, omp …) after the
+  model's name and thinking level, in the muted colour so the vendor's mark leads; the name is its
+  tooltip. A harness on its own (grouped by harness) is its mark and its name. The scripted baseline
+  ("Program") has no model; it shows its game sprite and its name.
+- **Thinking levels** are a dimension, as EthIQ's efforts are: a pairing is a model at a thinking
+  level in a harness, and wherever a model is named in a pairing its level sits beside it
+  (`ThinkingLevel`, a lucide brain and the word). The level comes from the log (omp's `thinking`,
+  Claude Code's effort, Codex's reasoning-effort override, else the generate config's
+  reasoning_effort); a run that set none is `default`, the harness's own. Never show a missing level
+  as `off`: `off` is only a run that asked for it. Levels sort lowest first (`THINKING_LEVELS`).
 - Logos are trademarks of their owners, used only to name their products. Never recolour them into
   series colours, alter their shape, or use them as decoration. Sources and licences are listed in
   `public/assets/brands/SOURCES.md`.
@@ -203,8 +239,8 @@ restyle library components or add a look of our own.
   state instead (the eval page's quest strip does).
 - Ticks are round (0, 10K, 20K; whole minutes; 1-2-5 dollars), from `src/lib/ticks.ts` and
   `src/lib/logAxis.ts`, and one axis never mixes "5,000" with "10K".
-- End labels are the vendor mark and the short model name only; the harness is carried by the
-  line style and the legend, so a label never truncates.
+- End labels are the vendor mark, the short model name and the thinking level; the harness is
+  carried by the line style and the legend, so a label never truncates.
 - The usual cuts: x as game ticks, wall-clock seconds, cost or model calls; group by model, vendor,
   agent or variant; aggregate as runs, median or best; log or linear scale for cost.
 - Cost axes that compare runs are log scale with 1-2-5 ticks formatted `$0.01`, `$0.02`, `$0.05`
@@ -223,7 +259,8 @@ selected time are URL state. Underground positions (z ≥ 6400) are not drawn on
 Never letterbox the map or show past its edges: give it `fitHeight` so the frame takes the paths'
 shape (up to `height`), or a height that matches its neighbour. Zoom stops where the map fills the
 frame, and the view is kept on the map.
-Markers are quest icons where a quest was done; level-ups and deaths are not drawn.
+Markers are quest icons where a quest was done; level-ups and deaths are not drawn. The race's map
+holds still (fitted once to every run of the eval); the run page's map follows its character.
 
 ## Layout
 

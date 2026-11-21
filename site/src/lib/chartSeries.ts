@@ -31,8 +31,10 @@ export interface SeriesSpec {
   symbol: AgentSymbol;
   /** Vendor brand slug, drawn before the label */
   vendor?: string;
-  /** Harness name, drawn as a quiet badge after the label */
-  harness?: string;
+  /** The harness's mark slug and name, its mark drawn after the label */
+  harness?: { slug: string; name: string };
+  /** The thinking level, drawn after the label */
+  thinking?: string;
   /** A game sprite drawn instead of a vendor mark (the scripted baseline) */
   sprite?: string;
 }
@@ -59,13 +61,13 @@ export function modelSeries(model: string): SeriesSpec {
 }
 
 /** A variant: its model's colour, its agent's line and shape, the vendor's mark and the harness badge. */
-export function variantSeries(source: Variant | Pick<Run, 'model' | 'agent' | 'agent_name'>): SeriesSpec {
+export function variantSeries(source: Variant | Pick<Run, 'model' | 'agent' | 'agent_name' | 'thinking'>): SeriesSpec {
   const v = 'key' in source ? source : variantOf(source);
   const model = modelInfo(v.model);
   const agent = agentInfo(v.agent, 'agent_name' in source ? source.agent_name : undefined);
   const style = { line: v.line, symbol: v.symbol };
   if (agent.slug === 'program') return spec(v.key, 'Program', 'Program', v.color, { ...style, sprite: PROGRAM_SPRITE });
-  return spec(v.key, model.short, v.name, v.color, { ...style, vendor: model.vendor.slug, harness: agent.name });
+  return spec(v.key, model.short, v.name, v.color, { ...style, vendor: model.vendor.slug, thinking: v.thinking, harness: { slug: agent.slug, name: agent.name } });
 }
 
 /** A vendor (Anthropic, OpenAI …): its mark and a fixed hashed colour. */
@@ -74,13 +76,16 @@ export function vendorSeries(vendorId: string): SeriesSpec {
   return spec(vendorId, vendor.name, vendor.name, hashColor(`vendor:${vendorId}`), { vendor: vendor.slug });
 }
 
-/** An agent harness: its badge, its line and shape, and a fixed hashed colour. */
+/** An agent harness: its mark, its line and shape, and a fixed hashed colour. */
 export function agentSeries(agent: string, fallbackName?: string): SeriesSpec {
   const info = agentInfo(agent, fallbackName);
   const style = { line: info.line, symbol: info.symbol };
   if (info.slug === 'program') return spec(agent, 'Program', 'Program', hashColor(`agent:${agent}`), { ...style, sprite: PROGRAM_SPRITE });
-  return spec(agent, info.name, info.name, hashColor(`agent:${agent}`), { ...style, harness: info.name, label: '' });
+  return spec(agent, info.name, info.name, hashColor(`agent:${agent}`), { ...style, harness: { slug: info.slug, name: info.name } });
 }
+
+/** The width a series label's thinking level and harness mark add after its name, in pixels. */
+export const extraLabelWidth = (s: SeriesSpec): number => (s.thinking ? s.thinking.length * 6.5 + 20 : 0) + (s.harness ? 20 : 0);
 
 /** A tool-call category. */
 export function toolSeries(category: ToolCategory): SeriesSpec {

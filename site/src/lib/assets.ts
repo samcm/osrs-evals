@@ -19,6 +19,7 @@ export const BRAND_SLUGS = [
   'opencode',
   'amp',
   'bash',
+  'omp',
 ] as const;
 
 export const brandSrc = (slug: string): string => (slug === 'program' ? '/assets/brands/program.png' : `/assets/brands/${slug}.svg`);

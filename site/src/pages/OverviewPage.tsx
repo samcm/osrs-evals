@@ -9,11 +9,13 @@ import { useMemo } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Empty } from '@/components/bits';
-import { PageHeader } from '@/components/page';
+import { PageHeader, PageToolbar } from '@/components/page';
+import { PairingFilters } from '@/components/PairingFilters';
 import { indexQuery } from '@/data/queries';
 import { useLegend } from '@/lib/legend';
-import { blendedScores } from '@/lib/score';
-import { inScope, useDocumentTitle, useScope, useSearchUpdate } from '@/lib/search';
+import { bestLevelKeys, blendedScores } from '@/lib/score';
+import { inScope, useDocumentTitle, useEffort, useScope, useScopeUpdate, useSearchUpdate } from '@/lib/search';
+import { variantKey } from '@/lib/series';
 import { defaultFeatured, overviewSearch } from './overview/search';
 import { Featured } from './overview/Featured';
 import { Leaderboard } from './overview/Leaderboard';
@@ -26,18 +28,32 @@ export function OverviewPage() {
   const search = route.useSearch();
   const update = useSearchUpdate(overviewSearch);
   const scope = useScope();
+  const setScope = useScopeUpdate();
+  const effort = useEffort();
   const legend = useLegend();
 
   const all = useMemo(() => blendedScores(data.evals, data.runs), [data]);
-  const pairings = useMemo(() => all.filter(p => inScope(p.variant, scope)), [all, scope]);
-  const runs = useMemo(() => data.runs.filter(r => inScope(r, scope)), [data, scope]);
+  // EthIQ's cut: every thinking level, or each model in each harness at its best blended score
+  const pairings = useMemo(() => {
+    const scoped = all.filter(p => inScope(p.variant, scope));
+    if (effort === 'all') return scoped;
+    const keep = bestLevelKeys(scoped.map(p => p.variant));
+    return scoped.filter(p => keep.has(p.variant.key));
+  }, [all, scope, effort]);
+  const runs = useMemo(() => {
+    const keys = new Set(pairings.map(p => p.variant.key));
+    return data.runs.filter(r => keys.has(variantKey(r)));
+  }, [data, pairings]);
   const evals = data.evals.filter(e => runs.some(r => r.eval === e.id));
   const fallback = defaultFeatured(evals, pairings);
   const featured = evals.find(e => e.id === search.eval) ?? fallback;
 
   return (
     <>
-      <PageHeader title="Overview" description="Language models playing 2004scape in agent harnesses." />
+      <PageHeader title="Overview" description="Language models playing 2004scape in agent harnesses, at each thinking level." />
+      <PageToolbar label="Filters">
+        <PairingFilters runs={data.runs} thinking={scope.thinking} agent={scope.agent} onChange={setScope} />
+      </PageToolbar>
       {pairings.length === 0 || !featured || !fallback ? (
         <Empty>No runs in this scope.</Empty>
       ) : (

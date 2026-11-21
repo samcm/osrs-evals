@@ -1,24 +1,25 @@
 /**
  * Identity marks: game sprites, vendor logos, and the model, agent, variant and eval labels built on
- * them. Models carry their vendor's mark; harnesses are a quiet tag (no logo); the scripted
- * baseline is its sprite and "Program". Marks and sprites sit on the text's middle in inline text
- * and centre in flex rows; labels shrink by truncating the name, never the mark or the tag.
+ * them. Models carry their vendor's mark; harnesses are their own mark after the model, quieter (in
+ * the muted colour); a thinking level is a brain and its word; the scripted baseline is its sprite
+ * and "Program". Marks and sprites sit on the text's middle in inline text and centre in flex rows;
+ * labels shrink by truncating the name, never a mark or the level.
  *
  * Mark sizes beside text: 14 with text-xs (legends, tooltips), 16 with text-sm (inline, nav,
  * tables), 20 with text-base or larger (an H1's label), 40 for a page header's mark.
  *
- *   <VariantLabel run={run} />            Anthropic mark, "Claude Haiku 5.5", [Claude Code]
- *   <VariantLabel variant={v} compact />  Anthropic mark, "Haiku 5.5", [Claude Code]
+ *   <VariantLabel run={run} />            Anthropic mark, "Claude Haiku 5.5", brain "high", Claude Code mark
+ *   <VariantLabel variant={v} compact />  Anthropic mark, "Haiku 5.5", brain "high", Claude Code mark
  *   <ModelLabel model={id} />             in table rows and inline (16)
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { BrainIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import type { Run } from '@/data/types';
 import { BRAND_SLUGS, brandSrc, itemSrc, loadTrimmedSprite } from '@/lib/assets';
 import { evalArt } from '@/lib/evals';
-import { agentInfo, modelInfo, variantOf, type SeriesColor, type Variant } from '@/lib/series';
+import { agentInfo, modelInfo, thinkingTitle, variantOf, type SeriesColor, type Variant } from '@/lib/series';
 
 const SPRITE_SIZES = {
   14: 'size-3.5',
@@ -178,20 +179,19 @@ function ProgramLabel({ size, swatch, color, className }: { size: BrandSize; swa
   );
 }
 
-/**
- * The harness tag's look: a small muted tag, one text line tall at text-xs, so it sits beside a
- * name at any size (legend, table row, H1) without growing the line. For a harness name drawn
- * outside HarnessBadge (a chart's SeriesLabel), pass it to `<Badge variant="secondary">`.
- */
-export const harnessBadgeClassName = 'h-auto rounded-sm px-1.5 py-0 text-xs/4 font-normal text-muted-foreground';
-
-/** An agent harness as a quiet tag with its name; never a logo (AGENTS.md). */
-export function HarnessBadge({ agent, fallback, className }: { agent: string; fallback?: string; className?: string }) {
+/** An agent harness as its mark, in the muted colour so the model's vendor mark leads; its name on hover. */
+export function HarnessMark({ agent, fallback, size = 14, className }: { agent: string; fallback?: string; size?: BrandSize; className?: string }) {
   const info = agentInfo(agent, fallback);
+  return <BrandMark slug={info.slug} size={size} title={info.name} className={cn('bg-muted-foreground', className)} />;
+}
+
+/** A thinking level: a brain and the level's word, muted, beside the model it belongs to. */
+export function ThinkingLevel({ level, className }: { level: string; className?: string }) {
   return (
-    <Badge variant="secondary" title={agent} className={cn(harnessBadgeClassName, className)}>
-      {info.name}
-    </Badge>
+    <span className={cn('inline-flex shrink-0 items-center gap-0.5 text-muted-foreground', className)} title={thinkingTitle(level)}>
+      <BrainIcon aria-hidden className="size-3" />
+      <span className="text-xs">{level}</span>
+    </span>
   );
 }
 
@@ -208,15 +208,21 @@ export function ModelLabel({ model, compact, swatch, size = 16, className }: Lab
   );
 }
 
-/** An agent harness: its badge; the scripted baseline shows its sprite and "Program". */
+/** An agent harness on its own: its mark and its name; the scripted baseline shows its sprite and "Program". */
 export function AgentLabel({ agent, fallback, size = 16, className }: Omit<LabelProps, 'swatch' | 'compact'> & { agent: string; fallback?: string; compact?: boolean }) {
   if (isProgram(agent, fallback)) return <ProgramLabel size={size} className={className} />;
-  return <HarnessBadge agent={agent} fallback={fallback} className={className} />;
+  return (
+    <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
+      <BrandMark slug={agentInfo(agent, fallback).slug} size={size} />
+      <span className="truncate">{agentInfo(agent, fallback).name}</span>
+    </span>
+  );
 }
 
 /**
- * A variant (model × agent): the model's vendor mark and name, then the harness badge. Compact uses
- * the model's short name. The scripted baseline is its sprite and "Program".
+ * A variant (model × thinking level × harness): the model's vendor mark and name, its thinking
+ * level, then the harness's mark. Compact uses the model's short name. The scripted baseline is
+ * its sprite and "Program".
  */
 export function VariantLabel({
   run,
@@ -225,7 +231,7 @@ export function VariantLabel({
   swatch,
   size = 16,
   className,
-}: LabelProps & { run?: Pick<Run, 'model' | 'agent' | 'agent_name'>; variant?: Variant }) {
+}: LabelProps & { run?: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thinking'>; variant?: Variant }) {
   const v = variant ?? variantOf(run!);
   const model = modelInfo(v.model);
   if (isProgram(v.agent, run?.agent_name)) return <ProgramLabel size={size} swatch={swatch} color={v.color} className={className} />;
@@ -234,7 +240,8 @@ export function VariantLabel({
       {swatch && <Swatch color={v.color} />}
       <BrandMark slug={model.vendor.slug} size={size} title={model.vendor.name} />
       <span className="truncate">{compact ? model.short : model.name}</span>
-      <HarnessBadge agent={v.agent} fallback={run?.agent_name} />
+      <ThinkingLevel level={v.thinking} />
+      <HarnessMark agent={v.agent} fallback={run?.agent_name} size={size === 20 ? 16 : 14} />
     </span>
   );
 }

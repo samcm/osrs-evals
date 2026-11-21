@@ -1,6 +1,6 @@
 /**
  * Tooltip content built from shadcn's ChartTooltipContent: each row is the series' colour, its marks
- * (vendor mark, short name, harness badge) and its value, formatted; rows sort by value. The title
+ * (vendor mark, short name, thinking level, harness mark) and its value, formatted; rows sort by value. The title
  * is the x value, formatted.
  *
  *   <ChartTooltip cursor={crosshairCursor}

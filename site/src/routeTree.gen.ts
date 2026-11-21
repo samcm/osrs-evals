@@ -14,6 +14,7 @@ import { Route as CompareRouteImport } from './routes/compare'
 import { Route as EvalsEvalIdRouteImport } from './routes/evals.$evalId'
 import { Route as RunsIndexRouteImport } from './routes/runs.index'
 import { Route as RunsRunIdRouteImport } from './routes/runs.$runId'
+import { Route as EvalsEvalIdModelRouteImport } from './routes/evals.$evalId_.$model'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,11 @@ const RunsRunIdRoute = RunsRunIdRouteImport.update({
   path: '/runs/$runId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EvalsEvalIdModelRoute = EvalsEvalIdModelRouteImport.update({
+  id: '/evals/$evalId_/$model',
+  path: '/evals/$evalId/$model',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/evals/$evalId': typeof EvalsEvalIdRoute
   '/runs/$runId': typeof RunsRunIdRoute
   '/runs/': typeof RunsIndexRoute
+  '/evals/$evalId/$model': typeof EvalsEvalIdModelRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/evals/$evalId': typeof EvalsEvalIdRoute
   '/runs/$runId': typeof RunsRunIdRoute
   '/runs': typeof RunsIndexRoute
+  '/evals/$evalId/$model': typeof EvalsEvalIdModelRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,14 +70,33 @@ export interface FileRoutesById {
   '/evals/$evalId': typeof EvalsEvalIdRoute
   '/runs/$runId': typeof RunsRunIdRoute
   '/runs/': typeof RunsIndexRoute
+  '/evals/$evalId_/$model': typeof EvalsEvalIdModelRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/compare' | '/evals/$evalId' | '/runs/$runId' | '/runs/'
+  fullPaths:
+    | '/'
+    | '/compare'
+    | '/evals/$evalId'
+    | '/runs/$runId'
+    | '/runs/'
+    | '/evals/$evalId/$model'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/compare' | '/evals/$evalId' | '/runs/$runId' | '/runs'
+  to:
+    | '/'
+    | '/compare'
+    | '/evals/$evalId'
+    | '/runs/$runId'
+    | '/runs'
+    | '/evals/$evalId/$model'
   id:
-    '__root__' | '/' | '/compare' | '/evals/$evalId' | '/runs/$runId' | '/runs/'
+    | '__root__'
+    | '/'
+    | '/compare'
+    | '/evals/$evalId'
+    | '/runs/$runId'
+    | '/runs/'
+    | '/evals/$evalId_/$model'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -78,6 +105,7 @@ export interface RootRouteChildren {
   EvalsEvalIdRoute: typeof EvalsEvalIdRoute
   RunsRunIdRoute: typeof RunsRunIdRoute
   RunsIndexRoute: typeof RunsIndexRoute
+  EvalsEvalIdModelRoute: typeof EvalsEvalIdModelRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -117,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RunsRunIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/evals/$evalId_/$model': {
+      id: '/evals/$evalId_/$model'
+      path: '/evals/$evalId/$model'
+      fullPath: '/evals/$evalId/$model'
+      preLoaderRoute: typeof EvalsEvalIdModelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -126,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   EvalsEvalIdRoute: EvalsEvalIdRoute,
   RunsRunIdRoute: RunsRunIdRoute,
   RunsIndexRoute: RunsIndexRoute,
+  EvalsEvalIdModelRoute: EvalsEvalIdModelRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

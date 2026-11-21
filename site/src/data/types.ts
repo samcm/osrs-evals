@@ -11,10 +11,10 @@
 
 export interface Eval {
   id: string;
-  /** The eval without its tries variant: cooks_assistant for cooks_assistant_x5 */
+  /** The eval without its tries variant: quest_points for quest_points_x5 */
   base: string;
   title: string;
-  /** What `value` counts, for axis names: "Quest stage", "Shrimps cooked", "Quest points" */
+  /** What `value` counts, for axis names: "Quest stage", "Quest points", "Total level" */
   measure: string;
   /** The prompt the agent gets, verbatim */
   goal: string;
@@ -25,6 +25,8 @@ export interface Eval {
   target: number | null;
   accounts: string[];
   task_file: string;
+  /** Where the character starts: its start save and the first tile it was recorded on */
+  start?: { save: string | null; tile: [number, number] | null };
 }
 
 export interface AttemptResult {
@@ -120,6 +122,9 @@ export interface Run {
   agent: string;
   agent_name: string;
   agent_params: Record<string, string>;
+  /** The thinking level the run set (omp's `thinking`, Claude Code's effort, reasoning_effort); null
+   * when it set none and the harness's default applied */
+  thinking: string | null;
   /** The agent CLI's version (Claude Code, Codex); null for Model + bash and programs */
   agent_version: string | null;
   model: string;
@@ -219,6 +224,8 @@ export interface Action {
   sdk_calls: string[];
   /** Started as a background shell (Claude Code) */
   background: boolean;
+  /** A few words from the model on what the call is for (omp); null when the agent doesn't ask */
+  intent?: string | null;
 }
 
 export interface Turn {
@@ -308,6 +315,10 @@ export type RunEvent = { tick: number; seconds: number } & (
   | { kind: 'quest'; quest: string | null; name: string | null; qp: number; source: 'varp' | 'inferred' }
   /** A skill level reached (from the recorded states) */
   | { kind: 'level'; skill: string; level: number }
+  /** A stage of the eval's quest reached, read from the quest's varp (Dragon Slayer) */
+  | { kind: 'stage'; quest: string; stage: number; name: string }
+  /** The quest points the eval's quest needs to start, reached */
+  | { kind: 'qp'; qp: number }
 );
 
 export interface RunDetail extends Run {

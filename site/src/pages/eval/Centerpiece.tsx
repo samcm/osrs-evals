@@ -1,8 +1,10 @@
 /**
- * The eval's centrepiece, full width at the top of the overview: every run together in the game on
- * one playhead. Each racing run is a pin on the world map with its trail, and a lane under the
- * playback bar shows how far along it is, so you watch them diverge as you play or scrub. One run
- * per model + harness pairing (its median or best run) or every run, from the page's `agg`.
+ * The eval's centrepiece at the top of the overview: every run together in the game on one
+ * playhead. The world map takes most of the width, each racing run a pin with its trail, in a view
+ * fitted once to where all the eval's runs went; beside it (under it on a phone) the playback bar
+ * and a lane per run with how far along it is, the eval's events it has had and what it was doing,
+ * so you watch them diverge as you play or scrub. One run per pairing (its median or best run) or
+ * every run, from the page's `agg`.
  */
 
 import { useMemo, useRef } from 'react';
@@ -23,11 +25,14 @@ import { useWidth } from '@/lib/useWidth';
 import { niceMax, type Agg, type RunCurve } from './model';
 import { pause, play, seek, useEvalPlayhead } from './playhead';
 import { finalOrder, standings } from './centerpiece/race';
-import { marksOf, PIN, RaceMap, type PlacedPin, type Track } from './centerpiece/RaceMap';
-import { LANE, Standings } from './centerpiece/Standings';
+import { laneMarks, laneStages, statusAt } from './centerpiece/lanes';
+import { marksOf, pathBounds, PIN, RaceMap, type PlacedPin, type Track } from './centerpiece/RaceMap';
+import { Standings, type Lane } from './centerpiece/Standings';
 
-/** Runs whose detail (fine path, quests) is loaded; past this the eval's coarse paths do. */
-const DETAILED = 16;
+/** Runs whose detail (fine path, events, turns) is loaded; past this the eval's coarse paths do. */
+const DETAILED = 24;
+/** Width at which the map and the lanes sit side by side (Tailwind's lg) */
+const SIDE_BY_SIDE = 1024;
 
 export function Centerpiece({
   curves,
@@ -40,6 +45,7 @@ export function Centerpiece({
 }: {
   /** The runs to race, picked by the page */
   curves: RunCurve[];
+  /** Every run of the eval: the map is fitted to where they all went */
   grid: EvalRuns | undefined;
   legend: LegendState;
   view: MapView | undefined;
@@ -52,7 +58,6 @@ export function Centerpiece({
   const lit = useLit(legend.focus);
   const placed = useRef<PlacedPin[]>([]);
 
-  // The page picks the runs (every run, or each pairing's median or best)
   const runners = curves;
   const order = useMemo(() => finalOrder(runners), [runners]);
   const span = Math.max(1, Math.min(maxTick, Math.max(0, ...runners.map(cv => cv.points[cv.points.length - 1]?.tick ?? 0))));
@@ -66,19 +71,28 @@ export function Centerpiece({
         const detail = details[i]?.data;
         const points = (detail?.path ?? grid?.runs[curve.run.id]?.path ?? []) as readonly PathPoint[];
         const step = detail ? 10 : (grid?.path_every ?? 50);
-        return { curve, points, step, marks: marksOf(detail?.events, points, step) };
+        return { curve, detail, points, step, marks: marksOf(detail?.events, points, step), events: laneMarks(detail?.events) };
       }),
     // details is a new array every render; what is loaded is what matters
     [runners, grid, loadedKey]
   );
+  const stages = useMemo(() => laneStages(base.map(b => b.detail)), [base]);
+  // Fitted to every run of the eval, whichever are racing, so the view never moves
+  const bounds = useMemo(() => pathBounds(Object.values(grid?.runs ?? {}).map(r => r.path)), [grid]);
 
   const rows = useMemo(() => standings(runners, head.tick, order), [runners, head.tick, order]);
   const tracks = useMemo<Track[]>(() => base.map((b, i) => ({ ...b, rank: rows[i].rank })), [base, rows]);
+  const lanes = useMemo<Lane[]>(
+    () => rows.map((row, i) => ({ ...row, marks: base[i].events.filter(m => m.tick <= head.tick), status: statusAt(base[i].detail, head.tick) })),
+    [rows, base, head.tick]
+  );
   const target = runners[0]?.run.target ?? null;
   const top = target ?? niceMax(Math.max(1, ...runners.map(cv => Math.max(...cv.points.map(p => p.value)))));
-  // The map takes half its width in height, within what a screen can show beside the rest
-  const narrow = width > 0 && width < 640;
-  const height = Math.round(Math.min(520, Math.max(300, width * 0.48)));
+
+  // Side by side, the map takes eight of twelve columns and the lanes' column its height
+  const wide = width >= SIDE_BY_SIDE;
+  const mapWidth = wide ? (width * 8) / 12 : width;
+  const height = Math.round(wide ? Math.min(640, Math.max(440, mapWidth * 0.7)) : Math.min(420, Math.max(280, mapWidth * 0.75)));
 
   /** The pin under the pointer lights its pairing everywhere. */
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>): void => {
@@ -92,13 +106,14 @@ export function Centerpiece({
 
   return (
     // A media card: the map runs to the card's edges, as an image-first shadcn card does
-    <Card className="pt-0" aria-label="Every run in the game">
-      <div ref={ref} className="relative" onPointerMove={onPointerMove} onPointerLeave={() => setHovered(undefined)}>
+    <Card ref={ref} className="gap-0 overflow-hidden py-0 lg:grid lg:grid-cols-12" aria-label="Every run in the game">
+      <div className="relative min-w-0 lg:col-span-8" onPointerMove={onPointerMove} onPointerLeave={() => setHovered(undefined)}>
         {width === 0 || !grid ? (
           <Skeleton className="w-full rounded-none" style={{ height: width ? height : 360 }} />
         ) : (
           <RaceMap
             tracks={tracks}
+            bounds={bounds}
             tick={head.tick}
             trail={span * 0.03}
             lit={lit}
@@ -109,10 +124,8 @@ export function Centerpiece({
           />
         )}
       </div>
-      <CardContent className="flex flex-col gap-2">
-        {/* The playback bar on the lanes' grid: its slider spans their tracks */}
-        <div className={LANE.row}>
-          <span className={LANE.head(narrow, agg === 'runs')}>
+      <div className="flex min-w-0 flex-col gap-3 border-t py-4 lg:col-span-4 lg:border-t-0 lg:border-l" style={wide ? { height } : undefined}>
+        <CardContent className="flex shrink-0 items-center gap-3">
           <Button
             variant="outline"
             size="icon-sm"
@@ -124,7 +137,6 @@ export function Centerpiece({
               {head.playing ? <path d="M1.5 1h2.5v8H1.5zM6 1h2.5v8H6z" /> : <path d="M2 1l7 4-7 4z" />}
             </svg>
           </Button>
-          </span>
           <Slider
             aria-label="Game tick"
             min={0}
@@ -136,14 +148,17 @@ export function Centerpiece({
               seek(v);
             }}
             onValueCommit={([v]) => head.settle(v)}
-            className={LANE.track}
+            className="min-w-0 flex-1"
           />
-          <span className={LANE.value} title="Game tick">
+          <span className="w-14 shrink-0 text-right text-xs text-muted-foreground tabular-nums" title="Game tick">
             {formatInt(Math.round(head.tick))}
           </span>
-        </div>
-        <Standings rows={rows} max={top} tick={head.tick} showEpoch={agg === 'runs'} lit={lit} narrow={narrow} />
-      </CardContent>
+        </CardContent>
+        {/* The lanes scroll inside the column when there are more than its height holds */}
+        <CardContent className="min-h-0 flex-1 overflow-y-auto">
+          <Standings rows={lanes} max={top} tick={head.tick} showEpoch={agg === 'runs'} lit={lit} stages={target != null ? stages : []} />
+        </CardContent>
+      </div>
     </Card>
   );
 }

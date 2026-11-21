@@ -25,12 +25,13 @@ export interface MetaItem {
 export const pageTitleClassName = 'min-w-0 text-base font-medium';
 
 export function PageHeader({
+  mark,
   description,
   meta,
   actions,
   className,
 }: {
-  /** Ignored: the header bar names the page */
+  /** The page's sprite or logo at 40, beside the description and facts */
   mark?: ReactNode;
   /** Ignored: the header bar names the page */
   title?: ReactNode;
@@ -42,6 +43,8 @@ export function PageHeader({
   if (!description && !(meta && meta.length) && !actions) return null;
   return (
     <header className={cn('flex flex-col gap-3 md:flex-row md:items-center md:justify-between', className)}>
+      <div className="flex min-w-0 items-start gap-3">
+      {mark}
       <div className="flex min-w-0 flex-col gap-1">
         {description && <p className="max-w-prose text-sm text-pretty text-muted-foreground">{description}</p>}
         {meta && meta.length > 0 && (
@@ -54,6 +57,7 @@ export function PageHeader({
             ))}
           </dl>
         )}
+      </div>
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </header>

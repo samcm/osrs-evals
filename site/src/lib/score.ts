@@ -96,3 +96,19 @@ export function blendedScores(evals: Eval[], runs: Run[]): Pairing[] {
 
 /** A 0–1 score as the 0–100 the site shows. */
 export const formatScore = (score: number | null | undefined): string => (score == null ? '–' : String(Math.round(score * 100)));
+
+/**
+ * EthIQ's "best level" cut: of each model in each harness, only the thinking level that did best.
+ * `ranked` is best first; returns the variant keys to keep.
+ */
+export function bestLevelKeys(ranked: Pick<Variant, 'key' | 'model' | 'agent'>[]): Set<string> {
+  const seen = new Set<string>();
+  const keep = new Set<string>();
+  for (const v of ranked) {
+    const group = `${v.model}|${v.agent}`;
+    if (seen.has(group)) continue;
+    seen.add(group);
+    keep.add(v.key);
+  }
+  return keep;
+}

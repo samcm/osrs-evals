@@ -115,7 +115,7 @@ export function Leaderboard({ pairings, evals, sort, onSortChange }: { pairings:
         hoverId={p => p.variant.key}
         sort={sort}
         onSortChange={onSortChange}
-        onRowClick={p => navigate({ to: '/runs', search: { model: [p.variant.model], agent: [p.variant.agent] } as never })}
+        onRowClick={p => navigate({ to: '/runs', search: { model: [p.variant.model], agent: [p.variant.agent], thinking: [p.variant.thinking] } as never })}
         empty={<Empty>No runs in this scope.</Empty>}
       />
     </PageSection>

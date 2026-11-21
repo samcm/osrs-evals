@@ -19,7 +19,7 @@ export const runSearch = defineSearch({
   x: oneOf(['ticks', 'seconds'], 'ticks'),
   /** The model call picked in the transcript, from 1: the current call when `t` is its tick */
   turn: int(undefined, { min: 1 }),
-  /** The playhead, in game ticks */
+  /** The playhead, in game ticks; absent is the run's start */
   t: int(undefined, { min: 0 }),
   /** The map's view once the reader moves it; without one the map follows the character */
   map: mapViewParam(),
@@ -47,6 +47,6 @@ export function useSettle(): (tick: number, turn?: number) => void {
   return (tick, turn) => {
     pause();
     setMoment({ scrub: null });
-    update({ t: Math.max(0, Math.round(tick)), turn });
+    update({ t: Math.max(0, Math.round(tick)) || undefined, turn });
   };
 }

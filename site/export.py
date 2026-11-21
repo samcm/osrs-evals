@@ -30,9 +30,25 @@ from inspect_ai.log import list_eval_logs, read_eval_log
 
 SITE = Path(__file__).resolve().parent
 QUESTS = SITE / "game" / "quests.json"  # written by site/game/quests.py from rs-sdk's content
-AGENT_NAMES = {"react": "Model + bash", "inspect_swe/claude_code": "Claude Code", "inspect_swe/codex_cli": "Codex", "command": "Program"}
-EVAL_NAMES = {"quest_points": "Quest points in 30 minutes", "cooks_assistant": "Cook's Assistant", "dragon_slayer": "Dragon Slayer", "shrimps": "Cook 500 shrimps", "coins": "Coins", "gold": "Gold"}
-MEASURES = {"quest_points": "Quest points", "cooks_assistant": "Quest stage", "dragon_slayer": "Quest stage", "shrimps": "Shrimps cooked", "coins": "Coins", "gold": "Coins"}
+# Harnesses by the last part of their solver's name (react, inspect_swe/claude_code, harness/omp ...)
+AGENT_NAMES = {"react": "Model + bash", "claude_code": "Claude Code", "codex_cli": "Codex", "omp": "omp", "command": "Program"}
+EVAL_NAMES = {"quest_points": "Quest points in 30 minutes", "dragon_slayer": "Dragon Slayer", "total_level": "Total level", "collection": "Collection", "team_wealth": "Team wealth", "coins": "Coins", "gold": "Gold"}
+MEASURES = {"quest_points": "Quest points", "dragon_slayer": "Quest stage", "total_level": "Total level", "collection": "Items collected", "team_wealth": "Coins", "coins": "Coins", "gold": "Coins"}
+# Short task names in the batch files (evals/matrix.py names a task <eval>_<agent>)
+EVAL_ALIASES = {"qp": "quest_points", "ds": "dragon_slayer"}
+
+# Each eval's own events, read from the accounts' saved states: the steps of a quest from its varp
+# (rs-sdk content/scripts/quests/quest_dragon/configs/quest_dragon.constant) and the quest points
+# a quest needs to start.
+QP_VARP = "101"
+EVAL_STEPS = {
+    "dragon_slayer": {
+        "quest": "dragon_slayer",
+        "varp": "176",
+        "stages": {1: "Spoke to the Guildmaster", 2: "Spoke to Oziach", 3: "Bought the ship", 7: "Repaired the ship", 8: "Gave Ned the map", 9: "Sailed to Crandor"},  # 10, done, is the quest itself
+        "qp": 32,
+    },
+}
 VENDORS = {"anthropic": "Anthropic", "openai": "OpenAI", "google": "Google", "mistral": "Mistral", "grok": "xAI", "deepseek": "DeepSeek", "openrouter": "OpenRouter"}
 
 BUCKET = 100  # ticks per bucket of the binned series (SDK actions, activity)
@@ -82,7 +98,11 @@ def level_of(xp: float) -> int:
 
 
 def eval_base(task: str) -> str:
-    return "cooks_assistant" if task.startswith("cooks") else "shrimps" if task.startswith("shrimps") else "quest_points" if task.startswith(("qp_", "quest_points")) else "dragon_slayer" if task.startswith(("ds_", "dragon_slayer")) else task
+    """The eval a task is, from its registered name: the eval's own name, or it with the agent after it."""
+    for base in [*EVAL_NAMES, *EVAL_ALIASES]:
+        if task == base or task.startswith(base + "_"):
+            return EVAL_ALIASES.get(base, base)
+    return task
 
 
 def eval_of(task: str, attempts: int) -> str:
@@ -96,10 +116,22 @@ def eval_title(eval_id: str) -> str:
     return EVAL_NAMES.get(base, base) + (f", {tries} tries" if tries else "")
 
 
-def agent_of(steps) -> tuple[str, dict]:
-    step = steps[-1]
-    params = {k: v for k, v in (step.params or {}).items() if k in ("version", "cmd") and v not in (None, "auto")}
-    return step.solver, params
+def agent_name(solver: str) -> str:
+    last = solver.split("/")[-1].split("@")[-1]
+    return AGENT_NAMES.get(last, last)
+
+
+def agent_of(log) -> tuple[str, dict, str | None]:
+    """The agent (its solver), the parameters worth showing, and its thinking level: the solver's
+    own `thinking` (omp) or `effort` (Claude Code), Codex's model_reasoning_effort override, else the
+    run's generate config reasoning_effort; None when nothing set it (the harness's default)."""
+    step = log.plan.steps[-1]
+    raw = step.params or {}
+    params = {k: v for k, v in raw.items() if k in ("version", "cmd") and v not in (None, "auto")}
+    overrides = raw.get("config_overrides") or {}
+    configs = [log.plan.config, log.eval.model_generate_config]
+    thinking = raw.get("thinking") or raw.get("effort") or (overrides.get("model_reasoning_effort") if isinstance(overrides, dict) else None) or next((c.reasoning_effort for c in configs if c is not None and c.reasoning_effort), None)
+    return step.solver, params, (str(thinking).lower() if thinking else None)
 
 
 # Inspect providers that name a model's maker: a model reached through another provider's API (an
@@ -315,7 +347,10 @@ def turns_of(sample, prices: dict, clock: Clock, starts) -> list[dict]:
             r = results.get(tc.id)
             te = tool_events.get(tc.id)
             args = tc.arguments or {}
-            text = args.get("command") or args.get("cmd") or json.dumps(args)
+            text = args.get("command") or args.get("cmd") or json.dumps({k: v for k, v in args.items() if k not in ("intent", "i", "description")})
+            # The model's own few words on what the call is for: omp asks for one on every call (`i`,
+            # or `intent`); Claude Code's shell calls carry a `description`
+            intent = next((v.strip() for v in (args.get("intent"), args.get("i"), args.get("description")) if isinstance(v, str) and v.strip()), None)
             actions.append({
                 "tool": tc.function,
                 "category": category(tc.function, args),
@@ -327,6 +362,7 @@ def turns_of(sample, prices: dict, clock: Clock, starts) -> list[dict]:
                 "truncated": bool(te is not None and te.truncated),
                 "sdk_calls": sorted(set(SDK_CALL.findall(str(text)))),
                 "background": bool(args.get("run_in_background")),
+                "intent": intent[:200] if intent else None,
             })
         done = e.completed or e.timestamp
         nxt = calls[i + 1].timestamp if i + 1 < len(calls) else None
@@ -564,9 +600,8 @@ def xp_series(states: list[dict]) -> dict[str, list[list[float]]]:
 
 
 def quests_of(base: str, timeline: list[dict], states: list[dict], world: dict | None, quests: list[dict], starts) -> list[dict]:
-    """Quests completed and when. From the saved varps when the harness recorded the states, or
-    from the timeline when the eval's measure is a quest's own varp ('varp'); else, for quest
-    points, guessed from each jump, where the account was and whom it last spoke to ('inferred')."""
+    """Quests completed and when. From the saved varps when the harness recorded the states
+    ('varp'); else, for quest points, guessed from each jump, where the account was and whom it last spoke to ('inferred')."""
     by_id = {q["id"]: q for q in quests}
     done: list[dict] = []
     if states:
@@ -580,15 +615,6 @@ def quests_of(base: str, timeline: list[dict], states: list[dict], world: dict |
                         q = by_id[qid]
                         done.append({"quest": qid, "name": q["name"], "qp": q["qp"], "tick": r["tick"], "attempt": r.get("attempt", 1), "account": name, "source": "varp"})
                 prev[name] = now
-        return done
-    if base == "cooks_assistant":
-        q = by_id.get("cooks_assistant", {"id": "cooks_assistant", "name": "Cook's Assistant", "qp": 1})
-        seen = set()
-        for p in timeline:
-            a = p.get("attempt", 1)
-            if p["value"] >= 2 and a not in seen:
-                seen.add(a)
-                done.append({"quest": q["id"], "name": q["name"], "qp": q["qp"], "tick": p["tick"], "attempt": a, "account": None, "source": "varp"})
         return done
     if base != "quest_points" or not world:
         return done
@@ -618,6 +644,30 @@ def quests_of(base: str, timeline: list[dict], states: list[dict], world: dict |
             taken.add(q["id"])
         done.append({"quest": q and q["id"], "name": q and q["name"], "qp": delta, "tick": hi, "attempt": p.get("attempt", 1), "account": None, "source": "inferred"})
     return done
+
+
+def steps_of(base: str, states: list[dict]) -> list[dict]:
+    """The eval's own events from the saved states (EVAL_STEPS): each quest stage the first time the
+    quest's varp reaches it, and the first time the quest points reach what the quest needs. A
+    stage skipped between two samples is reached at the later one."""
+    spec = EVAL_STEPS.get(base)
+    if not spec or not states:
+        return []
+    out: list[dict] = []
+    seen: set = set()
+    for i, r in enumerate(states):
+        if i and r.get("attempt") != states[i - 1].get("attempt"):
+            seen = set()
+        stage = max(int(s["varps"].get(spec["varp"], 0)) for s in r["accounts"].values())
+        qp = max(int(s["varps"].get(QP_VARP, 0)) for s in r["accounts"].values())
+        if qp >= spec["qp"] and "qp" not in seen:
+            seen.add("qp")
+            out.append({"tick": r["tick"], "seconds": r["seconds"], "kind": "qp", "qp": spec["qp"]})
+        for n, name in spec["stages"].items():
+            if stage >= n and n not in seen:
+                seen.add(n)
+                out.append({"tick": r["tick"], "seconds": r["seconds"], "kind": "stage", "quest": spec["quest"], "stage": n, "name": name})
+    return out
 
 
 def activity_of(world: dict, sdk: dict | None, end_tick: int | None) -> list[list]:
@@ -680,7 +730,7 @@ def resample(grid: list[int], timeline: list[dict], clock: Clock, turns: list[di
     return out
 
 
-def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, solver: str, solver_params: dict) -> tuple[dict, dict, dict, dict]:
+def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, solver: str, solver_params: dict, thinking: str | None) -> tuple[dict, dict, dict, dict]:
     spec = log.eval
     m = s.metadata
     attempts = m.get("attempts", 1)
@@ -726,6 +776,7 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
             events.append({"tick": t, "seconds": clock.seconds(t), "kind": "teleport", "x": x, "z": z, "level": level})
     for q in quests_done:
         events.append({"tick": q["tick"], "seconds": clock.seconds(q["tick"]), "kind": "quest", "quest": q["quest"], "name": q["name"], "qp": q["qp"], "source": q["source"]})
+    events.extend(steps_of(base, states))
     if states:
         levels: dict[tuple[str, str], int] = {}
         for i, r in enumerate(states):
@@ -804,8 +855,9 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
         "id": run_id,
         "eval": eval_id,
         "agent": solver,
-        "agent_name": AGENT_NAMES.get(solver, solver),
+        "agent_name": agent_name(solver),
         "agent_params": solver_params,
+        "thinking": thinking,
         "agent_version": agent_version,
         "model": canonical_model(spec.model),
         "vendor": vendor_of(canonical_model(spec.model)),
@@ -847,6 +899,8 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
         "id": eval_id, "base": base, "title": eval_title(eval_id), "measure": MEASURES.get(base, "Value"),
         "goal": s.input if isinstance(s.input, str) else str(s.input), "budget_ticks": m["budget_ticks"], "tick_ms": tick_ms,
         "attempts": attempts, "target": m.get("target"), "accounts": [a["username"] for a in m["accounts"]], "task_file": spec.task_file,
+        # Where the character starts: its start save and the first tile it was recorded on
+        "start": {"save": m["accounts"][0].get("save"), "tile": path[0][1:3] if path else None},
     }
     detail = {
         **run,
@@ -890,13 +944,13 @@ def export(log_dirs: list[str], price_source: str, out: Path):
         log = read_eval_log(info.name, resolve_attachments=True)
         if log.status != "success" or not log.samples:
             continue  # failed logs are retried by eval-set; their samples have no scores
-        solver, solver_params = agent_of(log.plan.steps)
+        solver, solver_params, thinking = agent_of(log)
         if solver == "command":
             continue  # scripted programs play without a model; the site is about models
         for s in log.samples:
             if s.error or not s.scores:
                 continue
-            run, evl, _, grid = export_sample(log, info, s, prices, quests, out, solver, solver_params)
+            run, evl, _, grid = export_sample(log, info, s, prices, quests, out, solver, solver_params, thinking)
             runs.append(run)
             evals.setdefault(run["eval"], evl)
             grids.setdefault(run["eval"], {})[run["id"]] = grid
@@ -918,7 +972,7 @@ def export(log_dirs: list[str], price_source: str, out: Path):
             f.unlink()
     vendors = {v: VENDORS.get(v, v.capitalize()) for v in sorted({r["vendor"] for r in runs if r["vendor"]})}
     (out / "index.json").write_text(json.dumps({"evals": sorted(evals.values(), key=lambda e: e["id"]), "runs": runs, "prices": {m: {k: v for k, v in p.items() if k != "tiers"} for m, p in prices.items()}, "vendors": vendors}))
-    print(f"{len(runs)} runs, {len(evals)} evals:", dict(Counter((r['eval'], r['model'], r['agent_name']) for r in runs)))
+    print(f"{len(runs)} runs, {len(evals)} evals:", dict(Counter((r['eval'], r['model'], r['agent_name'], r['thinking']) for r in runs)))
 
 
 if __name__ == "__main__":
