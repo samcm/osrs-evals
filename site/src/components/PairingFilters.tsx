@@ -9,7 +9,6 @@ import type { ReactNode } from 'react';
 import { BrainIcon, ListFilterIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { Segmented } from '@/components/bits';
 import { FacetFilter } from '@/components/FacetFilter';
 import { BrandMark } from '@/components/marks';
@@ -23,12 +22,11 @@ const EFFORT_OPTIONS = [
 ];
 
 /**
- * Controls that sit in the toolbar from a tablet up and fold into one Filters popover on a phone,
- * so the toolbar stays one row there. `active` counts the filters set, shown on the button.
+ * A page's filters and secondary view controls, folded into one Filters button, so the toolbar is
+ * one row and a first-time visitor sees the view, not the knobs. `active` counts the filters set,
+ * shown on the button.
  */
 export function FiltersFold({ active = 0, children }: { active?: number; children: ReactNode }) {
-  const mobile = useIsMobile();
-  if (!mobile) return <>{children}</>;
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -38,7 +36,7 @@ export function FiltersFold({ active = 0, children }: { active?: number; childre
           {active > 0 && <span className="text-muted-foreground tabular-nums">{active}</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="flex flex-wrap gap-2">
+      <PopoverContent align="end" className="flex flex-wrap gap-2">
         {children}
       </PopoverContent>
     </Popover>
