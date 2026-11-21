@@ -36,7 +36,7 @@ function jitter(id: string): number {
 }
 
 /** Room for group labels left of the plot: a pairing's model and badge, or one name. */
-const LABEL_WIDTH = { pairing: 196, wide: 148, narrow: 112 };
+const LABEL_WIDTH = { pairing: 232, wide: 148, narrow: 112 };
 const labelWidthFor = (by: GroupBy, narrow: boolean) => (narrow ? LABEL_WIDTH.narrow : by === 'variant' ? LABEL_WIDTH.pairing : LABEL_WIDTH.wide);
 
 /** Harness keys are shapes in the text colour: colour belongs to models. */
@@ -56,7 +56,10 @@ const MEDIAN_WIDTH = 64;
 function GroupTick({ x, y, width, height = 24, children }: { x: number; y: number; width: number; height?: number; children: ReactNode }) {
   return (
     <foreignObject x={x - width} y={y - height / 2} width={width - 4} height={height}>
-      <div className="flex h-full items-center justify-end overflow-hidden text-xs text-foreground">{children}</div>
+      {/* A label wider than its room truncates its name, never its marks or its start */}
+      <div className="flex h-full items-center justify-end overflow-hidden text-xs text-foreground">
+        <div className="flex max-w-full min-w-0 justify-end">{children}</div>
+      </div>
     </foreignObject>
   );
 }

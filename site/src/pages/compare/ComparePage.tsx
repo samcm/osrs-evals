@@ -69,7 +69,9 @@ export function ComparePage() {
   const oneEval = search.tab === 'measure' && Boolean(metric.outcome);
   const choices = oneEval ? evals.filter(e => !metric.applies || metric.applies(e)) : evals;
   const chosen = choices.find(e => e.id === search.eval);
-  const evalShown: Eval | undefined = chosen ?? (oneEval ? choices[0] : undefined);
+  // Without a choice, the eval with the most runs: the one with the most to compare
+  const runsOf = (id: string) => scoped.filter(r => r.eval === id).length;
+  const evalShown: Eval | undefined = chosen ?? (oneEval ? [...choices].sort((a, b) => runsOf(b.id) - runsOf(a.id))[0] : undefined);
   const runs = useMemo(() => scoped.filter(r => !evalShown || r.eval === evalShown.id), [scoped, evalShown]);
 
   const log = metric.log && (search.scale ?? metric.scale) === 'log';
@@ -151,17 +153,18 @@ export function ComparePage() {
             options={evalOptions}
             onChange={id => update({ eval: id })}
           />
-          <Segmented size="default" label="Group by" value={search.by} options={BY_OPTIONS} onChange={by => update({ by })} />
-          {search.tab === 'measure' && metric.log && (
-            <Segmented
-              size="default"
-              label="Scale"
-              value={log ? 'log' : 'linear'}
-              options={SCALE_OPTIONS}
-              onChange={scale => update({ scale: scale === metric.scale ? undefined : scale })}
-            />
-          )}
-          <PairingFilters runs={data.runs} thinking={scope.thinking} agent={scope.agent} onChange={setScope} />
+          <PairingFilters runs={data.runs} thinking={scope.thinking} agent={scope.agent} onChange={setScope}>
+            <Segmented size="default" label="Group by" value={search.by} options={BY_OPTIONS} onChange={by => update({ by })} />
+            {search.tab === 'measure' && metric.log && (
+              <Segmented
+                size="default"
+                label="Scale"
+                value={log ? 'log' : 'linear'}
+                options={SCALE_OPTIONS}
+                onChange={scale => update({ scale: scale === metric.scale ? undefined : scale })}
+              />
+            )}
+          </PairingFilters>
         </PageToolbar>
       )}
 

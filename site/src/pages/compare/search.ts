@@ -5,7 +5,7 @@ import { METRIC_IDS } from './metrics';
 
 export const compareSearch = defineSearch({
   tab: oneOf(['measure', 'tools', 'prices'], 'measure'),
-  metric: oneOf(METRIC_IDS, 'cost'),
+  metric: oneOf(METRIC_IDS, 'value'),
   /** The grouping, for the measure and the tool-call mix */
   by: oneOf(['model', 'vendor', 'agent', 'variant'], 'variant'),
   /** One eval; absent pools every eval (outcome measures fall back to the first eval) */
