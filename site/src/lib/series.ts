@@ -6,7 +6,9 @@
  *   Claude Opus 5.5 rose, Claude Fable 5.2 fuchsia, GPT-6.2 Sol blue, GPT-6.2 Astra green.
  * A model not listed gets a stable hash of its id into the chart palette, skipping the hues taken
  * above, never a colour by position. Agents have no colour: each has a fixed line style and point
- * shape, so a variant (model × agent) is drawn in its model's colour with its agent's line and shape.
+ * shape. A thinking level is a lightness step of its model's colour (`levelColor`), light for off and
+ * dark for max, the harness's default at the model's own colour. So a variant (model × thinking level
+ * × agent) is drawn in its model's hue, at its level's lightness, with its agent's line and shape.
  */
 
 import type { Run } from '@/data/types';
@@ -248,6 +250,47 @@ export const agentName = (id: string, fallbackName?: string): string => agentInf
 // Thinking levels
 
 /**
+ * Each level's step from its model's colour, as a share mixed in of white (positive) or black
+ * (negative): light for off, dark for max. The harness's default sits at the model's own colour,
+ * between medium and high, where harnesses usually set it.
+ */
+const LEVEL_MIX: Record<string, number> = { off: 48, none: 48, minimal: 36, low: 24, medium: 12, default: 0, high: -14, xhigh: -26, max: -38 };
+
+const levelRules = new Set<string>();
+let levelSheet: CSSStyleSheet | null = null;
+
+/**
+ * A model's colour at a thinking level: a token and swatch, line and fill classes like the model's
+ * own (`--color-data-orange-high`, `bg-data-orange-high` …), mixed in oklab from its colour. Tailwind
+ * cannot know these names ahead of time, so the rules are added to one stylesheet the first time a
+ * level of a colour is used; everything that reads a SeriesColor works on them unchanged.
+ */
+export function levelColor(base: SeriesColor, level: string): SeriesColor {
+  const mix = LEVEL_MIX[level];
+  if (!mix) return base;
+  const name = `${base.token.replace(/^--color-/, '')}-${level}`;
+  const color: SeriesColor = { token: `--color-${name}`, swatchClassName: `bg-${name}`, borderClassName: `border-${name}`, fillClassName: `fill-${name}` };
+  if (typeof document !== 'undefined' && !levelRules.has(name)) {
+    levelRules.add(name);
+    if (!levelSheet) {
+      const style = document.createElement('style');
+      style.dataset.thinkingLevels = '';
+      document.head.appendChild(style);
+      levelSheet = style.sheet;
+    }
+    const value = `color-mix(in oklab, var(${base.token}), ${mix > 0 ? 'white' : 'black'} ${Math.abs(mix)}%)`;
+    for (const rule of [
+      `:root { ${color.token}: ${value}; }`,
+      `.${color.swatchClassName} { background-color: var(${color.token}); }`,
+      `.${color.borderClassName} { border-color: var(${color.token}); }`,
+      `.${color.fillClassName} { fill: var(${color.token}); }`,
+    ])
+      levelSheet?.insertRule(rule, levelSheet.cssRules.length);
+  }
+  return color;
+}
+
+/**
  * Thinking levels, lowest first: omp's `thinking`, Inspect's reasoning_effort and Claude Code's
  * effort. `default` is a run that set none, so its harness and model decided.
  */
@@ -300,7 +343,7 @@ export function variantOf(run: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thi
     thinking,
     name: `${agent.variant(model.name)}, ${thinking} thinking`,
     short: `${agent.variant(model.short)}, ${thinking}`,
-    color: model.color,
+    color: levelColor(model.color, thinking),
     symbol: agent.symbol,
     line: agent.line,
     vendorSlug: model.vendor.slug,

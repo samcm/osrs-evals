@@ -1,12 +1,12 @@
 /**
  * How a measure changes with thinking level, for one model on one eval: the thinking levels along x,
- * lowest first, each run a point and each harness a series (its shape and dash, in the model's
- * colour) with a line through its median at each level. A point opens its run.
+ * lowest first, each run a point (its harness's shape, its level's lightness of the model's colour)
+ * and each harness a series with a line through its median at each level. A point opens its run.
  */
 
 import { useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { CartesianGrid, ComposedChart, Line, Scatter, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, Cell, ComposedChart, Line, Scatter, XAxis, YAxis } from 'recharts';
 import { ChartTooltip, type ChartConfig } from '@/components/ui/chart';
 import { ChartFrame, chartMargin, gridProps, logAxisProps, SeriesLabel, SeriesLegend, xAxisProps, Y_AXIS_WIDTH, yAxisProps } from '@/components/charts';
 import type { Eval, Run } from '@/data/types';
@@ -14,7 +14,7 @@ import { agentSeries, cssColor, dashArray, scatterShape, type SeriesSpec } from 
 import { formatCost, formatInt } from '@/lib/format';
 import { FADED_OPACITY, setHovered, useHover } from '@/lib/hover';
 import { resultValue } from '@/lib/runResult';
-import { modelInfo, thinkingOf } from '@/lib/series';
+import { levelColor, modelInfo, thinkingOf } from '@/lib/series';
 import { median } from '@/lib/stats';
 import { formatTick, roundMax, roundTicks } from '../eval/chartBits';
 import { PointTooltip } from '../eval/Cuts';
@@ -90,6 +90,9 @@ export function ThinkingChart({ e, runs, y, levels, series }: { e: Eval; runs: R
           {...xAxisProps({ domain: [-0.5, levels.length - 0.5], ticks: levels.map((_, i) => i), format: i => levels[i] ?? '' })}
           dataKey="x"
           type="number"
+          // Every level named, however many: they are the chart's categories, slanted when they crowd
+          interval={0}
+          {...(levels.length > 4 ? { angle: -35, textAnchor: 'end', height: 52 } : {})}
         />
         <YAxis {...yAxis} dataKey="y" />
         <ChartTooltip
@@ -142,7 +145,13 @@ export function ThinkingChart({ e, runs, y, levels, series }: { e: Eval; runs: R
               const run = (p as { payload?: Point })?.payload?.run;
               if (run) navigate({ to: '/runs/$runId', params: { runId: run.id }, search: {} as never });
             }}
-          />
+          >
+            {points
+              .filter(p => p.spec.id === s.id)
+              .map(p => (
+                <Cell key={p.run.id} fill={cssColor(levelColor(modelInfo(p.run.model).color, thinkingOf(p.run)))} />
+              ))}
+          </Scatter>
         ))}
       </ComposedChart>
     </ChartFrame>

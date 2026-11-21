@@ -52,7 +52,7 @@ function facts(runs: Run[], target: number | null, measure: string): MetaItem[] 
     {
       term: 'Thinking',
       value: (
-        <span className="inline-flex items-center gap-2 align-middle">
+        <span className="inline-flex flex-wrap items-center gap-x-2 align-middle">
           {levels.map(l => (
             <ThinkingLevel key={l} level={l} />
           ))}
