@@ -6,7 +6,7 @@
  * cut to each harness's best level by the page's `effort`.
  */
 
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { DataTable } from '@/components/DataTable';
@@ -15,19 +15,17 @@ import { BrandMark, EvalMark, HarnessMark, ThinkingLevel, VariantLabel } from '@
 import { PairingFilters } from '@/components/PairingFilters';
 import { PageHeader, PageSection, PageToolbar, type MetaItem } from '@/components/page';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { indexQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
 import { evalSlug } from '@/lib/evals';
 import { formatCost, formatDay, formatDuration, formatInt, formatTokens } from '@/lib/format';
 import { setHovered } from '@/lib/hover';
 import { resultValue } from '@/lib/runResult';
-import { bestLevelKeys, blendedScores, formatScore, modelRank, runScore } from '@/lib/score';
+import { bestLevelKeys, blendedScores, modelRank, runScore } from '@/lib/score';
 import { inScope, useDocumentTitle, useEffort, useScope, useSearchUpdate } from '@/lib/search';
 import { compareThinking, modelFacts, modelInfo, modelSlug, providerInfo, variantKey } from '@/lib/series';
 import { median } from '@/lib/stats';
 import { cn } from '@/lib/utils';
-import { tint } from '../overview/Leaderboard';
 import { runColumns, type Row } from '../RunsPage';
 import { costMeasure, harnessSeries, ThinkingChart, type ThinkingMeasure } from './ThinkingChart';
 
@@ -42,6 +40,38 @@ const place = (rank: number, of: number): string => `#${formatInt(rank)} of ${fo
 /** Each eval's best value, for scoring evals that count how much (lib/score.ts). */
 function bests(evals: Eval[], runs: Run[]): Map<string, number> {
   return new Map(evals.map(e => [e.id, Math.max(0, ...runs.filter(r => r.eval === e.id).map(r => resultValue(r) ?? 0))]));
+}
+
+/** A set of runs' result on an eval (how many finished, or the median), median time and cost, and count; a phone keeps the result. */
+function ResultCells({ e, own }: { e: Eval; own: Run[] }) {
+  const target = e.target != null;
+  const finished = own.filter(r => r.success);
+  return (
+    <>
+      <TableCell className="text-right tabular-nums">
+        {own.length === 0 ? (
+          '–'
+        ) : target ? (
+          <>
+            {formatInt(finished.length)}
+            <span className="text-muted-foreground">
+              {' '}
+              of {formatInt(own.length)}
+              <span className="max-md:hidden"> finished</span>
+            </span>
+          </>
+        ) : (
+          <>
+            {formatInt(median(own.map(resultValue)))}
+            <span className="text-muted-foreground max-md:hidden"> {e.measure.toLowerCase()}</span>
+          </>
+        )}
+      </TableCell>
+      <TableCell className="text-right tabular-nums max-md:hidden">{formatDuration(target ? median(finished.map(r => r.seconds)) : median(own.map(r => r.game_seconds)))}</TableCell>
+      <TableCell className="text-right tabular-nums max-md:hidden">{formatCost(median(own.map(r => r.cost)))}</TableCell>
+      <TableCell className="text-right tabular-nums max-md:hidden">{formatInt(own.length)}</TableCell>
+    </>
+  );
 }
 
 export function ModelPage() {
@@ -155,7 +185,7 @@ export function ModelPage() {
         <Empty>No runs match these filters.</Empty>
       ) : (
         <>
-          {/* Each eval: where the model places among the models, what it got, how long and what it cost */}
+          {/* Each eval: where the model places among the models, what it got, how long and what it cost; each pairing under it when it ran several */}
           <PageSection title="Per eval">
             <Table>
               <TableHeader>
@@ -167,121 +197,59 @@ export function ModelPage() {
                     Place
                   </TableHead>
                   <TableHead className="text-right">Result</TableHead>
-                  <TableHead className="text-right" title="Median per run: to the finish, or played">
+                  <TableHead className="text-right max-md:hidden" title="Median per run: to the finish, or played">
                     Time
                   </TableHead>
-                  <TableHead className="text-right" title="Median per run">
+                  <TableHead className="text-right max-md:hidden" title="Median per run">
                     Cost
                   </TableHead>
-                  <TableHead className="text-right">Runs</TableHead>
+                  <TableHead className="text-right max-md:hidden">Runs</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {evals.map(e => {
                   const own = runs.filter(r => r.eval === e.id);
                   const rank = modelRank(all, pairings, e, model);
-                  const target = e.target != null;
-                  const finished = own.filter(r => r.success);
+                  // Each pairing it ran here as its own row under the eval's, when there are several
+                  const mine = pairings.filter(p => own.some(r => variantKey(r) === p.variant.key));
                   return (
-                    <TableRow key={e.id} className="cursor-pointer" onClick={() => navigate(evalLink(e))}>
-                      <TableCell>
-                        <Link {...evalLink(e)} className="inline-flex items-center gap-2 whitespace-nowrap hover:underline hover:underline-offset-4">
-                          <EvalMark evalId={e.id} size={20} title="" />
-                          {e.title}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{rank ? place(rank.rank, rank.of) : '–'}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {own.length === 0 ? (
-                          '–'
-                        ) : target ? (
-                          <>
-                            {formatInt(finished.length)}
-                            <span className="text-muted-foreground"> of {formatInt(own.length)} finished</span>
-                          </>
-                        ) : (
-                          <>
-                            {formatInt(median(own.map(resultValue)))}
-                            <span className="text-muted-foreground"> {e.measure.toLowerCase()}</span>
-                          </>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatDuration(target ? median(finished.map(r => r.seconds)) : median(own.map(r => r.game_seconds)))}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{formatCost(median(own.map(r => r.cost)))}</TableCell>
-                      <TableCell className="text-right tabular-nums">{formatInt(own.length)}</TableCell>
-                    </TableRow>
+                    <Fragment key={e.id}>
+                      <TableRow className="cursor-pointer" onClick={() => navigate(evalLink(e))}>
+                        <TableCell>
+                          <Link {...evalLink(e)} className="inline-flex max-w-full items-center gap-2 whitespace-nowrap hover:underline hover:underline-offset-4" title={e.title}>
+                            <EvalMark evalId={e.id} size={20} title="" />
+                            {/* A phone keeps the name short, so the place and result stay in view */}
+                            <span className="truncate max-md:max-w-28">{e.title}</span>
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{rank ? place(rank.rank, rank.of) : '–'}</TableCell>
+                        <ResultCells e={e} own={own} />
+                      </TableRow>
+                      {mine.length > 1 &&
+                        mine.map(p => (
+                          <TableRow
+                            key={p.variant.key}
+                            className="cursor-pointer"
+                            onMouseEnter={() => setHovered(p.variant.key)}
+                            onMouseLeave={() => setHovered(undefined)}
+                            onClick={() => navigate({ ...evalLink(e), search: { level: [p.variant.thinking], harness: [p.variant.agent] } as never })}
+                          >
+                            <TableCell>
+                              <span className="flex min-w-0 items-center gap-2 pl-7 max-md:pl-2">
+                                <span aria-hidden className={cn('w-4 shrink-0 border-t-2 max-md:hidden', p.variant.color.borderClassName, LINE[p.variant.line])} />
+                                <VariantLabel variant={p.variant} run={p.sample} compact />
+                              </span>
+                            </TableCell>
+                            <TableCell />
+                            <ResultCells e={e} own={own.filter(r => variantKey(r) === p.variant.key)} />
+                          </TableRow>
+                        ))}
+                    </Fragment>
                   );
                 })}
               </TableBody>
             </Table>
           </PageSection>
-
-          {/* With more than one pairing: each one's result on every eval, as on Home (with one, it is the table above again) */}
-          {pairings.length > 1 && (
-            <>
-              {/* Its result on every eval, a row per thinking level and harness: Home's score, cut by pairing */}
-              <PageSection title="On every eval">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead>
-                        <span className="sr-only">Pairing</span>
-                      </TableHead>
-                      <TableHead className="text-right">Score</TableHead>
-                      {evals.map(e => (
-                        <TableHead key={e.id} className="w-px text-center">
-                          <Link {...evalLink(e)} className="inline-flex items-center gap-1.5 whitespace-nowrap hover:underline hover:underline-offset-4" title={e.title}>
-                            <EvalMark evalId={e.id} size={16} title="" />
-                            {e.title.split(' in ')[0]}
-                          </Link>
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pairings.map(p => (
-                      <TableRow key={p.variant.key} onMouseEnter={() => setHovered(p.variant.key)} onMouseLeave={() => setHovered(undefined)}>
-                        <TableCell>
-                          <span className="flex min-w-0 items-center gap-2">
-                            <span aria-hidden className={cn('w-4 shrink-0 border-t-2', p.variant.color.borderClassName, LINE[p.variant.line])} />
-                            <VariantLabel variant={p.variant} run={p.sample} compact />
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right font-medium tabular-nums">{formatScore(p.score)}</TableCell>
-                        {evals.map(e => {
-                          const s = p.evals.get(e.id);
-                          return (
-                            <TableCell key={e.id} className="text-center">
-                              {s ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Link
-                                      {...evalLink(e)}
-                                      search={{ level: [p.variant.thinking], harness: [p.variant.agent] } as never}
-                                      className={cn('inline-flex h-6 w-10 items-center justify-center rounded-sm tabular-nums', tint(s.score))}
-                                    >
-                                      {formatScore(s.score)}
-                                    </Link>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    {e.title}, {s.runs === 1 ? '1 run' : `${formatInt(s.runs)} runs`}
-                                  </TooltipContent>
-                                </Tooltip>
-                              ) : (
-                                <span className="text-muted-foreground">–</span>
-                              )}
-                            </TableCell>
-                          );
-                        })}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </PageSection>
-            </>
-          )}
 
           {/* Thinking levels side by side only when it ran at more than one */}
           {levels.length > 1 && (

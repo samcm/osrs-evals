@@ -71,6 +71,8 @@ export function EvalModelPage() {
   useDocumentTitle(e ? `${info.name}, ${e.title}` : undefined);
 
   const curves = useMemo(() => (e ? buildCurves(e, grid, runs, new Map()) : []), [e, grid, runs]);
+  // Every model's runs on the eval, for the field's median under this model's lines
+  const field = useMemo(() => (e ? buildCurves(e, grid, data.runs.filter(r => r.eval === e.id && inScope(r, scope)), new Map()) : []), [e, grid, data, scope]);
   const ranked = useMemo(() => (e ? rankVariants(e, runs, search.x) : []), [e, runs, search.x]);
   const range = useMemo(() => (e ? xRange(e, curves, search.x) : null), [e, curves, search.x]);
   const levels = useMemo(() => [...new Set(runs.map(r => r.thinking))].sort(compareThinking), [runs]);
@@ -131,8 +133,8 @@ export function EvalModelPage() {
             </PageSection>
           </div>
           )}
-          <PageSection title={e.measure} actions={<ParamSegmented param="x" value={search.x} label="Along" options={X_OPTIONS.filter(o => o.value !== 'calls')} />}>
-            <ProgressChart e={e} curves={curves} ranked={ranked} x={search.x} agg="runs" range={range!} legend={legend} pending={false} t={search.t} />
+          <PageSection title={e.measure} description="In grey, every model's median" actions={<ParamSegmented param="x" value={search.x} label="Along" options={X_OPTIONS.filter(o => o.value !== 'calls')} />}>
+            <ProgressChart e={e} curves={curves} ranked={ranked} x={search.x} agg="runs" range={range!} legend={legend} pending={false} t={search.t} field={field} />
           </PageSection>
           <PageSection title="Runs">
             <RunsTable e={e} runs={runs} curves={curves} sort={search.sort} page={search.page} />

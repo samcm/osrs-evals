@@ -18,7 +18,7 @@ import type { LegendState } from '@/lib/legend';
 import { median } from '@/lib/stats';
 import { useWidth } from '@/lib/useWidth';
 import { formatTick, formatX, roundMax, roundTicks } from './chartBits';
-import { hasX, valueAt, xOf, type Agg, type RankedVariant, type RunCurve, type XMeasure, type XRange } from './model';
+import { aggregate, hasX, valueAt, xOf, type Agg, type RankedVariant, type RunCurve, type XMeasure, type XRange } from './model';
 import { usePlayheadMark } from './playhead';
 
 const MARGIN = chartMargin();
@@ -104,6 +104,7 @@ export function ProgressChart({
   legend,
   pending,
   t,
+  field,
 }: {
   e: Eval;
   curves: RunCurve[];
@@ -116,6 +117,8 @@ export function ProgressChart({
   pending: boolean;
   /** The playhead's settled tick (`?t=`) */
   t?: number;
+  /** Every model's runs on the eval: their median drawn under the lines in grey, so a few runs read against the field */
+  field?: RunCurve[];
 }) {
   const navigate = useNavigate();
   const [ref, width] = useWidth();
@@ -144,8 +147,12 @@ export function ProgressChart({
     }));
   }, [drawn, range, specs, x]);
 
+  // The field's median on the same x values as the lines, so they share the crosshair
+  const fieldLine = useMemo(() => (field?.length ? aggregate(field, x, range, 'median') : []), [field, x, range]);
+
   const rows = useMemo(() => {
     const byX = new Map<number, Row>();
+    for (const [px, py] of fieldLine) byX.set(px, { x: px, field: py } as Row);
     for (const line of lines) {
       for (const [px, py] of line.points) {
         const row = byX.get(px) ?? ({ x: px } as Row);
@@ -154,7 +161,7 @@ export function ProgressChart({
       }
     }
     return [...byX.values()].sort((a, b) => a.x - b.x);
-  }, [lines]);
+  }, [lines, fieldLine]);
 
   const config = useMemo<ChartConfig>(() => Object.fromEntries([...specs.values()].map(s => [s.key, { label: s.label, color: s.color }])), [specs]);
 
@@ -184,6 +191,9 @@ export function ProgressChart({
             <XAxis {...xAxis} />
             <YAxis {...yAxisProps({ domain: [0, yMax], ticks: yTicks })} />
             <ChartTooltip cursor={crosshairCursor} content={<ProgressTooltip rows={tooltipRows} x={x} agg={agg} target={target} />} />
+            {fieldLine.length > 0 && (
+              <Line dataKey="field" name="Every model's median" type="stepAfter" stroke="var(--muted-foreground)" strokeOpacity={0.6} strokeWidth={1.5} dot={false} activeDot={false} connectNulls isAnimationActive={false} legendType="none" />
+            )}
             {ordered.map(line => {
               return (
                 <Line

@@ -164,6 +164,8 @@ function ThemeToggle() {
 
 interface Crumb {
   label: ReactNode;
+  /** Shown on a phone too, where only the last crumb otherwise is */
+  keep?: boolean;
   to?: string;
   params?: Record<string, string>;
 }
@@ -182,7 +184,8 @@ function useCrumbs(): Crumb[] {
     const title = { label: e?.title ?? evalArt(evalIdOf(parts[1])).title ?? parts[1] };
     if (!parts[2]) return [title];
     const run = data?.runs.find(r => modelSlug(r.model) === modelSlug(parts[2]));
-    return [{ ...title, to: '/evals/$evalId', params: { evalId: evalSlug(parts[1]) } }, { label: run ? modelInfo(run.model).name : parts[2] }];
+    // A model under an eval keeps its eval on a phone: the model alone doesn't say which page this is
+    return [{ ...title, to: '/evals/$evalId', params: { evalId: evalSlug(parts[1]) }, keep: true }, { label: run ? modelInfo(run.model).short : parts[2] }];
   }
   if (parts[0] === 'runs' && parts[1]) {
     const run = data?.runs.find(r => r.id === parts[1]);
@@ -208,7 +211,7 @@ function AppBreadcrumb() {
         {crumbs.map((crumb, i) => {
           const last = i === crumbs.length - 1;
           return [
-            <BreadcrumbItem key={`c${i}`} className={last ? 'min-w-0' : 'min-w-0 max-sm:hidden'}>
+            <BreadcrumbItem key={`c${i}`} className={last || crumb.keep ? 'min-w-0' : 'min-w-0 max-sm:hidden'}>
               {last || !crumb.to ? (
                 <BreadcrumbPage className={typeof crumb.label === 'string' ? 'truncate font-medium' : 'flex min-w-0 font-medium'}>{crumb.label}</BreadcrumbPage>
               ) : (
@@ -219,7 +222,7 @@ function AppBreadcrumb() {
                 </BreadcrumbLink>
               )}
             </BreadcrumbItem>,
-            !last && <BreadcrumbSeparator key={`s${i}`} className="max-sm:hidden" />,
+            !last && <BreadcrumbSeparator key={`s${i}`} className={crumb.keep ? undefined : 'max-sm:hidden'} />,
           ];
         })}
       </BreadcrumbList>
