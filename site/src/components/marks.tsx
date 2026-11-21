@@ -186,7 +186,9 @@ export function HarnessMark({ agent, fallback, size = 14, className }: { agent: 
 }
 
 /** A thinking level: a brain and the level's word, muted, beside the model it belongs to. */
-export function ThinkingLevel({ level, className }: { level: string; className?: string }) {
+export function ThinkingLevel({ level, className }: { level: string | null; className?: string }) {
+  // A level that was not recorded shows nothing here; the run's page says so in words
+  if (!level) return null;
   return (
     <span className={cn('inline-flex shrink-0 items-center gap-0.5 text-muted-foreground', className)} title={thinkingTitle(level)}>
       <BrainIcon aria-hidden className="size-3" />

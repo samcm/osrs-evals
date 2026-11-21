@@ -7,8 +7,9 @@
  * A model not listed gets a stable hash of its id into the chart palette, skipping the hues taken
  * above, never a colour by position. Agents have no colour: each has a fixed line style and point
  * shape. A thinking level is a lightness step of its model's colour (`levelColor`), light for off and
- * dark for max, the harness's default at the model's own colour. So a variant (model × thinking level
- * × agent) is drawn in its model's hue, at its level's lightness, with its agent's line and shape.
+ * dark for max; a run whose level was not recorded keeps the model's own colour. So a variant (model
+ * × thinking level × agent) is drawn in its model's hue, at its level's lightness, with its agent's
+ * line and shape.
  */
 
 import type { Run } from '@/data/types';
@@ -251,10 +252,10 @@ export const agentName = (id: string, fallbackName?: string): string => agentInf
 
 /**
  * Each level's step from its model's colour, as a share mixed in of white (positive) or black
- * (negative): light for off, dark for max. The harness's default sits at the model's own colour,
- * between medium and high, where harnesses usually set it.
+ * (negative): light for off, dark for max. A run whose level was not recorded keeps the model's own
+ * colour, which no level takes.
  */
-const LEVEL_MIX: Record<string, number> = { off: 48, none: 48, minimal: 36, low: 24, medium: 12, default: 0, high: -14, xhigh: -26, max: -38 };
+const LEVEL_MIX: Record<string, number> = { off: 44, minimal: 32, low: 20, medium: 8, high: -8, xhigh: -20, max: -32 };
 
 const levelRules = new Set<string>();
 let levelSheet: CSSStyleSheet | null = null;
@@ -265,8 +266,8 @@ let levelSheet: CSSStyleSheet | null = null;
  * cannot know these names ahead of time, so the rules are added to one stylesheet the first time a
  * level of a colour is used; everything that reads a SeriesColor works on them unchanged.
  */
-export function levelColor(base: SeriesColor, level: string): SeriesColor {
-  const mix = LEVEL_MIX[level];
+export function levelColor(base: SeriesColor, level: string | null): SeriesColor {
+  const mix = level ? LEVEL_MIX[level] : undefined;
   if (!mix) return base;
   const name = `${base.token.replace(/^--color-/, '')}-${level}`;
   const color: SeriesColor = { token: `--color-${name}`, swatchClassName: `bg-${name}`, borderClassName: `border-${name}`, fillClassName: `fill-${name}` };
@@ -292,12 +293,16 @@ export function levelColor(base: SeriesColor, level: string): SeriesColor {
 
 /**
  * Thinking levels, lowest first: omp's `thinking`, Inspect's reasoning_effort and Claude Code's
- * effort. `default` is a run that set none, so its harness and model decided.
+ * effort. Every run shows one of these, or that its level was not recorded (null); there is no
+ * "default".
  */
-export const THINKING_LEVELS = ['default', 'off', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
+export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
 
-/** A run's thinking level as the site names it: its level, or `default`. */
-export const thinkingOf = (run: Pick<Run, 'thinking'>): string => run.thinking ?? 'default';
+/** A run's thinking level; null when it was not recorded. */
+export const thinkingOf = (run: Pick<Run, 'thinking'>): string | null => run.thinking ?? null;
+
+/** What a run with no recorded level says, in place of a level. */
+export const NOT_RECORDED = 'Level not recorded';
 
 /** Order of thinking levels: the known ones lowest first, unknown ones after them by name. */
 export function compareThinking(a: string, b: string): number {
@@ -307,7 +312,7 @@ export function compareThinking(a: string, b: string): number {
 }
 
 /** What a level means, for tooltips. */
-export const thinkingTitle = (level: string): string => (level === 'default' ? "Thinking: the harness's default" : `Thinking: ${level}`);
+export const thinkingTitle = (level: string): string => `Thinking: ${level}`;
 
 // Variants
 
@@ -316,8 +321,8 @@ export interface Variant {
   key: string;
   model: string;
   agent: string;
-  /** The thinking level, `default` when the run set none */
-  thinking: string;
+  /** The thinking level; null when it was not recorded */
+  thinking: string | null;
   /** Full name, as "Claude Haiku 5.5 in Claude Code, high thinking" */
   name: string;
   /** Chart label, as "Haiku 5.5 in Claude Code, high" */
@@ -330,7 +335,7 @@ export interface Variant {
   agentSlug: string;
 }
 
-export const variantKey = (run: Pick<Run, 'model' | 'agent' | 'thinking'>): string => `${run.model}|${thinkingOf(run)}|${run.agent}`;
+export const variantKey = (run: Pick<Run, 'model' | 'agent' | 'thinking'>): string => `${run.model}|${thinkingOf(run) ?? ''}|${run.agent}`;
 
 export function variantOf(run: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thinking'>): Variant {
   const model = modelInfo(run.model);
@@ -341,8 +346,8 @@ export function variantOf(run: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thi
     model: run.model,
     agent: run.agent,
     thinking,
-    name: `${agent.variant(model.name)}, ${thinking} thinking`,
-    short: `${agent.variant(model.short)}, ${thinking}`,
+    name: thinking ? `${agent.variant(model.name)}, ${thinking} thinking` : agent.variant(model.name),
+    short: thinking ? `${agent.variant(model.short)}, ${thinking}` : agent.variant(model.short),
     color: levelColor(model.color, thinking),
     symbol: agent.symbol,
     line: agent.line,
@@ -353,8 +358,12 @@ export function variantOf(run: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thi
 
 /** Variants in a stable order: by model, harness, then thinking level. */
 export function compareVariants(a: Variant, b: Variant): number {
-  return modelName(a.model).localeCompare(modelName(b.model)) || a.agent.localeCompare(b.agent) || compareThinking(a.thinking, b.thinking);
+  return modelName(a.model).localeCompare(modelName(b.model)) || a.agent.localeCompare(b.agent) || compareThinking(a.thinking ?? '', b.thinking ?? '');
 }
 
-/** A model as it appears in a URL: its name without the provider route (openai/openai-codex/gpt-6.2-sol → gpt-6.2-sol). */
-export const modelSlug = (model: string): string => model.split('/').pop() ?? model;
+/**
+ * A model as it appears in a URL: its name without the provider route, dots as hyphens
+ * (openai/openai-codex/gpt-6.2-sol → gpt-6-2-sol). Slugs compare after the same treatment, so a
+ * link with the dots still finds it.
+ */
+export const modelSlug = (model: string): string => (model.split('/').pop() ?? model).replace(/\./g, '-');

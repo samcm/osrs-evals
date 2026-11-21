@@ -12,7 +12,7 @@ import { indexQuery, runQuery } from '@/data/queries';
 import type { Eval, Run, RunDetail } from '@/data/types';
 import { questSrc, uiSrc } from '@/lib/assets';
 import { capitalize, formatDate, formatDuration, formatInt } from '@/lib/format';
-import { modelInfo, thinkingOf, variantKey } from '@/lib/series';
+import { modelInfo, NOT_RECORDED, thinkingOf, variantKey } from '@/lib/series';
 import { resultValue } from '@/lib/runResult';
 import { useDocumentTitle, useSearchUpdate } from '@/lib/search';
 import { cn } from '@/lib/utils';
@@ -90,7 +90,6 @@ function RunFacts({ run }: { run: RunDetail }) {
   const facts: [string, ReactNode][] = [];
   if (run.model_calls > 0) facts.push(['Model', mono(run.model)]);
   if (run.agent_version) facts.push([run.agent_name, mono(run.agent_version)]);
-  facts.push(['Thinking', thinkingOf(run) === 'default' ? "The harness's default" : thinkingOf(run)]);
   facts.push(['Character', mono(run.account)]);
   facts.push(['Started', `${formatDate(run.sample_started ?? run.started)} UTC`]);
   if (run.ended_by) facts.push(['Ended by', capitalize(run.ended_by)]);
@@ -177,7 +176,8 @@ function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure
 function Header({ run, evalInfo, runs, measure }: { run: RunDetail; evalInfo: Eval | undefined; runs: Run[]; measure: XMeasure }) {
   return (
     <PageHeader
-      meta={resultMeta(run, evalInfo, measure)}
+      // The thinking level it ran at, or plainly that it wasn't recorded
+      meta={[...resultMeta(run, evalInfo, measure), { term: 'Thinking', value: thinkingOf(run) ?? NOT_RECORDED }]}
       actions={
         <>
           <RunFacts run={run} />
@@ -200,7 +200,7 @@ export function RunPage() {
     return { ...summary, ...detail, screenshot: detail.screenshot ?? summary?.screenshot, replay_url: detail.replay_url ?? summary?.replay_url };
   }, [detail, index.runs, runId]);
   const evalInfo = index.evals.find(e => e.id === run.eval);
-  useDocumentTitle(`${modelInfo(run.model).name} ${thinkingOf(run)}, ${evalInfo?.title ?? run.eval}, epoch ${run.epoch}`);
+  useDocumentTitle(`${modelInfo(run.model).name}${thinkingOf(run) ? ` ${thinkingOf(run)}` : ''}, ${evalInfo?.title ?? run.eval}, epoch ${run.epoch}`);
 
   const clock = useMemo(() => makeClock(run), [run]);
   const selectedTurn = search.turn != null ? run.turns[search.turn - 1] : undefined;

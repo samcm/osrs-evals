@@ -13,6 +13,7 @@ import { setHovered } from '@/lib/hover';
 import { useSearchUpdate } from '@/lib/search';
 import { evalBySlug, evalSlug } from '@/lib/evals';
 import { modelInfo, modelSlug, variantOf } from '@/lib/series';
+import { BrandMark } from '@/components/marks';
 import { setTheme, useTheme, type Theme } from '@/lib/theme';
 import { Button } from '@/components/ui/button';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
@@ -61,6 +62,7 @@ function NavItem({ to, path, params, icon, children }: { to: string; path: strin
 function AppSidebar() {
   const { data } = useQuery(indexQuery);
   const evals = [...(data?.evals ?? [])].sort((a, b) => a.title.localeCompare(b.title));
+  const models = [...new Set((data?.runs ?? []).map(r => r.model))].sort((a, b) => modelInfo(a).name.localeCompare(modelInfo(b).name));
   return (
     <Sidebar collapsible="offcanvas" variant="inset">
       <SidebarHeader>
@@ -88,6 +90,18 @@ function AppSidebar() {
               <NavItem to="/runs" path="/runs" icon={<ListIcon />}>
                 Runs
               </NavItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Models</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {models.map(m => (
+                <NavItem key={m} to="/models/$model" path={`/models/${modelSlug(m)}`} params={{ model: modelSlug(m) }} icon={<BrandMark slug={modelInfo(m).vendor.slug} size={16} />}>
+                  {modelInfo(m).name}
+                </NavItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -147,7 +161,7 @@ function useCrumbs(): Crumb[] {
     const e = data && evalBySlug(data.evals, parts[1]);
     const title = { label: e?.title ?? parts[1] };
     if (!parts[2]) return [title];
-    const run = data?.runs.find(r => modelSlug(r.model) === parts[2]);
+    const run = data?.runs.find(r => modelSlug(r.model) === modelSlug(parts[2]));
     return [{ ...title, to: '/evals/$evalId', params: { evalId: evalSlug(parts[1]) } }, { label: run ? modelInfo(run.model).name : parts[2] }];
   }
   if (parts[0] === 'runs' && parts[1]) {
@@ -157,6 +171,10 @@ function useCrumbs(): Crumb[] {
       ...(e ? [{ label: e.title, to: '/evals/$evalId', params: { evalId: evalSlug(e.id) } }] : []),
       { label: run ? `${variantOf(run).name}, epoch ${run.epoch}` : parts[1] },
     ];
+  }
+  if (parts[0] === 'models' && parts[1]) {
+    const run = data?.runs.find(r => modelSlug(r.model) === modelSlug(parts[1]));
+    return [{ label: run ? modelInfo(run.model).name : parts[1] }];
   }
   const names: Record<string, string> = { runs: 'Runs', compare: 'Compare' };
   return [{ label: names[parts[0]] ?? parts[0] }];

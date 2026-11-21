@@ -122,8 +122,9 @@ export interface Run {
   agent: string;
   agent_name: string;
   agent_params: Record<string, string>;
-  /** The thinking level the run set (omp's `thinking`, Claude Code's effort, reasoning_effort); null
-   * when it set none and the harness's default applied */
+  /** The thinking level the run ran at: the one it pinned (omp's `thinking`, Claude Code's effort,
+   * reasoning_effort), else the one its recorded requests establish (export.py requested_thinking);
+   * null when neither does: the level was not recorded */
   thinking: string | null;
   /** The agent CLI's version (Claude Code, Codex); null for Model + bash and programs */
   agent_version: string | null;

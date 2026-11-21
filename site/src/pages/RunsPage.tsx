@@ -33,7 +33,7 @@ const endedBy = (reason: string | null): string =>
 
 const startedFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 
-interface Row extends Run {
+export interface Row extends Run {
   e: Eval | undefined;
 }
 
@@ -44,7 +44,7 @@ type Facet = (typeof FACETS)[number];
 const facetValue: Record<Facet, (r: Run) => string> = {
   eval: r => r.eval,
   model: r => r.model,
-  thinking: thinkingOf,
+  thinking: r => thinkingOf(r) ?? '',
   agent: r => r.agent,
   vendor: r => vendorOf(r.model).id,
   outcome: outcomeValue,
@@ -67,7 +67,7 @@ function ResultCell({ run, e }: { run: Run; e: Eval | undefined }) {
   );
 }
 
-function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[] {
+export function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[] {
   return [
     // Filtered to one eval, every row would repeat it
     ...(oneEval
@@ -84,7 +84,7 @@ function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[] {
             ),
           }),
         ]),
-    col.accessor(r => `${modelInfo(r.model).short} ${thinkingOf(r)} ${agentInfo(r.agent, r.agent_name).name}`, {
+    col.accessor(r => `${modelInfo(r.model).short} ${thinkingOf(r) ?? ''} ${agentInfo(r.agent, r.agent_name).name}`, {
       id: 'variant',
       header: 'Pairing',
       cell: ({ row }) => <VariantLabel run={row.original} compact />,
@@ -184,7 +184,9 @@ export function RunsPage() {
   const options: Record<Facet, Option[]> = {
     eval: data.evals.map(e => ({ value: e.id, label: e.title, mark: <EvalMark evalId={e.id} size={16} title="" /> })),
     model: uniq(r => ({ value: r.model, label: modelInfo(r.model).name, mark: <BrandMark slug={modelInfo(r.model).vendor.slug} size={16} /> })),
-    thinking: uniq(r => ({ value: thinkingOf(r), label: thinkingOf(r), mark: <BrainIcon aria-label={thinkingTitle(thinkingOf(r))} /> })).sort((a, b) => compareThinking(a.value, b.value)),
+    thinking: uniq(r => ({ value: thinkingOf(r) ?? '', label: thinkingOf(r) ?? '', mark: <BrainIcon aria-label={thinkingTitle(thinkingOf(r) ?? '')} /> }))
+      .filter(o => o.value)
+      .sort((a, b) => compareThinking(a.value, b.value)),
     agent: uniq(r => ({ value: r.agent, label: agentInfo(r.agent, r.agent_name).name, mark: <BrandMark slug={agentInfo(r.agent, r.agent_name).slug} size={16} /> })),
     vendor: uniq(r => ({ value: vendorOf(r.model).id, label: vendorOf(r.model).name, mark: <BrandMark slug={vendorOf(r.model).slug} size={16} /> })),
     outcome: (['finished', 'not_finished', 'scored'] as const).map(v => ({ value: v, label: capitalize(v.replace('_', ' ')) })),

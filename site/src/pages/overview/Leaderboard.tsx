@@ -3,7 +3,7 @@
  * score, then a heat cell per eval so coverage shows as it is (a blank cell is an eval it didn't
  * run). The score comes straight after the name so it stays in view on a phone and with any number
  * of evals; the eval columns scroll inside the card.
- * Sorting by any column is `?sort=`; a row opens the pairing's runs.
+ * Sorting by any column is `?sort=`; a row opens the model's page, filtered to the row's level and harness.
  */
 
 import { useMemo } from 'react';
@@ -20,11 +20,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import type { Eval } from '@/data/types';
 import { evalArt } from '@/lib/evals';
 import { formatScore, type Pairing } from '@/lib/score';
+import { modelSlug } from '@/lib/series';
 import { cn } from '@/lib/utils';
 
 /** One hue in tint steps, darker for a higher score. */
-const TINTS = ['bg-data-emerald/5', 'bg-data-emerald/15', 'bg-data-emerald/25', 'bg-data-emerald/40', 'bg-data-emerald/55'];
-const tint = (score: number): string => TINTS[Math.min(TINTS.length - 1, Math.floor(score * TINTS.length))];
+export const TINTS = ['bg-data-emerald/5', 'bg-data-emerald/15', 'bg-data-emerald/25', 'bg-data-emerald/40', 'bg-data-emerald/55'];
+export const tint = (score: number): string => TINTS[Math.min(TINTS.length - 1, Math.floor(score * TINTS.length))];
 
 function HeatCell({ pairing, e }: { pairing: Pairing; e: Eval }) {
   const s = pairing.evals.get(e.id);
@@ -124,7 +125,13 @@ export function Leaderboard({ pairings, evals, sort, onSortChange }: { pairings:
         hoverId={p => p.variant.key}
         sort={sort}
         onSortChange={onSortChange}
-        onRowClick={p => navigate({ to: '/runs', search: { model: [p.variant.model], agent: [p.variant.agent], thinking: [p.variant.thinking] } as never })}
+        onRowClick={p =>
+          navigate({
+            to: '/models/$model',
+            params: { model: modelSlug(p.variant.model) },
+            search: { ...(p.variant.thinking && { level: [p.variant.thinking] }), harness: [p.variant.agent] } as never,
+          })
+        }
         empty={<Empty>No runs in this scope.</Empty>}
       />
     </PageSection>

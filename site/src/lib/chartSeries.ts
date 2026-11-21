@@ -67,7 +67,7 @@ export function variantSeries(source: Variant | Pick<Run, 'model' | 'agent' | 'a
   const agent = agentInfo(v.agent, 'agent_name' in source ? source.agent_name : undefined);
   const style = { line: v.line, symbol: v.symbol };
   if (agent.slug === 'program') return spec(v.key, 'Program', 'Program', v.color, { ...style, sprite: PROGRAM_SPRITE });
-  return spec(v.key, model.short, v.name, v.color, { ...style, vendor: model.vendor.slug, thinking: v.thinking, harness: { slug: agent.slug, name: agent.name } });
+  return spec(v.key, model.short, v.name, v.color, { ...style, vendor: model.vendor.slug, thinking: v.thinking ?? undefined, harness: { slug: agent.slug, name: agent.name } });
 }
 
 /** A vendor (Anthropic, OpenAI …): its mark and a fixed hashed colour. */

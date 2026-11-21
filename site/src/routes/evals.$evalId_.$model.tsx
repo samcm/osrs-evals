@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { ModelPage } from '@/pages/model/ModelPage';
+import { EvalModelPage } from '@/pages/model/EvalModelPage';
 import { evalRunsQuery } from '@/data/queries';
 import { evalIdOf, evalSlug } from '@/lib/evals';
 import { mapViewParam } from '@/lib/map';
@@ -27,5 +27,5 @@ export const Route = createFileRoute('/evals/$evalId_/$model')({
       throw redirect({ to: '/evals/$evalId/$model', params: { evalId: evalSlug(params.evalId), model: params.model }, search: search as never, replace: true });
   },
   loader: ({ context, params }) => void context.queryClient.prefetchQuery(evalRunsQuery(evalIdOf(params.evalId))),
-  component: ModelPage,
+  component: EvalModelPage,
 });

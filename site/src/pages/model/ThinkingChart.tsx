@@ -20,14 +20,36 @@ import { median } from '@/lib/stats';
 import { formatTick, roundMax, roundTicks } from '../eval/chartBits';
 import { PointTooltip } from '../eval/Cuts';
 
-export type ThinkingY = 'result' | 'ticks' | 'cost';
-
-/** A run's value on the chart's measure; null when it has none (no finish, no price). */
-function yOf(run: Run, y: ThinkingY): number | null {
-  if (y === 'cost') return run.cost != null && run.cost > 0 ? run.cost : null;
-  if (y === 'ticks') return run.success ? run.ticks : null;
-  return resultValue(run);
+/** What the chart plots of each run: its value (null when it has none), how to write it, its axis. */
+export interface ThinkingMeasure {
+  label: string;
+  value: (run: Run) => number | null;
+  format: (value: number) => string;
+  /** A log axis on 1-2-5 dollar steps (cost) */
+  log?: boolean;
+  /** The axis' top, when the measure has one (a target, 100) */
+  max?: number;
+  /** Ticks rather than counts on a linear axis */
+  ticks?: boolean;
+  /** What is missing when no run has a value */
+  empty: string;
 }
+
+/** One eval's measures: its result, ticks to finish, and cost per run. */
+export function evalMeasure(e: Eval, y: 'result' | 'ticks' | 'cost'): ThinkingMeasure {
+  if (y === 'cost') return costMeasure;
+  if (y === 'ticks')
+    return { label: 'Ticks to finish', value: r => (r.success ? r.ticks : null), format: v => `${formatInt(v)} ticks`, ticks: true, empty: 'No run here finished.' };
+  return { label: e.measure, value: resultValue, format: formatInt, max: e.target ?? undefined, empty: 'No run here has a result.' };
+}
+
+export const costMeasure: ThinkingMeasure = {
+  label: 'Cost',
+  value: r => (r.cost != null && r.cost > 0 ? r.cost : null),
+  format: formatCost,
+  log: true,
+  empty: 'No run here has a cost.',
+};
 
 /** Short names for the level labels when the full ones don't fit; the tooltip names the level in full. */
 const SHORT: Record<string, string> = { default: 'def', minimal: 'min', medium: 'med', xhigh: 'xhi' };
@@ -46,7 +68,6 @@ function levelLabels(levels: string[], width: number): { names: string[]; slant:
   return { names: short, slant: !fits(short) };
 }
 
-const format = (v: number, y: ThinkingY): string => (y === 'cost' ? formatCost(v) : y === 'ticks' ? `${formatInt(v)} ticks` : formatInt(v));
 
 interface Point {
   x: number;
@@ -66,7 +87,21 @@ export function harnessSeries(runs: Run[]): SeriesSpec[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function ThinkingChart({ e, runs, y, levels, series }: { e: Eval; runs: Run[]; y: ThinkingY; levels: string[]; series: SeriesSpec[] }) {
+export function ThinkingChart({
+  runs,
+  measure,
+  levels,
+  series,
+  evalOf,
+}: {
+  /** Runs with a recorded thinking level */
+  runs: Run[];
+  measure: ThinkingMeasure;
+  levels: string[];
+  series: SeriesSpec[];
+  /** Name each point's eval in its tooltip, for a chart across evals */
+  evalOf?: (run: Run) => string;
+}) {
   const navigate = useNavigate();
   const hover = useHover();
   const [ref, width] = useWidth();
@@ -81,7 +116,7 @@ export function ThinkingChart({ e, runs, y, levels, series }: { e: Eval; runs: R
       const line: { x: number; y: number }[] = [];
       levels.forEach((level, i) => {
         const values = own.filter(r => thinkingOf(r) === level).flatMap(run => {
-          const v = yOf(run, y);
+          const v = measure.value(run);
           if (v == null) return [];
           points.push({ x: i + offset, y: v, run, spec });
           return [v];
@@ -92,15 +127,14 @@ export function ThinkingChart({ e, runs, y, levels, series }: { e: Eval; runs: R
       medians.set(spec.id, line);
     });
     return { points, medians };
-  }, [runs, y, levels, series]);
+  }, [runs, measure, levels, series]);
 
   const config = useMemo<ChartConfig>(() => Object.fromEntries(series.map(s => [s.key, { label: s.label, color: s.color }])), [series]);
-  const max = y === 'result' && e.target != null ? e.target : roundMax(Math.max(1, ...points.map(p => p.y)), y === 'ticks' ? 'ticks' : 'count');
-  const yAxis =
-    y === 'cost'
-      ? { ...logAxisProps(points.map(p => p.y)), width: Y_AXIS_WIDTH }
-      : yAxisProps({ domain: [0, max], ticks: roundTicks(max, y === 'ticks' ? 'ticks' : 'count'), format: v => (y === 'ticks' ? formatTick(v, 'ticks') : formatInt(v)) });
-  const empty = points.length === 0 ? (y === 'ticks' ? 'No run here finished.' : y === 'cost' ? 'No run here has a cost.' : 'No run here has a result.') : undefined;
+  const max = measure.max ?? roundMax(Math.max(1, ...points.map(p => p.y)), measure.ticks ? 'ticks' : 'count');
+  const yAxis = measure.log
+    ? { ...logAxisProps(points.map(p => p.y)), width: Y_AXIS_WIDTH }
+    : yAxisProps({ domain: [0, max], ticks: roundTicks(max, measure.ticks ? 'ticks' : 'count'), format: v => (measure.ticks ? formatTick(v, 'ticks') : formatInt(v)) });
+  const empty = runs.length === 0 ? 'No run here has a recorded thinking level.' : points.length === 0 ? measure.empty : undefined;
 
   return (
     <div ref={ref} className="min-w-0">
@@ -125,10 +159,11 @@ export function ThinkingChart({ e, runs, y, levels, series }: { e: Eval; runs: R
                 const p = d as Point;
                 if (!p?.run) return null;
                 return {
-                  title: <SeriesLabel series={{ ...p.spec, thinking: thinkingOf(p.run) }} />,
+                  title: <SeriesLabel series={{ ...p.spec, thinking: thinkingOf(p.run) ?? undefined }} />,
                   values: [
+                    ...(evalOf ? [['Eval', evalOf(p.run)] as [string, string]] : []),
                     ['Epoch', formatInt(p.run.epoch)],
-                    [y === 'result' ? e.measure : y === 'ticks' ? 'Ticks to finish' : 'Cost', format(p.y, y)],
+                    [measure.label, measure.format(p.y)],
                   ],
                 };
               }}

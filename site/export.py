@@ -121,17 +121,60 @@ def agent_name(solver: str) -> str:
     return AGENT_NAMES.get(last, last)
 
 
+# The thinking level a run ran at when nothing pinned one, by the route its model was reached
+# through (the Inspect model name without the model: anthropic, openai/openai-codex,
+# openai/anthropic) and the model as its requests named it: what that provider or gateway applies
+# when a request asks for no effort. The requests these runs recorded:
+#   anthropic            thinking: {type: "adaptive"}, no effort
+#   openai/openai-codex  reasoning: {summary: "auto"}, no effort
+#   openai/anthropic     reasoning: {summary: "auto"}, no effort
+# None until it is known; a run whose level is None is left out of thinking-level views and its
+# page says the level was not recorded. Never guess one here.
+UNPINNED_THINKING: dict[tuple[str, str], str | None] = {
+    ("anthropic", "claude-haiku-5-5"): None,
+    ("anthropic", "claude-sonnet-5-5"): None,
+    ("anthropic", "claude-opus-5-5"): None,
+    ("anthropic", "claude-fable-5-2"): None,
+    ("openai/openai-codex", "gpt-5.6-luna"): None,
+    ("openai/openai-codex", "gpt-6.2-sol"): None,
+    ("openai/openai-codex", "gpt-6.2-astra"): None,
+    ("openai/anthropic", "claude-haiku-5-5"): None,
+    ("openai/anthropic", "claude-sonnet-5-5"): None,
+    ("openai/anthropic", "claude-opus-5-5"): None,
+    ("openai/anthropic", "claude-fable-5-2"): None,
+}
+LEVELS = {"off", "minimal", "low", "medium", "high", "xhigh", "max"}
+
+
+def requested_thinking(sample, model: str) -> str | None:
+    """The thinking level a run's recorded model requests asked for: an explicit effort in the
+    request (OpenAI's reasoning.effort, Anthropic's output_config.effort, reasoning_effort), else what
+    its route applies to a request with none (UNPINNED_THINKING); None when that isn't known."""
+    for e in sample.events:
+        if e.event != "model" or not e.call or not isinstance(e.call.request, dict):
+            continue
+        req = e.call.request
+        for effort in ((req.get("reasoning") or {}).get("effort"), (req.get("output_config") or {}).get("effort"), req.get("reasoning_effort")):
+            if isinstance(effort, str) and effort.lower() in LEVELS | {"none"}:
+                return "off" if effort.lower() == "none" else effort.lower()
+        route, _, name = model.rpartition("/")
+        return UNPINNED_THINKING.get((route, name))
+    return None
+
+
 def agent_of(log) -> tuple[str, dict, str | None]:
-    """The agent (its solver), the parameters worth showing, and its thinking level: the solver's
-    own `thinking` (omp) or `effort` (Claude Code), Codex's model_reasoning_effort override, else the
-    run's generate config reasoning_effort; None when nothing set it (the harness's default)."""
+    """The agent (its solver), the parameters worth showing, and the thinking level it pinned: the
+    solver's own `thinking` (omp) or `effort` (Claude Code), Codex's model_reasoning_effort override,
+    else the run's generate config reasoning_effort; None when nothing pinned one (each sample's
+    requests then say, requested_thinking)."""
     step = log.plan.steps[-1]
     raw = step.params or {}
     params = {k: v for k, v in raw.items() if k in ("version", "cmd") and v not in (None, "auto")}
     overrides = raw.get("config_overrides") or {}
     configs = [log.plan.config, log.eval.model_generate_config]
     thinking = raw.get("thinking") or raw.get("effort") or (overrides.get("model_reasoning_effort") if isinstance(overrides, dict) else None) or next((c.reasoning_effort for c in configs if c is not None and c.reasoning_effort), None)
-    return step.solver, params, (str(thinking).lower() if thinking else None)
+    thinking = str(thinking).lower() if thinking else None
+    return step.solver, params, ("off" if thinking == "none" else thinking)
 
 
 # Inspect providers that name a model's maker: a model reached through another provider's API (an
@@ -860,7 +903,7 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
         "agent": solver,
         "agent_name": agent_name(solver),
         "agent_params": solver_params,
-        "thinking": thinking,
+        "thinking": thinking or requested_thinking(s, spec.model),
         "agent_version": agent_version,
         "model": canonical_model(spec.model),
         "vendor": vendor_of(canonical_model(spec.model)),

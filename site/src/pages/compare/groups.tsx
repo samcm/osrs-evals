@@ -72,5 +72,6 @@ export function groupScope(sample: Run, by: GroupBy): { model?: string[]; agent?
   if (by === 'model') return { model: [sample.model] };
   if (by === 'vendor') return { vendor: [vendorOf(sample.model).id] };
   if (by === 'agent') return { agent: [sample.agent] };
-  return { model: [sample.model], agent: [sample.agent], thinking: [thinkingOf(sample)] };
+  const level = thinkingOf(sample);
+  return { model: [sample.model], agent: [sample.agent], ...(level && { thinking: [level] }) };
 }

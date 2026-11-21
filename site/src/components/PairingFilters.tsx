@@ -41,7 +41,9 @@ export function PairingFilters({
 }) {
   const cut = useEffort();
   const update = useSearchUpdate<{ effort: EffortCut }>();
-  const levels = [...counted(runs, thinkingOf).keys()].sort(compareThinking);
+  const level = (r: Run): string => thinkingOf(r) ?? '';
+  // Runs whose level was not recorded can't be picked by level
+  const levels = [...counted(runs, level).keys()].filter(Boolean).sort(compareThinking);
   const agents = [...new Map(runs.map(r => [r.agent, r])).values()].sort((a, b) => agentInfo(a.agent, a.agent_name).name.localeCompare(agentInfo(b.agent, b.agent_name).name));
   return (
     <>
@@ -50,7 +52,7 @@ export function PairingFilters({
         title="Thinking"
         options={levels.map(level => ({ value: level, label: level, mark: <BrainIcon aria-label={thinkingTitle(level)} /> }))}
         selected={thinking}
-        counts={counted(runs, thinkingOf)}
+        counts={counted(runs, level)}
         onChange={values => onChange({ thinking: values })}
       />
       <FacetFilter
