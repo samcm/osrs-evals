@@ -1,9 +1,11 @@
 # The eval site: the site (site/), Max's rs-world (BSD-2) built against the map cache from the world
 # image so it renders exactly what the engine runs, and serve.ts, which serves both and the runs'
-# world feeds. The data comes from site/export.py, mounted at /data; Inspect's log dir at /runs
-# (for samples running now).
+# world feeds. The data from site/export.py (site/public/data) is built in at /data; mount another
+# copy over it to serve newer data without a rebuild. Inspect's log dir goes at /runs (for samples
+# running now). .github/workflows/viewer.yml builds this on every push to main.
 #
 #   docker build -f viewer/Dockerfile -t rs-evals-viewer:71d949d .
+#   docker run -p 7576:7576 rs-evals-viewer:71d949d
 #   docker run --network host -v $PWD/site/public/data:/data:ro -v $PWD/logs:/runs:ro rs-evals-viewer:71d949d
 ARG WORLD_IMAGE=rs-evals-world:71d949d
 FROM ${WORLD_IMAGE} AS world
@@ -29,6 +31,7 @@ FROM oven/bun:1-debian
 COPY --from=rs-world /rs-world/build /viewer/world
 COPY --from=site /site/dist /viewer/site
 COPY viewer/serve.ts /viewer/serve.ts
+COPY site/public/data /data
 WORKDIR /viewer
 ENV SITE=/viewer/site DATA=/data WORLD=/viewer/world RUNS=/runs PORT=7576
 EXPOSE 7576

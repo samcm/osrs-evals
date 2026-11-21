@@ -1,0 +1,60 @@
+# Builds the site image (viewer/Dockerfile: the site, rs-world and serve.ts, with the run data in it)
+# on every push to main and pushes it to GHCR as :main and :sha-<short>. Where it runs pulls :main.
+#
+# The run data comes from the logs, which are not in git: site/publish-data.sh uploads it as the
+# `site-data` release's site-data.tgz and starts this workflow, so new runs reach the site too.
+name: viewer
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: viewer
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/osrs-evals-viewer
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download site-data -p site-data.tgz -R "$GITHUB_REPOSITORY"
+          rm -rf site/public/data && mkdir -p site/public
+          tar -xzf site-data.tgz -C site/public
+          rm site-data.tgz
+          du -sh site/public/data
+
+      # rs-world is built against the game cache in the world image, so build that first (local only)
+      - name: World image
+        run: image/build.sh
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push
+        run: |
+          short=$(git rev-parse --short HEAD)
+          docker build -f viewer/Dockerfile -t "$IMAGE:main" -t "$IMAGE:sha-$short" .
+          docker run --rm -d --name viewer -p 7576:7576 "$IMAGE:main"
+          for i in $(seq 1 30); do curl -sf localhost:7576/data/index.json -o /dev/null && break; sleep 1; done
+          curl -sf localhost:7576/ -o /dev/null && curl -sf localhost:7576/world/ -o /dev/null && curl -sf localhost:7576/data/index.json -o /dev/null
+          docker rm -f viewer
+          docker push "$IMAGE:main"
+          docker push "$IMAGE:sha-$short"

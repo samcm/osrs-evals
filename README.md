@@ -258,7 +258,12 @@ bun viewer/serve.ts                                       # http://localhost:757
 The game art in `site/public/assets` (item, skill and quest icons, the world map) is regenerated from
 the game cache by `site/game/build.sh`; logos and their sources are in `site/public/assets/brands`.
 or in one image: `docker build -f viewer/Dockerfile -t rs-evals-viewer:71d949d .` and
-`docker run --network host -v $PWD/site/public/data:/data:ro -v $PWD/logs:/runs:ro rs-evals-viewer:71d949d`.
+`docker run -p 7576:7576 rs-evals-viewer:71d949d`, with the data built in.
+
+Every push to main builds that image in GitHub Actions (`.github/workflows/viewer.yml`) and pushes
+it to `ghcr.io/samcm/osrs-evals-viewer` as `:main` and `:sha-<commit>`; a deployment pulls `:main`.
+The data isn't in git, so after an export `site/publish-data.sh` uploads it as the `site-data`
+release and starts that build.
 `site/AGENTS.md` has the rules for changing it.
 
 ## Where runs are stored
