@@ -5,6 +5,9 @@ game() is a task's setup: it starts a fresh world with the eval's accounts and s
 agent what it has, records the game, and ends the game at the tick budget or when the eval's done
 condition holds, then has Inspect score the sample, whatever agent is running.
 
+OBJS is the game's item config (each item's name, store value and the item a note stands for), read
+from the world image's cache, for evals that value or count items.
+
 command() is an agent that runs any program (a script, a swarm, a CLI agent such as omp) with the
 eval's accounts in $EVAL.
 """
@@ -34,6 +37,11 @@ PLAYERS = "/opt/server/data/players/main"
 OUT = "/run/out"
 
 Accounts = dict[str, dict[str, Any]]  # account name -> its state, as saves.ts reads it
+
+# Every item in the server's own obj config, by id: {"name", "cost" (store value), "unnoted" (the
+# item a note stands for; the item itself when it is not a note)}. Read by game() from the world
+# image, once per process: every sample runs the same image.
+OBJS: dict[int, dict[str, Any]] = {}
 
 ABOUT = """\
 This machine runs a RuneScape (2004) game server ({tick_ms} ms per game tick) with these accounts \
@@ -99,6 +107,9 @@ def game(track: Callable[[Accounts], float] | None = None, done: Callable[[Accou
 
         # A fresh world with this eval's settings and start saves.
         await upload(sb, {"harness": "/harness", "saves": "/evals/saves", "programs": "/programs"})
+        if not OBJS:
+            objs = json.loads((await check(sb.exec(concurrency=False, cmd=["bun", "/harness/objs.ts"], timeout=120))).stdout)
+            OBJS.update({int(i): obj for i, obj in objs.items()})
         await sb.exec(concurrency=False, cmd=["mkdir", "-p", PLAYERS, OUT, "/work"])
         for a in accounts:
             await sb.exec(concurrency=False, cmd=["cp", f"/evals/saves/{a['save']}", f"{PLAYERS}/{a['username']}.sav"])

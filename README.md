@@ -10,9 +10,10 @@ model, where it runs, logs and the log viewer. This repo adds only the game:
 1. **an eval is a world, accounts and a score.** `game()`, a task's setup step, starts a fresh world
    with the eval's settings and its accounts' start saves, logs the accounts in, and tells the agent
    what it has. Scorers read the result from the server's own saves.
-2. **the agent is any Inspect agent**, chosen with `--solver`: a model with a shell, Claude Code,
-   Codex, OpenCode, or `command()`, which runs any program (a script, a swarm, another agent's CLI)
-   with the accounts in `$EVAL`. The game does not know or care which.
+2. **the agent is any Inspect agent**, chosen with `--solver`: omp (the one harness every model is
+   compared in), a model with a shell, Claude Code, Codex, or `command()`, which runs any program (a
+   script, a swarm, another agent's CLI) with the accounts in `$EVAL`. The game does not know or care
+   which.
 3. **the game is recorded**: the eval's measure over time, read from the server, and the world feed,
    which you can watch live or replay in 3D with Max's [rs-world](https://github.com/MaxBittker/rs-world).
    The game ends at the eval's tick budget, or as soon as its done condition holds, whatever the
@@ -165,10 +166,10 @@ account, live or replayed.
 ## Setup, once per machine
 
 ```sh
-image/build.sh                                  # the world image: rs-sdk at 71d949d, ~3 min
+image/build.sh                                  # the world image: rs-sdk at 71d949d, and omp, ~3 min
 docker build -f viewer/Dockerfile -t rs-evals-viewer:71d949d .   # the game view (rs-world), ~5 min
 python -m venv .venv && . .venv/bin/activate && pip install inspect_ai
-pip install anthropic openai inspect_swe        # model providers, and the CLI coding agents
+pip install anthropic openai inspect_swe        # model providers, and Inspect's CLI coding agents
 ```
 
 To regenerate the start saves: `docker run --rm --user $(id -u) -v $PWD/saves:/evals/saves rs-evals-world:71d949d bun /evals/saves/make.ts`.
@@ -181,23 +182,34 @@ the budget, rs-sdk at `/opt/sdk` and its docs). From there it works however it w
 agents below play by writing a TypeScript script against rs-sdk, running it, reading what happened,
 and writing the next one, until the goal is met or the budget runs out.
 
-`evals/cooks_assistant.py` is "complete Cook's Assistant as fast as you can": one new character,
-12,000 ticks, done as soon as the server's quest variable says complete, scored by the tick (and
-wall-clock seconds) it got there. Its default agent is a model with a shell (Inspect's `react` with
-the `bash` tool):
+`evals/quest_points.py` is "get as many quest points as you can": one new character, 36,000
+ticks, scored by the server's quest points variable at the end. Its default agent is a model with a
+shell (Inspect's `react` with the `bash` tool):
 
 ```sh
-PYTHONPATH=. inspect eval evals/cooks_assistant.py --model anthropic/claude-haiku-5-5
-PYTHONPATH=. inspect eval evals/cooks_assistant.py --model anthropic/claude-haiku-5-5 --solver inspect_swe/claude_code
-PYTHONPATH=. inspect eval evals/cooks_assistant.py --model openai/<model> --solver inspect_swe/codex_cli -S version=0.130.0
+PYTHONPATH=. inspect eval evals/quest_points.py --model anthropic/claude-haiku-5-5
+PYTHONPATH=. inspect eval evals/quest_points.py --model anthropic/claude-haiku-5-5 --solver evals/omp.py@omp -S thinking=high
+PYTHONPATH=. inspect eval evals/quest_points.py --model anthropic/claude-haiku-5-5 --solver inspect_swe/claude_code
 ```
+
+**omp** ([oh-my-pi](https://github.com/can1357/oh-my-pi), `evals/omp.py`) is the harness the
+evals compare models in, so every model gets the same tools, prompts and loop. It runs omp's
+release binary (pinned, 19.0.1, installed in the world image) in print mode as the
+`agent` user in `/work`, with the goal and machine note as its prompt and `--thinking <level>`.
+omp talks to the model through its own provider for that model (its request format, context window
+and thinking levels), pointed at Inspect's agent bridge, which serves every call with `--model` and
+logs it with its tokens; the bridge passes omp's thinking settings through. Every omp role (smol,
+slow, plan) is the same model, and omp's auxiliary services stay on it. omp's tool-call intents
+(`tools.intentTracing`) are on, so each tool call carries a few words on what it is for (its `i`
+argument). The thinking level is the solver's `thinking` argument (`off`, `minimal`, `low`,
+`medium`, `high`, `xhigh`, `max`; default `high`), recorded in the log's plan.
 
 Any other agent or program goes through `command()`, which runs it with `$EVAL` (below) and, when
 the eval has a model, with `OPENAI_BASE_URL` and `ANTHROPIC_BASE_URL` pointing at Inspect's agent
 bridge, so its calls reach `--model` and are logged:
 
 ```sh
-PYTHONPATH=. inspect eval evals/cooks_assistant.py --model anthropic/claude-haiku-5-5 \
+PYTHONPATH=. inspect eval evals/quest_points.py --model anthropic/claude-haiku-5-5 \
   --solver harness/__init__.py@command -S cmd="my-agent-cli --prompt \"\$(jq -r .goal \$EVAL)\""
 ```
 
@@ -210,26 +222,28 @@ environment where you run `inspect`.
 ## Comparing agents and models
 
 A set of runs is a file of tasks, one per variant, and Inspect's `eval-set`. `evals/matrix.py` has
-Cook's Assistant (one try, and five tries), 500 shrimps, and each with three agents (a model with a
-shell, Claude Code, Codex) plus a scripted shrimps baseline. The models are given at run time, so
-the same file compares models too (`--model a,b`):
+quest points, Dragon Slayer, total level, collection and team wealth, each played by omp, two epochs
+each. The models and omp's thinking level are given at run time, so the same file compares models
+(`--model a,b`) and thinking levels (one `-T thinking=<level>` per run, into the same log dir):
 
 ```sh
-PYTHONPATH=. inspect eval-set evals/matrix.py --model anthropic/claude-haiku-5-5 --log-dir logs/cooks-haiku
+PYTHONPATH=. inspect eval-set evals/matrix.py --model anthropic/claude-haiku-5-5 -T thinking=high --log-dir logs/haiku
+PYTHONPATH=. inspect eval-set evals/matrix.py --model anthropic/claude-haiku-5-5 -T thinking=low --log-dir logs/haiku --log-dir-allow-dirty
 ```
 
-Run it again on the same log dir and it runs only what is missing or failed.
+Run it again on the same log dir and it runs only what is missing or failed. A model with no
+thinking levels takes `-T thinking=null`, which passes omp no level.
 
 ## The evals
 
 | Eval | File | What it measures |
 | --- | --- | --- |
 | Coins | `evals/coins.py` | Coins held after 2,000 ticks. The simple example. |
-| Cook's Assistant | `evals/cooks_assistant.py` | Ticks to complete the quest from a new character, read from the quest variable. Done as soon as it is complete. |
-| Cook's Assistant, five tries | `cooks_assistant(attempts=5)` | The same, five times in one run: after each try the account is put back at its start save and the agent goes again, keeping its files and context. Scored by the fastest try; every try is recorded. |
-| Cook 500 shrimps | `evals/shrimps.py` | Ticks until none of 500 raw shrimps in the bank are left raw. Any model should finish it, so the result is how fast and how cheaply. |
 | Quest points in 30 minutes | `evals/quest_points.py` | Quest points after 36,000 ticks from a new character, read from the server's quest points variable. The prompt is only the goal; which quests and in what order is up to the agent. |
 | Dragon Slayer | `evals/dragon_slayer.py` | Ticks to complete Dragon Slayer from a new character, within four hours of game time (288,000 ticks). It needs 32 quest points to start and a level-83 dragon to finish; how to get there is up to the agent. The shell agent compacts its history (Inspect's `CompactionAuto`). |
+| Total level | `evals/total_level.py` | The sum of every skill's level after 36,000 ticks (30 minutes) from a new character, each level from the skill's saved xp on rs-sdk's xp curve. |
+| Collection | `evals/collection.py` | Distinct items held in the inventory, bank and worn equipment after 72,000 ticks (1 hour) from a new character. A noted item counts as the item it notes, by the game's own cert link. |
+| Team wealth | `evals/team_wealth.py` | Four new characters in Lumbridge, 72,000 ticks: the total store value (the item config's `cost`, coins at face value) of everything the four hold in their inventories, banks and worn equipment. |
 | Gold | `evals/gold.py` | Four accounts, 100,000 coins between them. |
 
 Ideas for more are in `ideas.yaml`.
@@ -315,6 +329,8 @@ Inspect's k8s sandbox package. Nothing in the evals or the harness names a host.
 | File | What it does |
 | --- | --- |
 | `harness/__init__.py` | `game()`, the setup step: copies the files in, starts the world, logs the accounts in, tells the agent, and starts a watchdog that samples the eval's measure every 100 ticks and ends the game at the budget or when done. `read_saves()` for scorers (ends the game first if it is still on). `command()`, the agent that runs a program. |
+| `harness/objs.ts` | Every item's name, store value and the item a note stands for, from the server's own obj config in the world image (`harness.OBJS`, for evals that value or count items). |
+| `evals/omp.py` | omp as the agent, at a pinned version, through Inspect's agent bridge. |
 | `harness/saves.ts` | Reads an account from the server's save file: position, skills, varps (quest progress), inventory, worn items and bank. |
 | `harness/sample.ts` | The engine's tick and every account's latest save. The world image lets the harness set the engine's autosave interval, so this is the score over time. |
 | `harness/record.ts` | Records the engine's world feed around the accounts (it follows them), plus the all-player roster. |
@@ -329,26 +345,9 @@ pinned commits, not copied in. Nothing comes from RuneBench, which has no licenc
 ## Status
 
 Verified by running, with Inspect 0.3.289 and rs-sdk 71d949d: the examples above in a 2-CPU, 4 GB
-VM, and the batch below on an 8-CPU, 16 GB one (`evals/matrix.py`, models at list price).
-
-| Eval | Model | Agent | Runs | Finished | Median ticks to finish | Median cost per run | Output tok/s | Time waiting on model |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Cook's Assistant | Claude Haiku 5.5 | model + bash | 5 | 5 | 4,723 | $0.016 | 159 | 32% |
-| Cook's Assistant | Claude Haiku 5.5 | Claude Code | 5 | 0 | | $0.012 | 196 | 29% |
-| Cook's Assistant | GPT-5.6 Luna | model + bash | 5 | 1 | 5,167 | $0.026 | 37 | 56% |
-| Cook's Assistant | GPT-5.6 Luna | Codex | 5 | 1 | 8,888 | $0.069 | 39 | 60% |
-| Cook's Assistant, five tries | Claude Haiku 5.5 | model + bash | 3 | 2 | 3,057 (best try) | $0.027 | 207 | 36% |
-| Cook's Assistant, five tries | GPT-5.6 Luna | model + bash | 3 | 0 | | $0.024 | 38 | 61% |
-| 500 shrimps | Claude Haiku 5.5 | model + bash | 3 | 0 | | $0.010 | 167 | 3% |
-| 500 shrimps | Claude Haiku 5.5 | Claude Code | 3 | 2 | 7,682 | $0.020 | 168 | 13% |
-| 500 shrimps | GPT-5.6 Luna | model + bash | 3 | 3 | 9,087 | $0.021 | 40 | 24% |
-| 500 shrimps | GPT-5.6 Luna | Codex | 3 | 1 | 6,682 | $0.128 | 24 | 36% |
-| 500 shrimps | none | scripted baseline | 3 | 0 | | $0 | | |
-
-Five tries made Haiku faster (best try 3,057 ticks against 4,723 for one try). Haiku with bash on
-shrimps wrote cooking loops that worked but were slow, then waited them out (one ran `sleep 900`
-in a 600 s tool); the scripted baseline cooks one shrimp at a time and gets about 300 in 30,000
-ticks. Three runs per variant is too few to rank variants; these numbers show the evals work.
+VM, and the runs below on an 8-CPU, 16 GB one. The total level, collection and team wealth scorers
+were checked against saves made with rs-sdk's save generator with known answers (79 levels from
+set xp, 4 distinct items including noted ones, 1,588 coins of value across four accounts).
 
 Quest points in 30 minutes, first look at Claude Sonnet 5.5 (two runs per agent, same machine):
 

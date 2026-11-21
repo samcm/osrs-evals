@@ -1,16 +1,4 @@
 # Eval ideas, built or not. The site lists these on its Ideas page; "eval" links to a built eval.
-- title: Complete Cook's Assistant as fast as possible
-  status: built
-  eval: cooks_assistant
-  why: A short quest with a fetch chain (milk, egg, flour from the mill). Tests reading the SDK, dialogs and travel.
-- title: Cook's Assistant with five tries
-  status: built
-  eval: cooks_assistant_x5
-  why: The account is reset after each try and the agent keeps its files and context. Shows whether an agent gets faster by learning from its own runs.
-- title: Cook 500 shrimps
-  status: built
-  eval: shrimps
-  why: Any current model should finish it, so the result is speed and cost, not success. Separates writing a good loop from calling the model every step.
 - title: Gold, 100,000 coins across four accounts
   status: built
   eval: gold
@@ -26,8 +14,21 @@
   status: idea
   why: The world runs in real time, so model latency already costs ticks. A wall-clock bound at a slower tick rate would separate thinking speed from game speed.
 - title: Dragon Slayer
-  status: idea
-  why: A long quest with combat, travel and an item hunt. The score is the quest varp, read the same way as Cook's Assistant.
+  status: built
+  eval: dragon_slayer
+  why: A long quest with combat, travel and an item hunt, from a new character. The score is the quest varp.
+- title: Highest total level in 30 minutes
+  status: built
+  eval: total_level
+  why: Open-ended training with partial credit in every skill. The agent picks which skills to train and how.
+- title: Most different items in an hour
+  status: built
+  eval: collection
+  why: Breadth over depth. Every item counts once, noted or not, wherever the account holds it.
+- title: Team wealth, four accounts for an hour
+  status: built
+  eval: team_wealth
+  why: Four accounts in one world, scored by the store value of everything they hold. How they split the work is up to the agent.
 - title: Swarm, many accounts with one goal
   status: idea
   why: Tens of accounts and a shared target such as total coins. The program decides how accounts talk; the harness only counts.
