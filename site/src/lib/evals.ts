@@ -27,9 +27,24 @@ const ART: Record<string, EvalArt> = {
     measure: 'Quest stage',
     scoring: "Ticks until the quest's stage reaches 10, from the server's save (varp 176); the game ends there",
   },
-  total_level: { mark: { src: uiSrc('stats'), name: 'Skills' }, items: [], measure: 'Total level' },
-  collection: { mark: { src: uiSrc('inventory'), name: 'Inventory' }, items: [], measure: 'Items collected' },
-  team_wealth: { mark: { src: itemSrc('995-10000'), name: 'Coins' }, items: [{ id: '995-10000', name: 'Coins' }], measure: 'Coins' },
+  total_level: {
+    mark: { src: uiSrc('stats'), name: 'Skills' },
+    items: [],
+    measure: 'Total level',
+    scoring: "Every skill's level summed at the end, from the server's save",
+  },
+  collection: {
+    mark: { src: uiSrc('inventory'), name: 'Inventory' },
+    items: [],
+    measure: 'Different items',
+    scoring: "Different items held in the inventory, bank and worn at the end, from the server's save; a note counts as its item",
+  },
+  team_wealth: {
+    mark: { src: itemSrc('995-10000'), name: 'Coins' },
+    items: [{ id: '995-10000', name: 'Coins' }],
+    measure: 'Wealth',
+    scoring: "Store value of everything the accounts hold at the end, from the server's saves; coins at face value",
+  },
   coins: { mark: { src: itemSrc(995), name: 'Coins' }, items: [{ id: '995', name: 'Coins' }], measure: 'Coins' },
   gold: { mark: { src: itemSrc('995-10000'), name: 'Coins' }, items: [{ id: '995-10000', name: 'Coins' }], measure: 'Coins' },
 };

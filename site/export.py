@@ -33,7 +33,7 @@ QUESTS = SITE / "game" / "quests.json"  # written by site/game/quests.py from rs
 # Harnesses by the last part of their solver's name (react, inspect_swe/claude_code, harness/omp ...)
 AGENT_NAMES = {"react": "Model + bash", "claude_code": "Claude Code", "codex_cli": "Codex", "omp": "omp", "command": "Program"}
 EVAL_NAMES = {"quest_points": "Quest points in 30 minutes", "dragon_slayer": "Dragon Slayer", "total_level": "Total level", "collection": "Collection", "team_wealth": "Team wealth", "coins": "Coins", "gold": "Gold"}
-MEASURES = {"quest_points": "Quest points", "dragon_slayer": "Quest stage", "total_level": "Total level", "collection": "Items collected", "team_wealth": "Coins", "coins": "Coins", "gold": "Coins"}
+MEASURES = {"quest_points": "Quest points", "dragon_slayer": "Quest stage", "total_level": "Total level", "collection": "Different items", "team_wealth": "Wealth", "coins": "Coins", "gold": "Coins"}
 # Short task names in the batch files (evals/matrix.py names a task <eval>_<agent>)
 EVAL_ALIASES = {"qp": "quest_points", "ds": "dragon_slayer"}
 
