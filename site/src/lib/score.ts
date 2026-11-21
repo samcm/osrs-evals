@@ -112,3 +112,18 @@ export function bestLevelKeys(ranked: Pick<Variant, 'key' | 'model' | 'agent'>[]
   }
   return keep;
 }
+
+/**
+ * Where a model places among the models on an eval: its best shown pairing's score there against
+ * each other model's best pairing.
+ */
+export function modelRank(all: Pairing[], shown: Pairing[], e: Pick<Eval, 'id'>, model: string): { rank: number; of: number } | null {
+  const best = new Map<string, number>();
+  for (const p of [...all.filter(q => q.variant.model !== model), ...shown]) {
+    const s = p.evals.get(e.id)?.score;
+    if (s != null) best.set(p.variant.model, Math.max(best.get(p.variant.model) ?? -1, s));
+  }
+  const own = best.get(model);
+  if (own == null) return null;
+  return { rank: 1 + [...best.values()].filter(s => s > own).length, of: best.size };
+}

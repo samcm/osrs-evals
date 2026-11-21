@@ -22,7 +22,7 @@ import { evalSlug } from '@/lib/evals';
 import { formatCost, formatDay, formatDuration, formatInt, formatTokens } from '@/lib/format';
 import { setHovered } from '@/lib/hover';
 import { resultValue } from '@/lib/runResult';
-import { bestLevelKeys, blendedScores, formatScore, runScore, type Pairing } from '@/lib/score';
+import { bestLevelKeys, blendedScores, formatScore, modelRank, runScore } from '@/lib/score';
 import { inScope, useDocumentTitle, useEffort, useScope, useSearchUpdate } from '@/lib/search';
 import { compareThinking, modelFacts, modelInfo, modelSlug, providerInfo, variantKey } from '@/lib/series';
 import { median } from '@/lib/stats';
@@ -42,21 +42,6 @@ const place = (rank: number, of: number): string => `#${formatInt(rank)} of ${fo
 /** Each eval's best value, for scoring evals that count how much (lib/score.ts). */
 function bests(evals: Eval[], runs: Run[]): Map<string, number> {
   return new Map(evals.map(e => [e.id, Math.max(0, ...runs.filter(r => r.eval === e.id).map(r => resultValue(r) ?? 0))]));
-}
-
-/**
- * Where a model places among the models on an eval: its best shown pairing's score there against
- * each other model's best pairing.
- */
-function modelRank(all: Pairing[], shown: Pairing[], e: Eval, model: string): { rank: number; of: number } | null {
-  const best = new Map<string, number>();
-  for (const p of [...all.filter(q => q.variant.model !== model), ...shown]) {
-    const s = p.evals.get(e.id)?.score;
-    if (s != null) best.set(p.variant.model, Math.max(best.get(p.variant.model) ?? -1, s));
-  }
-  const own = best.get(model);
-  if (own == null) return null;
-  return { rank: 1 + [...best.values()].filter(s => s > own).length, of: best.size };
 }
 
 export function ModelPage() {
@@ -170,75 +155,6 @@ export function ModelPage() {
         <Empty>No runs match these filters.</Empty>
       ) : (
         <>
-          {/* Its result on every eval, a row per thinking level and harness: Home's score, cut by pairing */}
-          <PageSection title="On every eval">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>
-                    <span className="sr-only">Pairing</span>
-                  </TableHead>
-                  <TableHead className="text-right">Score</TableHead>
-                  {evals.map(e => (
-                    <TableHead key={e.id} className="w-px text-center">
-                      <Link {...evalLink(e)} className="inline-flex items-center gap-1.5 whitespace-nowrap hover:underline hover:underline-offset-4" title={e.title}>
-                        <EvalMark evalId={e.id} size={16} title="" />
-                        {e.title.split(' in ')[0]}
-                      </Link>
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pairings.map(p => (
-                  <TableRow key={p.variant.key} onMouseEnter={() => setHovered(p.variant.key)} onMouseLeave={() => setHovered(undefined)}>
-                    <TableCell>
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span aria-hidden className={cn('w-4 shrink-0 border-t-2', p.variant.color.borderClassName, LINE[p.variant.line])} />
-                        <VariantLabel variant={p.variant} run={p.sample} compact />
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">{formatScore(p.score)}</TableCell>
-                    {evals.map(e => {
-                      const s = p.evals.get(e.id);
-                      return (
-                        <TableCell key={e.id} className="text-center">
-                          {s ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Link
-                                  {...evalLink(e)}
-                                  search={{ level: [p.variant.thinking], harness: [p.variant.agent] } as never}
-                                  className={cn('inline-flex h-6 w-10 items-center justify-center rounded-sm tabular-nums', tint(s.score))}
-                                >
-                                  {formatScore(s.score)}
-                                </Link>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {e.title}, {s.runs === 1 ? '1 run' : `${formatInt(s.runs)} runs`}
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <span className="text-muted-foreground">–</span>
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </PageSection>
-
-          <div className="grid gap-gutter xl:grid-cols-2">
-            <PageSection title="Score by thinking level">
-              <ThinkingChart runs={runs} measure={scoreMeasure} levels={levels} series={series} evalOf={evalOf} />
-            </PageSection>
-            <PageSection title="Cost by thinking level">
-              <ThinkingChart runs={runs} measure={costMeasure} levels={levels} series={series} evalOf={evalOf} />
-            </PageSection>
-          </div>
-
           {/* Each eval: where the model places among the models, what it got, how long and what it cost */}
           <PageSection title="Per eval">
             <Table>
@@ -301,6 +217,84 @@ export function ModelPage() {
               </TableBody>
             </Table>
           </PageSection>
+
+          {/* With more than one pairing: each one's result on every eval, as on Home (with one, it is the table above again) */}
+          {pairings.length > 1 && (
+            <>
+              {/* Its result on every eval, a row per thinking level and harness: Home's score, cut by pairing */}
+              <PageSection title="On every eval">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>
+                        <span className="sr-only">Pairing</span>
+                      </TableHead>
+                      <TableHead className="text-right">Score</TableHead>
+                      {evals.map(e => (
+                        <TableHead key={e.id} className="w-px text-center">
+                          <Link {...evalLink(e)} className="inline-flex items-center gap-1.5 whitespace-nowrap hover:underline hover:underline-offset-4" title={e.title}>
+                            <EvalMark evalId={e.id} size={16} title="" />
+                            {e.title.split(' in ')[0]}
+                          </Link>
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pairings.map(p => (
+                      <TableRow key={p.variant.key} onMouseEnter={() => setHovered(p.variant.key)} onMouseLeave={() => setHovered(undefined)}>
+                        <TableCell>
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span aria-hidden className={cn('w-4 shrink-0 border-t-2', p.variant.color.borderClassName, LINE[p.variant.line])} />
+                            <VariantLabel variant={p.variant} run={p.sample} compact />
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">{formatScore(p.score)}</TableCell>
+                        {evals.map(e => {
+                          const s = p.evals.get(e.id);
+                          return (
+                            <TableCell key={e.id} className="text-center">
+                              {s ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Link
+                                      {...evalLink(e)}
+                                      search={{ level: [p.variant.thinking], harness: [p.variant.agent] } as never}
+                                      className={cn('inline-flex h-6 w-10 items-center justify-center rounded-sm tabular-nums', tint(s.score))}
+                                    >
+                                      {formatScore(s.score)}
+                                    </Link>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {e.title}, {s.runs === 1 ? '1 run' : `${formatInt(s.runs)} runs`}
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <span className="text-muted-foreground">–</span>
+                              )}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </PageSection>
+            </>
+          )}
+
+          {/* Thinking levels side by side only when it ran at more than one */}
+          {levels.length > 1 && (
+            <div className="grid gap-gutter xl:grid-cols-2">
+              <PageSection title="Score by thinking level">
+                <ThinkingChart runs={runs} measure={scoreMeasure} levels={levels} series={series} evalOf={evalOf} />
+              </PageSection>
+              <PageSection title="Cost by thinking level">
+                <ThinkingChart runs={runs} measure={costMeasure} levels={levels} series={series} evalOf={evalOf} />
+              </PageSection>
+            </div>
+          )}
+
 
           <PageSection title="Runs">
             <div className="@container/runs">

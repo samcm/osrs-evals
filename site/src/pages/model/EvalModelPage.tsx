@@ -10,7 +10,7 @@ import { getRouteApi, Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Empty, ParamSegmented } from '@/components/bits';
-import { BrandMark, HarnessMark, ThinkingLevel } from '@/components/marks';
+import { BrandMark } from '@/components/marks';
 import { PairingFilters } from '@/components/PairingFilters';
 import { PageHeader, PageSection, PageToolbar, type MetaItem } from '@/components/page';
 import { evalRunsQuery, indexQuery } from '@/data/queries';
@@ -22,6 +22,7 @@ import { resultValue } from '@/lib/runResult';
 import { inScope, useDocumentTitle, useScope, useSearchUpdate } from '@/lib/search';
 import { compareThinking, modelFacts, modelInfo, modelSlug } from '@/lib/series';
 import { median } from '@/lib/stats';
+import { blendedScores, modelRank } from '@/lib/score';
 import { Centerpiece } from '../eval/Centerpiece';
 import { buildCurves, rankVariants, totalBudgetTicks, X_OPTIONS, xRange } from '../eval/model';
 import { ProgressChart } from '../eval/Progress';
@@ -33,35 +34,20 @@ const route = getRouteApi('/evals/$evalId_/$model');
 /** One gap between the page's sections: the theme's gutter */
 const SECTIONS = 'flex flex-col gap-gutter';
 
-/** What ran: the harnesses as their marks, the thinking levels, and the result and cost over every run. */
-function facts(runs: Run[], target: number | null, measure: string): MetaItem[] {
-  const harnesses = [...new Map(runs.map(r => [r.agent, r])).values()];
-  const levels = [...new Set(runs.map(r => r.thinking))].sort(compareThinking);
+/**
+ * How it did here, once each: its place among the models on this eval (by each model's best
+ * pairing), how many finished or its median result, the median cost and how many runs. The
+ * standings below name each pairing with its level and harness.
+ */
+function facts(runs: Run[], target: number | null, measure: string, rank: { rank: number; of: number } | null): MetaItem[] {
   const results = runs.map(resultValue).filter((v): v is number => v != null);
   return [
-    { term: 'Runs', value: formatInt(runs.length) },
-    {
-      term: 'Harnesses',
-      value: (
-        <span className="inline-flex items-center gap-1.5 align-middle">
-          {harnesses.map(r => (
-            <HarnessMark key={r.agent} agent={r.agent} fallback={r.agent_name} size={16} className="bg-foreground" />
-          ))}
-        </span>
-      ),
-    },
-    {
-      term: 'Thinking',
-      value: (
-        <span className="inline-flex flex-wrap items-center gap-x-2 align-middle">
-          {levels.map(l => <ThinkingLevel key={l} level={l} />)}
-        </span>
-      ),
-    },
+    ...(rank ? [{ term: 'Place', value: `#${formatInt(rank.rank)} of ${formatInt(rank.of)}` }] : []),
     target != null
       ? { term: 'Finished', value: `${formatInt(runs.filter(r => r.success).length)} of ${formatInt(runs.length)}` }
       : { term: `Median ${measure.toLowerCase()}`, value: formatInt(median(results)) },
     { term: 'Median cost', value: formatCost(median(runs.map(r => r.cost))) },
+    { term: 'Runs', value: formatInt(runs.length) },
   ];
 }
 
@@ -89,6 +75,7 @@ export function EvalModelPage() {
   const range = useMemo(() => (e ? xRange(e, curves, search.x) : null), [e, curves, search.x]);
   const levels = useMemo(() => [...new Set(runs.map(r => r.thinking))].sort(compareThinking), [runs]);
   const series = useMemo(() => harnessSeries(runs), [runs]);
+  const pairingsAll = useMemo(() => blendedScores(data.evals, data.runs), [data]);
 
   if (!e || all.length === 0) {
     return (
@@ -98,12 +85,13 @@ export function EvalModelPage() {
     );
   }
   const target = e.target != null;
+  const rank = modelRank(pairingsAll, blendedScores(data.evals, runs), e, all[0].model);
 
   return (
     <div className={SECTIONS}>
       <PageHeader
         mark={<BrandMark slug={info.vendor.slug} size={40} title={info.vendor.name} />}
-        meta={facts(runs, e.target, e.measure)}
+        meta={facts(runs, e.target, e.measure, rank)}
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link to="/models/$model" params={{ model: modelSlug(all[0].model) }}>
@@ -126,20 +114,23 @@ export function EvalModelPage() {
         <Empty>No runs match these filters.</Empty>
       ) : (
         <>
-          <Centerpiece curves={curves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={totalBudgetTicks(e)} agg="runs" />
-          <div className={`grid gap-gutter ${target ? 'xl:grid-cols-3' : 'xl:grid-cols-2'}`}>
-            <PageSection title={`${e.measure} by thinking level`}>
-              <ThinkingChart runs={runs} measure={evalMeasure(e, 'result')} levels={levels} series={series} />
-            </PageSection>
-            {target && (
-              <PageSection title="Ticks to finish by thinking level">
-                <ThinkingChart runs={runs} measure={evalMeasure(e, 'ticks')} levels={levels} series={series} />
+          <Centerpiece e={e} runs={runs} curves={curves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={totalBudgetTicks(e)} agg="runs" />
+          {/* Thinking levels side by side only when it ran at more than one */}
+          {levels.length > 1 && (
+            <div className={`grid gap-gutter ${target ? 'xl:grid-cols-3' : 'xl:grid-cols-2'}`}>
+              <PageSection title={`${e.measure} by thinking level`}>
+                <ThinkingChart runs={runs} measure={evalMeasure(e, 'result')} levels={levels} series={series} />
               </PageSection>
+              {target && (
+                <PageSection title="Ticks to finish by thinking level">
+                  <ThinkingChart runs={runs} measure={evalMeasure(e, 'ticks')} levels={levels} series={series} />
+                </PageSection>
             )}
             <PageSection title="Cost by thinking level">
               <ThinkingChart runs={runs} measure={evalMeasure(e, 'cost')} levels={levels} series={series} />
             </PageSection>
           </div>
+          )}
           <PageSection title={e.measure} actions={<ParamSegmented param="x" value={search.x} label="Along" options={X_OPTIONS.filter(o => o.value !== 'calls')} />}>
             <ProgressChart e={e} curves={curves} ranked={ranked} x={search.x} agg="runs" range={range!} legend={legend} pending={false} t={search.t} />
           </PageSection>
