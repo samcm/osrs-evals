@@ -1,8 +1,8 @@
 /**
  * The frame every chart sits in, so charts on a page read as one instrument: two heights only
  * (`lead` for a page's or section's main chart, `compact` for the rest), a skeleton of the same
- * height while data loads (nothing jumps), the chart fading in, an empty state in the same space,
- * and the legend in one place, centred under the plot. Inside, use the presets from axes.ts:
+ * height while data loads (nothing jumps), the chart fading in, an empty state in the same space
+ * (without the legend: it keys nothing), and the legend in one place, centred under the plot. Inside, use the presets from axes.ts:
  * `chartMargin()`, `yAxisProps()` (one y axis width, so stacked charts share their left edge),
  * `xAxisProps()`, `gridProps`, `crosshairCursor` and `SeriesTooltip` in a ChartTooltip.
  *
@@ -66,7 +66,7 @@ export function ChartFrame({
           {children}
         </ChartContainer>
       )}
-      {legend}
+      {!empty && legend}
     </div>
   );
 }

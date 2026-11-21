@@ -12,6 +12,7 @@ import {
   ChartFrame,
   chartMargin,
   SeriesLabel,
+  SeriesLegend,
   SeriesTooltip,
   crosshairCursor,
   gridProps,
@@ -158,7 +159,13 @@ export function ParetoChart({ e, ranked, px, legend }: { e: Eval; ranked: Ranked
 
   return (
     <div className="flex flex-1 flex-col">
-          <ChartFrame config={config} height="lead" empty={points.length && xAxis ? undefined : `No pairing here has a ${px === 'cost' ? 'cost' : 'value'} to place.`}>
+          <ChartFrame
+            config={config}
+            height="lead"
+            empty={points.length && xAxis ? undefined : `No pairing here has a ${px === 'cost' ? 'cost' : 'value'} to place.`}
+            // The key to the points; the race and behaviour views label their own rows
+            legend={<SeriesLegend series={ranked.map(r => variantSeries(r.variant))} legend={legend} />}
+          >
             <ComposedChart margin={chartMargin()}>
               <CartesianGrid {...gridProps} />
               <XAxis {...xAxis!} dataKey="x" type="number" />
@@ -222,7 +229,7 @@ export function ParetoChart({ e, ranked, px, legend }: { e: Eval; ranked: Ranked
               <PointLabels points={frontier} />
             </ComposedChart>
           </ChartFrame>
-      {left.length > 0 && (
+      {left.length > 0 && points.length > 0 && (
         <p className="text-xs text-muted-foreground">
           {px === 'cost' ? 'No cost for' : 'Nothing to place for'} {left.map(p => p.r.variant.name).join(', ')}.
         </p>

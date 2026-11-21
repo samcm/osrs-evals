@@ -54,7 +54,6 @@ export function ComparePage() {
   const effort = useEffort();
   const legend = useLegend();
 
-  const metric = metricById(search.metric);
   // EthIQ's cut: every thinking level, or each model in each harness at its best blended score
   const scoped = useMemo(() => {
     const runs = data.runs.filter(r => inScope(r, scope));
@@ -62,6 +61,9 @@ export function ComparePage() {
     const keep = bestLevelKeys(blendedScores(data.evals, runs).map(p => p.variant));
     return runs.filter(r => keep.has(variantKey(r)));
   }, [data, scope, effort]);
+  // The measures some run in scope has; one that none has (cost, for unpriced models) gives way to the first that one has
+  const offered = useMemo(() => METRICS.filter(m => scoped.some(r => Number.isFinite(m.get(r) ?? NaN))), [scoped]);
+  const metric = offered.find(m => m.id === search.metric) ?? offered[0] ?? metricById(search.metric);
   const evals = data.evals.filter(e => scoped.some(r => r.eval === e.id));
   // Outcome measures read one eval: the chosen one if the measure applies to it, else the first that fits
   const oneEval = search.tab === 'measure' && Boolean(metric.outcome);
@@ -136,7 +138,7 @@ export function ComparePage() {
               hideLabel
               className="w-full sm:w-64"
               value={metric.id}
-              options={METRICS.map(m => ({ value: m.id, label: m.label, group: m.group }))}
+              options={offered.map(m => ({ value: m.id, label: m.label, group: m.group }))}
               onChange={v => v && update({ metric: v as MetricId, scale: undefined })}
             />
           )}

@@ -6,8 +6,6 @@ import { Empty, ParamSegmented } from '@/components/bits';
 import { EvalMark } from '@/components/marks';
 import { PairingFilters } from '@/components/PairingFilters';
 import { PageHeader, PageSection, PageTabs, PageToolbar, type MetaItem } from '@/components/page';
-import { SeriesLegend } from '@/components/charts';
-import { variantSeries } from '@/lib/chartSeries';
 import { variantKey } from '@/lib/series';
 import { bestLevelKeys } from '@/lib/score';
 import { evalArt, evalBySlug, evalIdOf } from '@/lib/evals';
@@ -154,7 +152,6 @@ export function EvalPage() {
   const maxTick = totalBudgetTicks(e);
 
   const visibleRuns = runs.filter(r => legend.visible(variantKey(r)));
-  const keys = ranked.map(r => variantSeries(r.variant));
 
   // The race's x measure is its progress chart's own control; the toolbar keeps what drives the whole view
   const controls =
@@ -206,8 +203,6 @@ export function EvalPage() {
           <div className={target ? 'grid gap-gutter xl:grid-cols-2' : undefined}>
             <PageSection title="What it cost">
               <ParetoChart e={e} ranked={ranked} px={search.px} legend={legend} />
-              {/* The key to the points; the race and behaviour views label their own rows */}
-              <SeriesLegend series={keys} legend={legend} />
             </PageSection>
             {target && (
               <PageSection title="Finished within">
