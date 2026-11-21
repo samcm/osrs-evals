@@ -1,10 +1,10 @@
 /**
- * The eval's centrepiece at the top of the overview: every run together in the game on one
- * playhead. The world map takes most of the width, each racing run a pin with its trail, in a view
- * fitted once to where all the eval's runs went; beside it (under it on a phone) the playback bar
- * and a lane per run with how far along it is, the eval's events it has had and what it was doing,
- * so you watch them diverge as you play or scrub. One run per pairing (its median or best run) or
- * every run, from the page's `agg`.
+ * The eval's centrepiece at the top of the race: every run together in the game on one playhead,
+ * and the eval's one ranked list beside it. The standings (five of twelve columns) rank the pairings
+ * by the eval's score from the first frame, each row racing its run (the pairing's median or best
+ * run, or every run, from the page's `agg`) along its track as the playhead moves; the world map
+ * (seven columns, fitted to the runs' shape) holds a pin and trail per racing run in a view fitted
+ * once to where all the eval's runs went. On a phone the standings come first, the map under them.
  */
 
 import { useEffect, useMemo, useRef } from 'react';
@@ -14,27 +14,30 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Slider } from '@/components/ui/slider';
 import { runQuery } from '@/data/queries';
-import type { EvalRuns, PathPoint } from '@/data/types';
+import type { Eval, EvalRuns, PathPoint, Run } from '@/data/types';
 import { formatInt } from '@/lib/format';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { setHovered } from '@/lib/hover';
 import { useLit } from './lit';
 import type { LegendState } from '@/lib/legend';
 import type { MapView } from '@/lib/map';
 import { useSearchUpdate } from '@/lib/search';
 import { useWidth } from '@/lib/useWidth';
-import { niceMax, type Agg, type RunCurve } from './model';
+import { niceMax, rankVariants, valueAt, type Agg, type RunCurve } from './model';
 import { pause, play, seek, useEvalPlayhead } from './playhead';
-import { finalOrder, standings } from './centerpiece/race';
+import { raceRows } from './centerpiece/race';
 import { laneMarks, laneStages, statusAt } from './centerpiece/lanes';
 import { marksOf, pathBounds, PIN, RaceMap, type PlacedPin, type Track } from './centerpiece/RaceMap';
-import { Standings, type Lane } from './centerpiece/Standings';
+import { gameTime, Standings, type Lane } from './centerpiece/Standings';
 
 /** Runs whose detail (fine path, events, turns) is loaded; past this the eval's coarse paths do. */
 const DETAILED = 24;
-/** Width at which the map and the lanes sit side by side (Tailwind's lg) */
-const SIDE_BY_SIDE = 1024;
+/** The race card's height beside the map: the map fits the runs' shape up to it */
+const RACE_HEIGHT = 420;
 
 export function Centerpiece({
+  e,
+  runs,
   curves,
   grid,
   legend,
@@ -43,6 +46,9 @@ export function Centerpiece({
   maxTick,
   agg,
 }: {
+  e: Eval;
+  /** Every run the page shows: the standings' results and ranking */
+  runs: Run[];
   /** The runs to race, picked by the page */
   curves: RunCurve[];
   /** Every run of the eval: the map is fitted to where they all went */
@@ -59,9 +65,13 @@ export function Centerpiece({
   const placed = useRef<PlacedPin[]>([]);
 
   const runners = curves;
-  const order = useMemo(() => finalOrder(runners), [runners]);
+  // The eval's ranking, as the leaderboard everywhere: by its score over game ticks
+  const ranked = useMemo(() => rankVariants(e, runs, 'ticks'), [e, runs]);
+  const rows = useMemo(() => raceRows(runners, ranked), [runners, ranked]);
   const span = Math.max(1, Math.min(maxTick, Math.max(0, ...runners.map(cv => cv.points[cv.points.length - 1]?.tick ?? 0))));
   const head = useEvalPlayhead(t, span, tick => update({ t: tick }));
+  const mobile = useIsMobile();
+
   // Opened at no moment in particular (`?t=` absent), the race plays from the start at its normal pace
   // once the map has its runs, as a run page does; a link to a moment opens paused there
   const evalKey = runners[0]?.run.eval;
@@ -74,38 +84,41 @@ export function Centerpiece({
     play();
   }, [autoplay, grid, width, evalKey]);
 
-  const details = useQueries({ queries: runners.slice(0, DETAILED).map(cv => runQuery(cv.run.id)) });
+  const ordered = useMemo(() => rows.map(r => r.curve), [rows]);
+  const details = useQueries({ queries: ordered.slice(0, DETAILED).map(cv => runQuery(cv.run.id)) });
   const loadedKey = details.map(d => (d.data ? '1' : '0')).join('');
   const base = useMemo(
     () =>
-      runners.map((curve, i) => {
+      rows.map((row, i) => {
+        const curve = row.curve;
         const detail = details[i]?.data;
         const points = (detail?.path ?? grid?.runs[curve.run.id]?.path ?? []) as readonly PathPoint[];
         // A team's run: every other account's path too, from the same source as the first's
         const others = Object.entries((detail ? detail.paths : grid?.runs[curve.run.id]?.paths) ?? {}).map(([name, path]) => ({ name, points: path as readonly PathPoint[] }));
         const step = detail ? 10 : (grid?.path_every ?? 50);
-        return { curve, detail, points, others, step, marks: marksOf(detail?.events, points, step), events: laneMarks(detail?.events) };
+        return { row, curve, detail, points, others, step, marks: marksOf(detail?.events, points, step), events: laneMarks(detail?.events) };
       }),
     // details is a new array every render; what is loaded is what matters
-    [runners, grid, loadedKey]
+    [rows, grid, loadedKey]
   );
   const stages = useMemo(() => laneStages(base.map(b => b.detail)), [base]);
   // Fitted to every run of the eval, whichever are racing, so the view never moves
   const bounds = useMemo(() => pathBounds(Object.values(grid?.runs ?? {}).map(r => r.path)), [grid]);
 
-  const rows = useMemo(() => standings(runners, head.tick, order), [runners, head.tick, order]);
-  const tracks = useMemo<Track[]>(() => base.map((b, i) => ({ ...b, rank: rows[i].rank })), [base, rows]);
+  const tracks = useMemo<Track[]>(() => base.map(b => ({ ...b, rank: b.row.place - 1 })), [base]);
   const lanes = useMemo<Lane[]>(
-    () => rows.map((row, i) => ({ ...row, marks: base[i].events.filter(m => m.tick <= head.tick), status: statusAt(base[i].detail, head.tick) })),
-    [rows, base, head.tick]
+    () =>
+      base.map(b => ({
+        ...b.row,
+        value: valueAt(b.curve, 'ticks', head.tick) ?? 0,
+        mark: b.events.filter(m => m.tick <= head.tick).at(-1) ?? null,
+        status: statusAt(b.detail, head.tick),
+      })),
+    [base, head.tick]
   );
-  const target = runners[0]?.run.target ?? null;
+  const target = e.target;
   const top = target ?? niceMax(Math.max(1, ...runners.map(cv => Math.max(...cv.points.map(p => p.value)))));
-
-  // Side by side, the map takes eight of twelve columns and the lanes' column its height
-  const wide = width >= SIDE_BY_SIDE;
-  const mapWidth = wide ? (width * 8) / 12 : width;
-  const height = Math.round(wide ? Math.min(640, Math.max(440, mapWidth * 0.7)) : Math.min(420, Math.max(280, mapWidth * 0.75)));
+  const height = mobile ? Math.min(RACE_HEIGHT, Math.max(240, Math.round(width * 0.75))) : RACE_HEIGHT;
 
   /** The pin under the pointer lights its pairing everywhere. */
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>): void => {
@@ -120,26 +133,10 @@ export function Centerpiece({
   };
 
   return (
-    // A media card: the map runs to the card's edges, as an image-first shadcn card does
+    // A media card: the map runs to the card's edges, as an image-first shadcn card does. Beside the
+    // map, the standings take its height and scroll inside it when there are more rows than fit
     <Card ref={ref} className="gap-0 overflow-hidden py-0 lg:grid lg:grid-cols-12" aria-label="Every run in the game">
-      <div className="relative min-w-0 lg:col-span-8" onPointerMove={onPointerMove} onPointerLeave={() => setHovered(undefined)}>
-        {width === 0 || !grid ? (
-          <Skeleton className="w-full rounded-none" style={{ height: width ? height : 360 }} />
-        ) : (
-          <RaceMap
-            tracks={tracks}
-            bounds={bounds}
-            tick={head.tick}
-            trail={span * 0.03}
-            lit={lit}
-            placed={placed}
-            view={view}
-            onViewChange={v => update({ map: v })}
-            height={height}
-          />
-        )}
-      </div>
-      <div className="flex min-w-0 flex-col gap-3 border-t py-4 lg:col-span-4 lg:border-t-0 lg:border-l" style={wide ? { height } : undefined}>
+      <div className="relative flex min-w-0 flex-col gap-2 py-4 lg:col-span-5 lg:border-r">
         <CardContent className="flex shrink-0 items-center gap-3">
           <Button
             variant="outline"
@@ -153,7 +150,7 @@ export function Centerpiece({
             </svg>
           </Button>
           <Slider
-            aria-label="Game tick"
+            aria-label="Game time"
             min={0}
             max={span}
             step={1}
@@ -165,14 +162,32 @@ export function Centerpiece({
             onValueCommit={([v]) => head.settle(v)}
             className="min-w-0 flex-1"
           />
-          <span className="w-14 shrink-0 text-right text-xs text-muted-foreground tabular-nums" title="Game tick">
-            {formatInt(Math.round(head.tick))}
+          <span className="shrink-0 text-right text-sm text-muted-foreground tabular-nums" title={`Tick ${formatInt(Math.round(head.tick))}`}>
+            {gameTime(e, head.tick)}
           </span>
         </CardContent>
-        {/* The lanes scroll inside the column when there are more than its height holds */}
-        <CardContent className="min-h-0 flex-1 overflow-y-auto">
-          <Standings rows={lanes} max={top} showEpoch={agg === 'runs'} lit={lit} stages={target != null ? stages : []} />
-        </CardContent>
+        <div className="min-h-0 flex-1 lg:relative">
+          <CardContent className="lg:absolute lg:inset-0 lg:overflow-y-auto">
+            <Standings e={e} rows={lanes} max={top} perRun={agg === 'runs'} lit={lit} stages={target != null ? stages : []} />
+          </CardContent>
+        </div>
+      </div>
+      <div className="relative min-w-0 border-t lg:col-span-7 lg:border-t-0" onPointerMove={onPointerMove} onPointerLeave={() => setHovered(undefined)}>
+        {width === 0 || !grid ? (
+          <Skeleton className="w-full rounded-none" style={{ height }} />
+        ) : (
+          <RaceMap
+            tracks={tracks}
+            bounds={bounds}
+            tick={head.tick}
+            trail={span * 0.03}
+            lit={lit}
+            placed={placed}
+            view={view}
+            onViewChange={v => update({ map: v })}
+            height={height}
+          />
+        )}
       </div>
     </Card>
   );

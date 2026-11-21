@@ -4,7 +4,7 @@
  * fade; the playhead is marked where it is.
  */
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
 import { ChartTooltip, type ChartConfig } from '@/components/ui/chart';
@@ -21,23 +21,12 @@ import { formatTick, formatX, roundMax, roundTicks } from './chartBits';
 import { hasX, valueAt, xOf, type Agg, type RankedVariant, type RunCurve, type XMeasure, type XRange } from './model';
 import { usePlayheadMark } from './playhead';
 
-/** The y axis width (the site's one), shared with the strip under the chart so their x scales line up. */
-export { Y_AXIS_WIDTH };
 const MARGIN = chartMargin();
 const RIGHT = MARGIN.right;
 const TOP = MARGIN.top;
 /** The lead height (h-80) and Recharts' default x axis height, to keep the playhead off the labels */
 const CHART_HEIGHT = 320;
 const X_AXIS_HEIGHT = 30;
-
-export interface ProgressFrame {
-  range: XRange;
-  ticks: number[] | undefined;
-  /** Right margin, matching the progress chart's */
-  right: number;
-  /** Where the progress chart's crosshair is, to carry it down */
-  hover: number | null;
-}
 
 interface DrawnLine {
   key: string;
@@ -92,7 +81,7 @@ function ProgressTooltip({
 }
 
 /**
- * The playhead over the chart (and the strip under it): its own component, so a moving playhead
+ * The playhead over the chart: its own component, so a moving playhead
  * redraws one line, not the chart. Only on game ticks, the one x every run shares.
  */
 function PlayheadMark({ t, range, width }: { t: number | undefined; range: XRange; width: number }) {
@@ -101,13 +90,8 @@ function PlayheadMark({ t, range, width }: { t: number | undefined; range: XRang
   const plot = width - Y_AXIS_WIDTH - RIGHT;
   const f = (Math.min(range.max, Math.max(range.min, tick)) - range.min) / (range.max - range.min);
   const left = Y_AXIS_WIDTH + f * plot;
-  // Over the plot, then again over the strip below, leaving the x axis' labels clear
-  return (
-    <>
-      <div aria-hidden className="pointer-events-none absolute w-px bg-primary" style={{ left, top: TOP, height: CHART_HEIGHT - X_AXIS_HEIGHT - TOP }} />
-      <div aria-hidden className="pointer-events-none absolute bottom-0 w-px bg-primary" style={{ left, top: CHART_HEIGHT }} />
-    </>
-  );
+  // Over the plot, leaving the x axis' labels clear
+  return <div aria-hidden className="pointer-events-none absolute w-px bg-primary" style={{ left, top: TOP, height: CHART_HEIGHT - X_AXIS_HEIGHT - TOP }} />;
 }
 
 export function ProgressChart({
@@ -120,7 +104,6 @@ export function ProgressChart({
   legend,
   pending,
   t,
-  below,
 }: {
   e: Eval;
   curves: RunCurve[];
@@ -133,13 +116,9 @@ export function ProgressChart({
   pending: boolean;
   /** The playhead's settled tick (`?t=`) */
   t?: number;
-  /** A strip under this chart that shares its x and crosshair */
-  below?: (frame: ProgressFrame) => ReactNode;
 }) {
   const navigate = useNavigate();
   const [ref, width] = useWidth();
-  // Transient: the crosshair's x, for the strip below
-  const [hover, setHover] = useState<number | null>(null);
   const target = e.target;
   const specs = useMemo(() => new Map(ranked.map(r => [r.variant.key, variantSeries(r.variant)])), [ranked]);
   // A focused pairing keeps the others on the chart, faded, so it reads against them
@@ -199,11 +178,7 @@ export function ProgressChart({
           <LineChart
             data={rows}
             margin={MARGIN}
-            onMouseMove={state => setHover(state.activeLabel != null ? Number(state.activeLabel) : null)}
-            onMouseLeave={() => {
-              setHover(null);
-              setHovered(undefined);
-            }}
+            onMouseLeave={() => setHovered(undefined)}
           >
             <CartesianGrid {...gridProps} />
             <XAxis {...xAxis} />
@@ -228,7 +203,6 @@ export function ProgressChart({
             })}
           </LineChart>
         </ChartFrame>
-        {below?.({ range, ticks: xTicks, right: RIGHT, hover })}
         {x === 'ticks' && <PlayheadMark t={t} range={range} width={width} />}
       </div>
       {!pending && missing.length > 0 && (

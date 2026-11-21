@@ -331,6 +331,7 @@ export function RaceMap({
       view={view}
       onViewChange={onViewChange}
       height={height}
+      fitHeight
       overlay={overlay}
       className="rounded-none"
       label="Every run on the world map at the playhead, each a pin in its model's colour with its trail"

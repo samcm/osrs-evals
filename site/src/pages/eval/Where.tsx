@@ -72,7 +72,7 @@ export function WhereMap({ curves, grid, legend, view, height = 480 }: { curves:
           paths={paths}
           overlay={overlay}
           view={view}
-          onViewChange={v => update({ map: v })}
+          onViewChange={v => update({ heat: v })}
           height={height}
           fitHeight
           dim={0.55}

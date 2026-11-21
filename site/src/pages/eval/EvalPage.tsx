@@ -11,7 +11,7 @@ import { bestLevelKeys } from '@/lib/score';
 import { evalArt, evalBySlug, evalIdOf } from '@/lib/evals';
 import { evalRunsQuery, indexQuery, runQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
-import { formatDate, formatDuration, formatInt } from '@/lib/format';
+import { formatDuration, formatInt } from '@/lib/format';
 import { useLegend, type LegendState } from '@/lib/legend';
 import { inScope, useDocumentTitle, useEffort, useScope, useScopeUpdate } from '@/lib/search';
 import { AttemptsTable, CdfChart, ParetoChart } from './Cuts';
@@ -19,9 +19,7 @@ import { EffortStrips, GROUP_OPTIONS, ToolMix } from './Effort';
 import { buildCurves, callsByTick, rankVariants, totalBudgetTicks, X_OPTIONS, xRange } from './model';
 import { Centerpiece } from './Centerpiece';
 import { pickRunners } from './centerpiece/race';
-import { Leaderboard } from './Leaderboard';
 import { ProgressChart } from './Progress';
-import { QuestStrip } from './Quests';
 import { RunsTable } from './RunsTable';
 import { WhereMap } from './Where';
 
@@ -42,25 +40,21 @@ const placeOf = (save: string | null | undefined): string | null =>
   save ? save.replace(/\.sav$/, '').replace(/[_-]+/g, ' ').replace(/^./, c => c.toUpperCase()) : null;
 
 /**
- * What a visitor needs beside the goal: what wins, the budget as game time (its ticks, the charts'
- * unit, on hover), where the characters start, and what has run.
+ * What a visitor needs beside the goal (which already says what wins): the budget as game time (its
+ * ticks, the charts' unit, on hover), a team's characters, and how many runs.
  */
 function facts(e: Eval, runs: Run[]): MetaItem[] {
   const place = placeOf(e.start?.save);
   const pairings = new Set(runs.map(variantKey)).size;
-  const last = runs.map(r => r.sample_started ?? r.started).sort().pop();
-  const score = evalArt(e.id).score;
   const team = e.accounts.length > 1;
   return [
-    ...(score ? [{ term: 'Score', value: score }] : []),
     {
       term: e.attempts > 1 ? 'Budget per attempt' : 'Budget',
       value: <Hint hint={`${formatInt(e.budget_ticks)} game ticks`}>{formatDuration((e.budget_ticks * e.tick_ms) / 1000)}</Hint>,
     },
     ...(e.attempts > 1 ? [{ term: 'Attempts', value: formatInt(e.attempts) }] : []),
-    ...(place ? [{ term: 'Start', value: team ? `${formatInt(e.accounts.length)} new characters in ${place}` : `A new character in ${place}` }] : []),
+    ...(team ? [{ term: 'Team', value: place ? `${formatInt(e.accounts.length)} characters in ${place}` : `${formatInt(e.accounts.length)} characters` }] : []),
     { term: 'Runs', value: <Hint hint={`${formatInt(pairings)} pairings`}>{formatInt(runs.length)}</Hint> },
-    ...(last ? [{ term: 'Latest', value: formatDate(last).split(',')[0] }] : []),
   ];
 }
 
@@ -146,8 +140,6 @@ export function EvalPage() {
     );
   }
   const target = e.target != null;
-  // The quests strip shows wherever the runs finished quests, whatever the eval measures
-  const quests = runs.some(r => r.metrics.quests.length > 0);
   const pending = search.x === 'calls' && details.some(d => d.isPending);
   const maxTick = totalBudgetTicks(e);
 
@@ -179,7 +171,7 @@ export function EvalPage() {
         <Empty>No runs in this scope.</Empty>
       ) : search.tab === 'overview' ? (
         <>
-          <Centerpiece curves={shownCurves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} agg={search.agg} />
+          <Centerpiece e={e} runs={runs} curves={shownCurves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} agg={search.agg} />
           <PageSection title={e.measure} actions={<ParamSegmented param="x" value={search.x} label="Along" options={X_OPTIONS} />}>
             <ProgressChart
               e={e}
@@ -191,11 +183,7 @@ export function EvalPage() {
               legend={legend}
               pending={pending}
               t={search.t}
-              below={quests ? frame => <QuestStrip curves={shownCurves} ranked={ranked} x={search.x} frame={frame} focus={legend.focus} t={search.t} /> : undefined}
             />
-          </PageSection>
-          <PageSection title="Leaderboard">
-            <Leaderboard e={e} ranked={ranked} x={search.x} legend={legend} />
           </PageSection>
         </>
       ) : search.tab === 'cost' ? (
@@ -225,7 +213,7 @@ export function EvalPage() {
             <ToolMix runs={visibleRuns} by={search.by} />
           </PageSection>
           <PageSection title="Where they spent their time">
-            <WhereMap curves={curves} grid={grid} legend={legend} view={search.map} />
+            <WhereMap curves={curves} grid={grid} legend={legend} view={search.heat} />
           </PageSection>
         </>
       ) : (

@@ -43,12 +43,13 @@ export function PageHeader({
   if (!description && !(meta && meta.length) && !actions) return null;
   return (
     <header className={cn('flex flex-col gap-3 md:flex-row md:items-center md:justify-between', className)}>
-      <div className="flex min-w-0 items-start gap-3">
+      <div className="flex min-w-0 items-center gap-3">
       {mark}
-      <div className="flex min-w-0 flex-col gap-1">
-        {description && <p className="max-w-prose text-sm text-pretty text-muted-foreground">{description}</p>}
+      {/* One line where it fits: the description, then each fact */}
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
+        {description && <p className="max-w-prose text-pretty text-muted-foreground">{description}</p>}
         {meta && meta.length > 0 && (
-          <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+          <dl className="contents">
             {meta.map(m => (
               <div key={m.term} className="flex min-w-0 items-baseline gap-2">
                 <dt className="whitespace-nowrap text-muted-foreground">{m.term}</dt>

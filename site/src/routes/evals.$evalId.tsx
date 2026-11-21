@@ -15,10 +15,12 @@ export const evalSearch = defineSearch({
   px: oneOf(['cost', 'seconds', 'ticks'], 'cost'),
   /** Grouping of the time and effort cuts */
   by: oneOf(['variant', 'model', 'agent'], 'variant'),
-  /** The map's view and the tick its dots mark */
+  /** The race map's view and the tick its dots mark */
   map: mapViewParam(),
+  /** The Behaviour tab's heat map's view, apart from the race's */
+  heat: mapViewParam(),
   t: int(undefined, { min: 0 }),
-  sort: sortParam(['-result', 'ticks']),
+  sort: sortParam(['-result']),
   page: int(1, { min: 1 }),
   /** Hidden and isolated variants, by variant key */
   ...legendParams,
