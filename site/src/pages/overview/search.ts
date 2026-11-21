@@ -2,13 +2,14 @@
 
 import type { Eval } from '@/data/types';
 import type { Pairing } from '@/lib/score';
-import { defineSearch, legendParams, sortParam, text } from '@/lib/search';
+import { defineSearch, int, legendParams, sortParam, text } from '@/lib/search';
 
 export const overviewSearch = defineSearch({
-  /** The featured eval; absent: the one the most pairings ran */
+  /** The featured eval, as its slug (quest-points); absent: the one the most pairings ran */
   eval: text(),
-  /** The leaderboard's sort */
+  /** The leaderboard's sort and page */
   sort: sortParam(['-score']),
+  page: int(1, { min: 1 }),
   /** The featured chart's hidden or isolated pairings */
   ...legendParams,
 });

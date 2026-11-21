@@ -1,15 +1,18 @@
 /**
- * The overview's second card: one eval, in the game. Its best run's last moment as the game drew
- * it, and every pairing's median progress over the eval's budget, keyed by a legend. The eval is
- * picked from a Select (`?eval=`), which holds any number of evals; the default is the eval the
- * most pairings ran.
+ * The overview's second card, beside the leaderboard: one eval, in the game. Its best run's last
+ * moment as the game drew it, and every pairing's median progress over the eval's budget; the
+ * leaderboard beside it keys the lines (hovering a row lights its line) and the tooltip names them.
+ * The eval is picked from the Select that heads the card (`?eval=`), which holds any number of
+ * evals; the default is the eval the most pairings ran.
  */
 
 import { useMemo } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
-import { ChartFrame, chartMargin, crosshairCursor, gridProps, lineProps, SeriesLegend, seriesConfig, SeriesTooltip, xAxisProps, yAxisProps } from '@/components/charts';
+import { ArrowUpRightIcon } from 'lucide-react';
+import { ChartFrame, chartMargin, crosshairCursor, gridProps, lineProps, seriesConfig, SeriesTooltip, xAxisProps, yAxisProps } from '@/components/charts';
+import { Button } from '@/components/ui/button';
 import { PageSection } from '@/components/page';
 import { EvalMark, VariantLabel } from '@/components/marks';
 import { evalSlug } from '@/lib/evals';
@@ -69,10 +72,10 @@ function MedianProgress({ e, lines, legend }: { e: Eval; lines: PairLine[]; lege
   const yMax = roundCeil(top, 4);
 
   return (
-    <ChartFrame config={seriesConfig(series)} loading={!data}>
+    <ChartFrame config={seriesConfig(series)} height="compact" loading={!data}>
       <LineChart data={rows} margin={chartMargin()}>
         <CartesianGrid {...gridProps} />
-        <XAxis {...xAxisProps({ dataKey: 'tick', domain: [0, end], ticks: roundTicks(end, 4), format: formatTick })} />
+        <XAxis {...xAxisProps({ dataKey: 'tick', domain: [0, end], ticks: roundTicks(end, 3), format: formatTick })} />
         <YAxis {...yAxisProps({ domain: [0, yMax], ticks: roundTicks(yMax, 4), format: formatTick })} />
         <ChartTooltip
           cursor={crosshairCursor}
@@ -135,24 +138,15 @@ export function Featured({
 
   return (
     <PageSection
-      lead
+      className="xl:col-span-4"
       title={
-        <>
-          <EvalMark evalId={featured.id} size={20} title="" />
-          <Link to="/evals/$evalId" params={{ evalId: evalSlug(featured.id) }} className="truncate hover:underline hover:underline-offset-4">
-            {featured.title}
-          </Link>
-        </>
-      }
-      description={`Median ${featured.measure.toLowerCase()} by game tick`}
-      actions={
-        evals.length > 1 && (
+        evals.length > 1 ? (
           <Select value={featured.id} onValueChange={id => onChange(id === fallback.id ? undefined : id)}>
-            {/* The title names the eval; the trigger is only the way to switch it */}
-            <SelectTrigger size="sm" aria-label="Featured eval">
+            <SelectTrigger size="sm" aria-label="Featured eval" className="min-w-0">
               <EvalMark evalId={featured.id} size={16} title="" />
+              <span className="truncate">{featured.title}</span>
             </SelectTrigger>
-            <SelectContent position="popper" align="end">
+            <SelectContent position="popper" align="start">
               {evals.map(e => (
                 <SelectItem key={e.id} value={e.id}>
                   <EvalMark evalId={e.id} size={16} title="" />
@@ -161,31 +155,38 @@ export function Featured({
               ))}
             </SelectContent>
           </Select>
+        ) : (
+          <>
+            <EvalMark evalId={featured.id} size={20} title="" />
+            <span className="truncate">{featured.title}</span>
+          </>
         )
       }
+      description={`Median ${featured.measure.toLowerCase()} by game tick`}
+      actions={
+        <Button variant="ghost" size="icon-sm" asChild>
+          <Link to="/evals/$evalId" params={{ evalId: evalSlug(featured.id) }} aria-label={`Open ${featured.title}`} title={`Open ${featured.title}`}>
+            <ArrowUpRightIcon />
+          </Link>
+        </Button>
+      }
     >
-      {/* On a wide screen the picture keeps 16:9 at the lead chart's height (h-80) beside it; the legend runs under both */}
-      <div className="flex flex-col gap-gutter xl:flex-row">
-        {best && (
-          <figure className="flex min-w-0 flex-col gap-2 xl:shrink-0">
-            <Link
-              to="/runs/$runId"
-              params={{ runId: best.id }}
-              {...hoverProps(variantOf(best).key)}
-              className="block overflow-hidden rounded-md bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <img src={`/data/${best.screenshot}`} alt="The best run's last moment in the game" className="aspect-video w-full animate-fade-in object-cover xl:h-80 xl:w-auto" />
-            </Link>
-            <figcaption className="flex min-w-0 text-sm">
-              <VariantLabel run={best} compact />
-            </figcaption>
-          </figure>
-        )}
-        <div className="min-w-0 flex-1">
-          <MedianProgress e={featured} lines={lines} legend={legend} />
-        </div>
-      </div>
-      <SeriesLegend series={lines.map(l => l.series)} legend={legend} />
+      {best && (
+        <figure className="flex min-w-0 flex-col gap-2">
+          <Link
+            to="/runs/$runId"
+            params={{ runId: best.id }}
+            {...hoverProps(variantOf(best).key)}
+            className="block overflow-hidden rounded-md bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <img src={`/data/${best.screenshot}`} alt="The best run's last moment in the game" className="aspect-video w-full animate-fade-in object-cover" />
+          </Link>
+          <figcaption className="flex min-w-0 text-sm">
+            <VariantLabel run={best} compact />
+          </figcaption>
+        </figure>
+      )}
+      <MedianProgress e={featured} lines={lines} legend={legend} />
     </PageSection>
   );
 }

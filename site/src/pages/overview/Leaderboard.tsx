@@ -1,9 +1,10 @@
 /**
  * The overview's lead and its one ranked list: every pairing (a model in a harness) by its blended
- * score, then a heat cell per eval so coverage shows as it is (a blank cell is an eval it didn't
- * run). The score comes straight after the name so it stays in view on a phone and with any number
- * of evals; the eval columns scroll inside the card.
- * Sorting by any column is `?sort=`; a row opens the model's page, filtered to the row's level and harness.
+ * score out of 100, then a heat cell per eval so coverage shows as it is (a blank cell is an eval it
+ * didn't run), ten to a page. An eval only one pairing ran has no column: one cell compares nothing.
+ * On a phone the eval cells sit under the pairing's name, so the score stays in view beside it.
+ * Sorting by any column is `?sort=`, the page `?page=`; a row opens the model's page, filtered to
+ * the row's level and harness.
  */
 
 import { useMemo } from 'react';
@@ -14,7 +15,6 @@ import { Empty } from '@/components/bits';
 import { EvalMark, VariantLabel } from '@/components/marks';
 import { Button } from '@/components/ui/button';
 import { PageSection } from '@/components/page';
-import { Progress } from '@/components/ui/progress';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Eval } from '@/data/types';
@@ -27,13 +27,16 @@ import { cn } from '@/lib/utils';
 export const TINTS = ['bg-data-emerald/5', 'bg-data-emerald/15', 'bg-data-emerald/25', 'bg-data-emerald/40', 'bg-data-emerald/55'];
 export const tint = (score: number): string => TINTS[Math.min(TINTS.length - 1, Math.floor(score * TINTS.length))];
 
-function HeatCell({ pairing, e }: { pairing: Pairing; e: Eval }) {
+function HeatCell({ pairing, e, mark }: { pairing: Pairing; e: Eval; mark?: boolean }) {
   const s = pairing.evals.get(e.id);
-  if (!s) return <span className="inline-flex h-6 w-10 items-center justify-center text-muted-foreground">–</span>;
+  if (!s) return mark ? null : <span className="inline-flex h-6 w-10 items-center justify-center text-muted-foreground">–</span>;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className={cn('inline-flex h-6 w-10 items-center justify-center rounded-sm tabular-nums', tint(s.score))}>{formatScore(s.score)}</span>
+        <span className={cn('inline-flex h-6 items-center justify-center gap-1 rounded-sm tabular-nums', mark ? 'px-1' : 'w-10', tint(s.score))}>
+          {mark && <EvalMark evalId={e.id} size={14} title="" />}
+          {formatScore(s.score)}
+        </span>
       </TooltipTrigger>
       <TooltipContent>
         {e.title}, {s.runs === 1 ? '1 run' : `${s.runs} runs`}
@@ -70,9 +73,24 @@ function Scoring({ evals }: { evals: Eval[] }) {
 type Row = Pairing & { rank: number };
 const col = createColumnHelper<Row>();
 
-export function Leaderboard({ pairings, evals, sort, onSortChange }: { pairings: Pairing[]; evals: Eval[]; sort: string[]; onSortChange: (sort: string[]) => void }) {
+export function Leaderboard({
+  pairings,
+  evals: every,
+  sort,
+  onSortChange,
+  page,
+  onPageChange,
+}: {
+  pairings: Pairing[];
+  evals: Eval[];
+  sort: string[];
+  onSortChange: (sort: string[]) => void;
+  page: number;
+  onPageChange: (page: number) => void;
+}) {
   const navigate = useNavigate();
   const rows = useMemo(() => pairings.map((p, i) => ({ ...p, rank: i + 1 })), [pairings]);
+  const evals = useMemo(() => every.filter(e => pairings.filter(p => p.evals.has(e.id)).length > 1), [every, pairings]);
   const columns = useMemo(
     () =>
       [
@@ -82,19 +100,23 @@ export function Leaderboard({ pairings, evals, sort, onSortChange }: { pairings:
           header: 'Pairing',
           meta: { className: 'w-px' },
           // On a phone a long name truncates (its title has it whole) so the score stays in view
-          cell: ({ row }) => <VariantLabel variant={row.original.variant} run={row.original.sample} compact className="max-md:max-w-52" />,
-        }),
-        col.accessor('score', {
-          header: 'Score',
-          // A long bar, so the ranking reads as a bar chart
-
-          sortDescFirst: true,
-          cell: ({ getValue }) => (
-            <span className="flex min-w-0 items-center gap-3">
-              <span className="w-7 shrink-0 text-right font-medium tabular-nums">{formatScore(getValue())}</span>
-              <Progress value={getValue() * 100} aria-hidden className="w-24 xl:w-32 2xl:w-56 max-md:hidden **:data-[slot=progress-indicator]:bg-data-emerald" />
+          cell: ({ row }) => (
+            <span className="flex min-w-0 flex-col gap-1">
+              <VariantLabel variant={row.original.variant} run={row.original.sample} compact className="max-md:max-w-52" />
+              {/* A phone has no room for the eval columns: the cells under the name */}
+              <span className="flex flex-wrap gap-1 md:hidden">
+                {evals.map(e => (
+                  <HeatCell key={e.id} pairing={row.original} e={e} mark />
+                ))}
+              </span>
             </span>
           ),
+        }),
+        col.accessor('score', {
+          header: () => <span title="Out of 100: how it's scored, top right">Score of 100</span>,
+          meta: { numeric: true, className: 'w-px' },
+          sortDescFirst: true,
+          cell: ({ getValue }) => <span className="font-medium tabular-nums">{formatScore(getValue())}</span>,
         }),
         ...evals.map(e =>
           col.accessor(p => p.evals.get(e.id)?.score ?? -1, {
@@ -106,8 +128,7 @@ export function Leaderboard({ pairings, evals, sort, onSortChange }: { pairings:
                 {e.title.split(' in ')[0]}
               </span>
             ),
-            // Columns other than the score shrink to their content, so the score's bar takes the rest
-            meta: { className: 'w-px text-center' },
+            meta: { className: 'text-center max-md:hidden' },
             sortDescFirst: true,
             cell: ({ row }) => <HeatCell pairing={row.original} e={e} />,
           })
@@ -117,8 +138,11 @@ export function Leaderboard({ pairings, evals, sort, onSortChange }: { pairings:
   );
 
   return (
-    <PageSection title="Leaderboard" actions={<Scoring evals={evals} />}>
+    <PageSection title="Leaderboard" actions={<Scoring evals={every} />} className="xl:col-span-8">
       <DataTable
+        page={page}
+        pageSize={10}
+        onPageChange={onPageChange}
         data={rows}
         columns={columns}
         getRowId={p => p.variant.key}
