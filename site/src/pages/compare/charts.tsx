@@ -125,12 +125,14 @@ export function StripChart({
     const agents = uniqueBy(keyed, r => r.agent)
       .map(r => agentSeries(r.agent, r.agent_name))
       .sort((a, b) => a.name.localeCompare(b.name));
+    // What the rows' labels already name needs no key: models when each row is a model or a pairing,
+    // harnesses when each row is a harness
     return [
       { label: 'Median', swatchClassName: 'bg-foreground' },
-      ...models.map(s => ({ id: s.id, name: s.name, label: null, mark: <SeriesLabel series={s} size={14} />, color: s.swatch })),
-      ...agents.map(s => ({ id: s.id, name: s.name, label: null, mark: <SeriesLabel series={s} size={14} />, color: SHAPE_KEY_COLOR, symbol: s.symbol })),
+      ...(by === 'model' || by === 'variant' ? [] : models.map(s => ({ id: s.id, name: s.name, label: null, mark: <SeriesLabel series={s} size={14} />, color: s.swatch }))),
+      ...(by === 'agent' ? [] : agents.map(s => ({ id: s.id, name: s.name, label: null, mark: <SeriesLabel series={s} size={14} />, color: SHAPE_KEY_COLOR, symbol: s.symbol }))),
     ];
-  }, [keyed]);
+  }, [keyed, by]);
 
   // A key is lit while any of its runs is drawn: isolating a harness keeps lit the models it ran
   const keyLegend = useMemo<LegendState>(() => {

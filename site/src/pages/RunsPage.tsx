@@ -15,7 +15,7 @@ import { indexQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
 import { outcomeWord } from '@/lib/evals';
 import { capitalize, formatClock, formatCost, formatInt, MISSING } from '@/lib/format';
-import { resultText, resultValue } from '@/lib/runResult';
+import { endedWord, resultText, resultValue } from '@/lib/runResult';
 import { useDocumentTitle, useScope, useSearchUpdate } from '@/lib/search';
 import { agentInfo, compareThinking, levelName, modelInfo, thinkingTitle, variantKey, vendorOf } from '@/lib/series';
 import { cn } from '@/lib/utils';
@@ -27,10 +27,6 @@ type Outcome = 'finished' | 'not_finished' | 'scored';
 
 const OUTCOME_VALUE = { Finished: 'finished', 'Not finished': 'not_finished', Scored: 'scored' } as const;
 const outcomeValue = (r: Run): Outcome => OUTCOME_VALUE[outcomeWord(r)];
-
-/** Who ended the run, in a word: the agent, the budget, or reaching the target. */
-const endedBy = (reason: string | null): string =>
-  (({ 'agent finished': 'Agent', done: 'Target', budget: 'Budget' }) as Record<string, string>)[reason ?? ''] ?? capitalize(reason);
 
 const startedFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 
@@ -112,6 +108,16 @@ export function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[]
       sortDescFirst: true,
       cell: ({ row }) => formatCost(row.original.cost),
     }),
+    col.accessor(r => r.sample_started ?? r.started, {
+      id: 'started',
+      header: 'Started (UTC)',
+      meta: { minWidth: 700 },
+      sortDescFirst: true,
+      cell: ({ getValue }) => {
+        const date = new Date(String(getValue()));
+        return Number.isNaN(date.getTime()) ? MISSING : startedFormat.format(date);
+      },
+    }),
     col.accessor(r => r.metrics.wall_seconds ?? -1, {
       id: 'wall',
       header: 'Wall time',
@@ -128,19 +134,9 @@ export function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[]
     }),
     col.accessor(r => r.ended_by ?? '', {
       id: 'ended',
-      header: 'Ended by',
+      header: 'Ended',
       meta: { minWidth: 920 },
-      cell: ({ row }) => endedBy(row.original.ended_by),
-    }),
-    col.accessor(r => r.sample_started ?? r.started, {
-      id: 'started',
-      header: 'Started (UTC)',
-      meta: { minWidth: 700 },
-      sortDescFirst: true,
-      cell: ({ getValue }) => {
-        const date = new Date(String(getValue()));
-        return Number.isNaN(date.getTime()) ? MISSING : startedFormat.format(date);
-      },
+      cell: ({ row }) => endedWord(row.original.ended_by),
     }),
     col.accessor('id', {
       header: 'Run',

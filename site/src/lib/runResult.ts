@@ -23,3 +23,12 @@ export function resultText(run: Pick<Run, 'attempt_results' | 'final_value' | 's
   if (run.success && run.ticks != null && e) return formatClock((run.ticks * e.tick_ms) / 1000);
   return `${value} of ${formatInt(run.target)}`;
 }
+
+/** How a run ended, in a visitor's words: it finished, ran out of time, or stopped itself. */
+export function endedWord(reason: string | null | undefined): string {
+  if (!reason) return '–';
+  if (reason === 'done') return 'Finished';
+  if (reason === 'budget' || reason.startsWith('wall clock')) return 'Out of time';
+  if (reason === 'agent finished') return 'Stopped';
+  return reason.charAt(0).toUpperCase() + reason.slice(1);
+}

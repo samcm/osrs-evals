@@ -10,10 +10,10 @@ import { Empty } from '@/components/bits';
 import { VariantLabel } from '@/components/marks';
 import type { Eval, Run } from '@/data/types';
 import { cssColor } from '@/lib/chartSeries';
-import { capitalize, formatCost, formatInt } from '@/lib/format';
+import { formatCost, formatInt } from '@/lib/format';
 import { useSearchUpdate } from '@/lib/search';
 import { variantKey, variantOf } from '@/lib/series';
-import { resultText } from '@/lib/runResult';
+import { endedWord, resultText } from '@/lib/runResult';
 import { resultValue, totalBudgetTicks, type RunCurve } from './model';
 
 const col = createColumnHelper<Run>();
@@ -70,9 +70,9 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
     }),
     col.accessor(r => r.ended_by ?? '', {
       id: 'ended',
-      header: 'Ended by',
+      header: 'Ended',
       meta: { className: 'max-md:hidden' },
-      cell: ({ row }) => <span className="text-muted-foreground">{capitalize(row.original.ended_by)}</span>,
+      cell: ({ row }) => <span className="text-muted-foreground">{endedWord(row.original.ended_by)}</span>,
     }),
     col.accessor('epoch', { header: 'Epoch', meta: { numeric: true } }),
     ...(target
