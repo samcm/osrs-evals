@@ -5,7 +5,7 @@
  */
 
 import { useEffect, type CSSProperties, type ReactNode } from 'react';
-import { ChartBarIcon, FlaskConicalIcon, LayoutDashboardIcon, ListIcon, MoonIcon, SunIcon, SwordsIcon } from 'lucide-react';
+import { ChartBarIcon, ChevronDownIcon, FlaskConicalIcon, LayoutDashboardIcon, ListIcon, MoonIcon, SunIcon, SwordsIcon } from 'lucide-react';
 import { Link, useRouter, useRouterState } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { indexQuery } from '@/data/queries';
@@ -18,6 +18,7 @@ import { setTheme, useTheme, type Theme } from '@/lib/theme';
 import { Button } from '@/components/ui/button';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Sidebar,
   SidebarContent,
@@ -61,10 +62,12 @@ function NavItem({ to, path, params, icon, children }: { to: string; path: strin
 
 function AppSidebar() {
   const { data } = useQuery(indexQuery);
-  const evals = siteEvals(data?.evals ?? []);
+  // The evals with the most runs first; one without runs yet last (its page says so)
+  const runsOf = (id: string) => (data?.runs ?? []).filter(r => r.eval === id).length;
+  const evals = siteEvals(data?.evals ?? []).sort((a, b) => runsOf(b.id) - runsOf(a.id));
   const models = [...new Set((data?.runs ?? []).map(r => r.model))].sort((a, b) => modelInfo(a).name.localeCompare(modelInfo(b).name));
   return (
-    <Sidebar collapsible="offcanvas" variant="inset">
+    <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -78,25 +81,13 @@ function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
+        {/* Home, then the evals (where the game is), then the archive; the models are a click away on Home */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
               <NavItem to="/" path="/" icon={<LayoutDashboardIcon />}>
                 Home
               </NavItem>
-              <NavItem to="/compare" path="/compare" icon={<ChartBarIcon />}>
-                Compare
-              </NavItem>
-              <NavItem to="/runs" path="/runs" icon={<ListIcon />}>
-                Runs
-              </NavItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Evals</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
               {evals.map(e => (
                 <NavItem key={e.id} to="/evals/$evalId" path={`/evals/${evalSlug(e.id)}`} params={{ evalId: evalSlug(e.id) }} icon={<FlaskConicalIcon />}>
                   {e.title}
@@ -106,20 +97,46 @@ function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
-          <SidebarGroupLabel>Models</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {models.map(m => (
-                <NavItem key={m} to="/models/$model" path={`/models/${modelSlug(m)}`} params={{ model: modelSlug(m) }} icon={<BrandMark slug={modelInfo(m).vendor.slug} size={16} />}>
-                  {modelInfo(m).name}
-                </NavItem>
-              ))}
+              <NavItem to="/runs" path="/runs" icon={<ListIcon />}>
+                Runs
+              </NavItem>
+              <NavItem to="/compare" path="/compare" icon={<ChartBarIcon />}>
+                Compare
+              </NavItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        <Collapsible className="group/collapsible">
+          <SidebarGroup>
+            <SidebarGroupLabel asChild>
+              <CollapsibleTrigger>
+                Models
+                <ChevronDownIcon className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
+              </CollapsibleTrigger>
+            </SidebarGroupLabel>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {models.map(m => (
+                    <NavItem key={m} to="/models/$model" path={`/models/${modelSlug(m)}`} params={{ model: modelSlug(m) }} icon={<BrandMark slug={modelInfo(m).vendor.slug} size={16} />}>
+                      {modelInfo(m).name}
+                    </NavItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
       </SidebarContent>
     </Sidebar>
   );
+}
+
+/** Whether the sidebar starts open: as the reader left it (the cookie the sidebar writes), else open. */
+function sidebarOpen(): boolean {
+  return !/(?:^|;\s*)sidebar_state=false(?:;|$)/.test(typeof document === 'undefined' ? '' : document.cookie);
 }
 
 /** Switches between light and dark as the reader's preference; it also drops a shared link's ?theme=. */
@@ -229,7 +246,7 @@ function CloseOnNavigate() {
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
-    <SidebarProvider style={{ '--sidebar-width': 'calc(var(--spacing) * 72)', '--header-height': 'calc(var(--spacing) * 12)' } as CSSProperties}>
+    <SidebarProvider defaultOpen={sidebarOpen()} style={{ '--sidebar-width': 'calc(var(--spacing) * 72)', '--header-height': 'calc(var(--spacing) * 12)' } as CSSProperties}>
       <CloseOnNavigate />
       <AppSidebar />
       <SidebarInset className="min-w-0">
