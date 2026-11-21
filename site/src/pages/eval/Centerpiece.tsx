@@ -7,7 +7,7 @@
  * every run, from the page's `agg`.
  */
 
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -62,6 +62,17 @@ export function Centerpiece({
   const order = useMemo(() => finalOrder(runners), [runners]);
   const span = Math.max(1, Math.min(maxTick, Math.max(0, ...runners.map(cv => cv.points[cv.points.length - 1]?.tick ?? 0))));
   const head = useEvalPlayhead(t, span, tick => update({ t: tick }));
+  // Opened at no moment in particular (`?t=` absent), the race plays from the start at its normal pace
+  // once the map has its runs, as a run page does; a link to a moment opens paused there
+  const evalKey = runners[0]?.run.eval;
+  const autoplay = useMemo(() => t == null, [evalKey]);
+  const played = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!autoplay || played.current === evalKey || !grid || width === 0 || !evalKey) return;
+    played.current = evalKey;
+    seek(0);
+    play();
+  }, [autoplay, grid, width, evalKey]);
 
   const details = useQueries({ queries: runners.slice(0, DETAILED).map(cv => runQuery(cv.run.id)) });
   const loadedKey = details.map(d => (d.data ? '1' : '0')).join('');

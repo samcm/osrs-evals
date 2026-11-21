@@ -168,6 +168,8 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   `t`, `tab`, `lanes`, `code`, `speed`, `eval`, `effort`, `level`, `harness`. Lists are comma-separated. Sorts are a column id with a leading `-` for descending.
 - Paths are readable: an eval is its id in kebab case (`/evals/dragon-slayer`; the old snake-case
   links redirect), a model its name without the provider route (`claude-opus-5-5`, `gpt-6.2-sol`).
+- An eval's race with `t` absent plays from the start on load, at its normal pace; a link with `t`
+  opens paused there.
 - A run's `t` absent is its first tick: a click into a run opens it at the start and plays (at the
   default speed, once the game has drawn the world); a link with `t` is a shared moment and opens
   paused there. `acct` is the account a team's run follows.
