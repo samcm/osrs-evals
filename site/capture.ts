@@ -3,7 +3,8 @@
 //
 //   bun site/capture.ts [http://localhost:7576] [--all]
 //
-// Writes site/public/data/runs/<id>.jpg; run site/export.py again afterwards to list them.
+// Writes site/public/data/runs/<id>.jpg and lists each in the data (index.json and runs/<id>.json
+// `screenshot`), so the site shows them without another export.
 import { existsSync } from 'fs';
 
 const base = process.argv.find((a) => a.startsWith('http')) ?? 'http://localhost:7576';
@@ -43,3 +44,17 @@ for (const run of index.runs) {
     done++;
 }
 console.log(`${done} screenshots`);
+
+// List every screenshot in the data: the export lists only those that existed when it ran, and this
+// script runs after it
+let listed = 0;
+for (const run of index.runs) {
+    const path = `runs/${run.id}.jpg`;
+    if (!existsSync(`${DATA}/${path}`) || run.screenshot === path) continue;
+    run.screenshot = path;
+    const detail = `${DATA}/runs/${run.id}.json`;
+    if (existsSync(detail)) await Bun.write(detail, JSON.stringify({ ...(await Bun.file(detail).json()), screenshot: path }));
+    listed++;
+}
+if (listed) await Bun.write(`${DATA}/index.json`, JSON.stringify(index));
+console.log(`${listed} screenshots newly listed in the data`);
