@@ -9,7 +9,10 @@ agent bridge, which serves them with --model, so Inspect logs each call with its
 
 import json
 
+from pydantic import ValidationError
+
 from inspect_ai.agent import sandbox_agent_bridge
+from inspect_ai.agent._bridge import responses_impl
 from inspect_ai.log import transcript
 from inspect_ai.model import ChatMessageUser, GenerateConfig, GenerateInput, Model, get_model
 from inspect_ai.solver import solver
@@ -90,6 +93,24 @@ async def budget_as_effort(model: Model, messages, tools, tool_choice, config: G
         level = BUDGET_LEVELS.get(config.reasoning_tokens, "high")
         return GenerateInput(messages, tools, tool_choice, config.model_copy(update={"reasoning_effort": level, "reasoning_tokens": None}))
     return None
+
+
+_echo_tool_choice = responses_impl.responses_tool_choice_param_to_tool_choice
+
+
+def _echo_tool_choice_or_auto(tool_choice):
+    """omp's web_search on an OpenAI model is a Responses call that forces OpenAI's native search
+    (tool_choice {"type": "web_search"}). The bridge withholds that tool and serves the call as
+    "auto", as it does for Claude's search, but then fails to echo the request's tool_choice in its
+    response (its Responses types only know web_search_preview), so omp got an error instead of the
+    answer. Echo "auto", the choice the bridge actually served."""
+    try:
+        return _echo_tool_choice(tool_choice)
+    except ValidationError:
+        return "auto"
+
+
+responses_impl.responses_tool_choice_param_to_tool_choice = _echo_tool_choice_or_auto
 
 
 async def check_installed(sb, version: str) -> None:
