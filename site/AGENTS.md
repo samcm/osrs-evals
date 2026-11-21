@@ -40,7 +40,7 @@ Every page has the same skeleton, and nothing on a page invents its own.
   eval page shows every run together in the game; the run page is a game player. Everything else
   hangs off it, in tabs or below it.
 - **Each thing is listed once.** A page lists its model + harness pairings in one place (the
-  leaderboard); charts key their lines with a compact legend, never a second ranked list. No chips
+  leaderboard; on an eval page, the race's standings); charts key their lines with a compact legend, never a second ranked list. No chips
   or badges that only restate names already on the page.
 - **Icons on a grid.** Sprites mark real events and sit in lanes, rows or table cells with a fixed
   size and spacing, never scattered.
@@ -65,42 +65,46 @@ Every page has the same skeleton, and nothing on a page invents its own.
 
 ### Eval page
 
-`PageHeader`: the eval's sprite, the goal (the prompt), then what a visitor uses: the score in a
-player's terms (`evalArt(…).score`: "Fastest to finish the quest", "Most quest points"; the same
-line wherever scoring is explained), the budget as game time (its ticks on hover), where the
-characters start, how many runs and the latest. How the server's saves are read (varps, save
-files) is the README's business, never the site's. Then tabs: **Race** (`Centerpiece`: every run
-together in the game, on one playhead; `Progress`: the eval's measure over time; `Leaderboard`:
-the one ranked list), **Cost** (cost against result, finished within a budget, attempts),
-**Behaviour** (time and tool mix, where they went), **Runs** (the table). The toolbar beside the
-tabs holds the open view's controls and the pairing filters (`PairingFilters`). Files:
+`PageHeader`, one line: the eval's sprite, the goal (the prompt, which says what wins), the budget
+as game time (its ticks on hover), a team's characters, and how many runs. How the server's saves
+are read (varps, save files) is the README's business, never the site's. Then tabs: **Race**
+(`Centerpiece`: the standings, the eval's one ranked list, beside every run together in the game
+on one playhead; then `Progress`, the eval's measure over time, starting on the first screen at
+1440), **Cost** (cost against result, finished within a budget, attempts), **Behaviour** (time and
+tool mix, where they went), **Runs** (the table). The toolbar beside the tabs holds the open view's
+controls and the pairing filters (`PairingFilters`, one Filters popover on a phone). Files:
 `src/pages/eval/`.
 
-The race is the map in eight of twelve columns and the lanes in four beside it, stacked on a phone.
-The map's view is fitted once to where every run of the eval went (the middle 99% of their
-positions, so a stray far-off point doesn't widen it) and never follows the pins. Each lane names
-its run and value, draws its progress with the eval's quest stages as ticks, the eval's events so
-far as sprites (quests, the quest points its quest needs) and what the agent was doing at the
-playhead in its own words: its tool call's intent (omp's `i`, Claude Code's description), else its
-prose, else its action as the transcript writes it (`centerpiece/lanes.ts`). A leaderboard row
-opens the model's page, filtered to the row's thinking level and harness.
+The race card is about 420 px tall: the standings in five of twelve columns and the map in seven at
+`fitHeight`, the standings first on a phone. The standings rank the pairings by the eval's score,
+the same as every leaderboard (median result; or how many finished, then the median time to finish
+in game time), in their final order from the first frame. Each row names its pairing (opening the
+model's page on this eval at its level and harness), races its run (the pairing's median run,
+the better of two middle runs, or its best, or every run, from `agg`) along a track with the
+eval's quest stages as ticks and its newest quest as a sprite, and holds its result and median
+cost as fixed columns; the track opens the run, and what the agent was doing at the playhead in
+its own words is the track's tooltip (`centerpiece/lanes.ts`). The playhead reads game time and the
+race plays on open. The map's view is fitted once to where every run of the eval went (the middle
+99% of their positions, so a stray far-off point doesn't widen it) and never follows the pins.
 
 ### Model pages
 
 `/models/$model` (e.g. `/models/gpt-6-2-astra`): one model across every eval. The header bar names
 the model; `PageHeader` has the maker's mark, the models.dev description and its facts as meta
 (maker, released, weights, context, knowledge cutoff, the inference provider when it isn't the
-maker), then what ran. Its thinking filter lists the levels the model advertises. Then its score on every eval as on Home,
-a row per thinking level and harness (each cell opens the eval's model page with that row's level
-and harness); score and cost by thinking level across evals; per eval, its place among the models
-(by each model's best pairing), result, time and cost; then its runs. Filtered by `level` and
+maker), then what ran. Its thinking filter lists the levels the model advertises. Then, first, per
+eval its place among the models (by each model's best pairing), result, time and cost; its score
+on every eval as on Home, a row per thinking level and harness, only when it ran as more than one
+pairing (each cell opens the eval's model page with that row's level and harness); score and cost
+by thinking level across evals, only when it ran at more than one level; then its runs. Filtered by `level` and
 `harness`, cut by `effort`. A Home row opens it with the row's level and harness preset; the
 sidebar lists the models.
 
 `/evals/$evalId/$model`: one model on one eval, every thinking level and harness it ran at. The
-header bar names the eval and the model; `PageHeader` has the vendor's mark and what ran. Then its
-runs race (the eval's `Centerpiece`), the result, ticks to finish and cost by thinking level (levels
-along x, each harness a series), its progress over time, and its runs. Filtered by `level` and
+header bar names the eval and the model; `PageHeader` has the vendor's mark, its place among the
+models on this eval, its result, median cost and runs. Then its runs race (the eval's
+`Centerpiece`), the result, ticks to finish and cost by thinking level (levels along x, each
+harness a series) when it ran at more than one level, its progress over time, and its runs. Filtered by `level` and
 `harness`, this page's own params. Files: `src/pages/model/`.
 
 ### Run page
@@ -165,7 +169,8 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   each model in each harness at its best thinking level only, as EthIQ's "best effort") is a view
   param every page reads from the root.
 - Names are short and plain: `x`, `by`, `agg`, `scale`, `sort`, `page`, `hide`, `focus`, `turn`,
-  `t`, `tab`, `lanes`, `code`, `speed`, `eval`, `effort`, `level`, `harness`. Lists are comma-separated. Sorts are a column id with a leading `-` for descending.
+  `t`, `tab`, `lanes`, `code`, `speed`, `eval`, `effort`, `level`, `harness`, `map` (the race
+  map's view), `heat` (the heat map's). Lists are comma-separated. Sorts are a column id with a leading `-` for descending.
 - Paths are readable: an eval is its id in kebab case (`/evals/dragon-slayer`; the old snake-case
   links redirect), a model its name without the provider route (`claude-opus-5-5`, `gpt-6.2-sol`).
 - An eval's race with `t` absent plays from the start on load, at its normal pace; a link with `t`
@@ -268,7 +273,7 @@ restyle library components or add a look of our own.
 - Charts on one page that share an x axis share the x measure control and a synced crosshair
   (Recharts `syncId`). Recharts syncs only at identical x values, so sample every synced chart on
   the same x grid; a chart with no lines draws no synced cursor, so pass the hovered x down as
-  state instead (the eval page's quest strip does).
+  state instead.
 - Ticks are round (0, 10K, 20K; whole minutes; 1-2-5 dollars), from `src/lib/ticks.ts` and
   `src/lib/logAxis.ts`, and one axis never mixes "5,000" with "10K".
 - End labels are the vendor mark, the short model name and the thinking level; the harness is
@@ -299,15 +304,20 @@ named on hover; the game and the map follow one account at a time (`acct`).
 
 ## Layout
 
-- dashboard-01's inset `Sidebar` (a sheet on small screens): Home, Compare, Runs, then the evals
-  (every eval the project runs, one without runs yet too: its page says so in one sentence), all
-  with lucide icons, then the models with their vendors' marks. The header has `SidebarTrigger`, a separator and the `Breadcrumb`, which
+- dashboard-01's inset `Sidebar` (a sheet on small screens, icons only when collapsed, its state
+  kept in the `sidebar_state` cookie across reloads): Home and the evals (every eval the project
+  runs, the most runs first, one without runs yet too: its page says so in one sentence), then
+  Runs and Compare, all with lucide icons, then a Models group (`Collapsible`, closed at first)
+  with the makers' marks. The header has `SidebarTrigger`, a separator and the `Breadcrumb`, which
   never loses its last crumb, and the theme toggle.
 - One page container with the library's spacing; sections are `Card`s in grids with one gap size.
 - Tables are shadcn `Table` driven by TanStack Table: numbers right-aligned, headers on one line,
-  most important columns first, ids last. Wide tables scroll inside their card; the page never
+  most important columns first (the pairing, then its result, then cost, so a phone shows the
+  result beside the name), ids, epochs and tick counts last. A result on an eval with a target is
+  its time to finish in game time, or how far it got ("6 of 10"), never the bare stage. Wide tables scroll inside their card; the page never
   scrolls sideways.
-- Every page works at 375px wide.
+- Every page works at 375px wide. On a phone a page's toolbar is one row: its filters and secondary
+  view controls fold into one Filters popover (`FiltersFold`).
 
 ## Data
 
