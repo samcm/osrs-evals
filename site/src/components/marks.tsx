@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import type { Run } from '@/data/types';
 import { BRAND_SLUGS, brandSrc, itemSrc, loadTrimmedSprite } from '@/lib/assets';
 import { evalArt } from '@/lib/evals';
-import { agentInfo, modelInfo, thinkingTitle, variantOf, type SeriesColor, type Variant } from '@/lib/series';
+import { agentInfo, levelName, modelInfo, thinkingTitle, variantOf, type SeriesColor, type Variant } from '@/lib/series';
 
 const SPRITE_SIZES = {
   14: 'size-3.5',
@@ -192,7 +192,7 @@ export function ThinkingLevel({ level, className }: { level: string | null; clas
   return (
     <span className={cn('inline-flex shrink-0 items-center gap-0.5 text-muted-foreground', className)} title={thinkingTitle(level)}>
       <BrainIcon aria-hidden className="size-3" />
-      <span className="text-xs">{level}</span>
+      <span className="text-xs">{levelName(level)}</span>
     </span>
   );
 }

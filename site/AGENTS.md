@@ -180,12 +180,14 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   ("Program") has no model; it shows its game sprite and its name.
 - **Thinking levels** are a dimension, as EthIQ's efforts are: a pairing is a model at a thinking
   level in a harness, and wherever a model is named in a pairing its level sits beside it
-  (`ThinkingLevel`, a lucide brain and the word). Levels are off, minimal, low, medium, high, xhigh
-  and max, lowest first (`THINKING_LEVELS`); there is no "default". The level comes from the log:
+  (`ThinkingLevel`, a lucide brain and the word). Levels are off, between tools (Claude thinking
+  only between tool calls at Anthropic's default effort), minimal, low, medium, high, xhigh and max,
+  lowest first (`THINKING_LEVELS`), and "no thinking levels" for a model that has none (omp's
+  `none`, which is not off); there is no "default". The level comes from the log:
   the one the run pinned (omp's `thinking`, Claude Code's effort, Codex's reasoning-effort
   override, the generate config's reasoning_effort), else the one its recorded requests establish
-  (an explicit effort in them, or `UNPINNED_THINKING` in `export.py`: what each route applies to a
-  request with none). A run whose level neither establishes is null: it shows no level beside its
+  (an explicit effort in them, or `UNPINNED_THINKING` in `export.py`: what each batch's gateway
+  forwarded for a request with none, by route and model, with how each row was established). A run whose level neither establishes is null: it shows no level beside its
   model, is left out of thinking-level views and filters, and its run page says "Level not
   recorded". Never fill a missing level in as `off` or anything else.
 - Logos are trademarks of their owners, used only to name their products. Never recolour them into

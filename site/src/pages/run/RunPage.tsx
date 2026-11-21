@@ -12,7 +12,7 @@ import { indexQuery, runQuery } from '@/data/queries';
 import type { Eval, Run, RunDetail } from '@/data/types';
 import { questSrc, uiSrc } from '@/lib/assets';
 import { capitalize, formatDate, formatDuration, formatInt } from '@/lib/format';
-import { modelInfo, NOT_RECORDED, thinkingOf, variantKey } from '@/lib/series';
+import { levelName, modelInfo, NOT_RECORDED, thinkingOf, variantKey } from '@/lib/series';
 import { resultValue } from '@/lib/runResult';
 import { useDocumentTitle, useSearchUpdate } from '@/lib/search';
 import { cn } from '@/lib/utils';
@@ -177,7 +177,7 @@ function Header({ run, evalInfo, runs, measure }: { run: RunDetail; evalInfo: Ev
   return (
     <PageHeader
       // The thinking level it ran at, or plainly that it wasn't recorded
-      meta={[...resultMeta(run, evalInfo, measure), { term: 'Thinking', value: thinkingOf(run) ?? NOT_RECORDED }]}
+      meta={[...resultMeta(run, evalInfo, measure), { term: 'Thinking', value: thinkingOf(run) ? levelName(thinkingOf(run)!) : NOT_RECORDED }]}
       actions={
         <>
           <RunFacts run={run} />
@@ -200,7 +200,7 @@ export function RunPage() {
     return { ...summary, ...detail, screenshot: detail.screenshot ?? summary?.screenshot, replay_url: detail.replay_url ?? summary?.replay_url };
   }, [detail, index.runs, runId]);
   const evalInfo = index.evals.find(e => e.id === run.eval);
-  useDocumentTitle(`${modelInfo(run.model).name}${thinkingOf(run) ? ` ${thinkingOf(run)}` : ''}, ${evalInfo?.title ?? run.eval}, epoch ${run.epoch}`);
+  useDocumentTitle(`${modelInfo(run.model).name}${thinkingOf(run) ? ` ${levelName(thinkingOf(run)!)}` : ''}, ${evalInfo?.title ?? run.eval}, epoch ${run.epoch}`);
 
   const clock = useMemo(() => makeClock(run), [run]);
   const selectedTurn = search.turn != null ? run.turns[search.turn - 1] : undefined;

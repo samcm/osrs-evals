@@ -11,7 +11,7 @@ import { FacetFilter } from '@/components/FacetFilter';
 import { BrandMark } from '@/components/marks';
 import type { Run } from '@/data/types';
 import { useEffort, useSearchUpdate, type EffortCut } from '@/lib/search';
-import { agentInfo, compareThinking, thinkingOf, thinkingTitle } from '@/lib/series';
+import { agentInfo, compareThinking, levelName, thinkingOf, thinkingTitle } from '@/lib/series';
 
 const EFFORT_OPTIONS = [
   { value: 'all' as const, label: 'All levels', title: 'Every thinking level of each model in each harness' },
@@ -50,7 +50,7 @@ export function PairingFilters({
       {effort && <Segmented label="Thinking levels shown" value={cut} options={EFFORT_OPTIONS} onChange={v => update({ effort: v === 'all' ? undefined : v } as never)} />}
       <FacetFilter
         title="Thinking"
-        options={levels.map(level => ({ value: level, label: level, mark: <BrainIcon aria-label={thinkingTitle(level)} /> }))}
+        options={levels.map(level => ({ value: level, label: levelName(level), mark: <BrainIcon aria-label={thinkingTitle(level)} /> }))}
         selected={thinking}
         counts={counted(runs, level)}
         onChange={values => onChange({ thinking: values })}

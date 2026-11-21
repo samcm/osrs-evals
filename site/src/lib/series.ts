@@ -255,7 +255,7 @@ export const agentName = (id: string, fallbackName?: string): string => agentInf
  * (negative): light for off, dark for max. A run whose level was not recorded keeps the model's own
  * colour, which no level takes.
  */
-const LEVEL_MIX: Record<string, number> = { off: 44, minimal: 32, low: 20, medium: 8, high: -8, xhigh: -20, max: -32 };
+const LEVEL_MIX: Record<string, number> = { off: 44, between_tools: 36, minimal: 28, low: 18, medium: 8, high: -8, xhigh: -20, max: -32 };
 
 const levelRules = new Set<string>();
 let levelSheet: CSSStyleSheet | null = null;
@@ -293,10 +293,15 @@ export function levelColor(base: SeriesColor, level: string | null): SeriesColor
 
 /**
  * Thinking levels, lowest first: omp's `thinking`, Inspect's reasoning_effort and Claude Code's
- * effort. Every run shows one of these, or that its level was not recorded (null); there is no
- * "default".
+ * effort, plus `between_tools` (Claude thinking only between tool calls, at Anthropic's default
+ * effort, what old Sonnet runs got) and `none` (a model with no thinking levels, which is not off).
+ * Every run shows one of these, or that its level was not recorded (null); there is no "default".
  */
-export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
+export const THINKING_LEVELS = ['none', 'off', 'between_tools', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
+
+/** A level as words: "between tools", "no thinking levels", "high". */
+const LEVEL_NAMES: Record<string, string> = { between_tools: 'between tools', none: 'no thinking levels' };
+export const levelName = (level: string): string => LEVEL_NAMES[level] ?? level;
 
 /** A run's thinking level; null when it was not recorded. */
 export const thinkingOf = (run: Pick<Run, 'thinking'>): string | null => run.thinking ?? null;
@@ -312,7 +317,7 @@ export function compareThinking(a: string, b: string): number {
 }
 
 /** What a level means, for tooltips. */
-export const thinkingTitle = (level: string): string => `Thinking: ${level}`;
+export const thinkingTitle = (level: string): string => (level === 'none' ? 'A model with no thinking levels' : `Thinking: ${levelName(level)}`);
 
 // Variants
 
@@ -346,8 +351,8 @@ export function variantOf(run: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thi
     model: run.model,
     agent: run.agent,
     thinking,
-    name: thinking ? `${agent.variant(model.name)}, ${thinking} thinking` : agent.variant(model.name),
-    short: thinking ? `${agent.variant(model.short)}, ${thinking}` : agent.variant(model.short),
+    name: thinking ? `${agent.variant(model.name)}, ${thinking === 'none' ? 'no thinking levels' : `thinking ${levelName(thinking)}`}` : agent.variant(model.name),
+    short: thinking ? `${agent.variant(model.short)}, ${levelName(thinking)}` : agent.variant(model.short),
     color: levelColor(model.color, thinking),
     symbol: agent.symbol,
     line: agent.line,

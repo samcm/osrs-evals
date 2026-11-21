@@ -14,7 +14,7 @@ import { agentSeries, cssColor, dashArray, scatterShape, type SeriesSpec } from 
 import { formatCost, formatInt } from '@/lib/format';
 import { FADED_OPACITY, setHovered, useHover } from '@/lib/hover';
 import { resultValue } from '@/lib/runResult';
-import { levelColor, modelInfo, thinkingOf } from '@/lib/series';
+import { levelColor, levelName, modelInfo, thinkingOf } from '@/lib/series';
 import { useWidth } from '@/lib/useWidth';
 import { median } from '@/lib/stats';
 import { formatTick, roundMax, roundTicks } from '../eval/chartBits';
@@ -52,7 +52,7 @@ export const costMeasure: ThinkingMeasure = {
 };
 
 /** Short names for the level labels when the full ones don't fit; the tooltip names the level in full. */
-const SHORT: Record<string, string> = { default: 'def', minimal: 'min', medium: 'med', xhigh: 'xhi' };
+const SHORT: Record<string, string> = { none: 'none', between_tools: 'btw tools', minimal: 'min', medium: 'med', xhigh: 'xhi' };
 /** text-xs at about 6.6px a character, plus a gap between neighbours */
 const labelPx = (text: string): number => text.length * 6.6 + 8;
 
@@ -63,7 +63,8 @@ const labelPx = (text: string): number => text.length * 6.6 + 8;
 function levelLabels(levels: string[], width: number): { names: string[]; slant: boolean } {
   const each = (width - Y_AXIS_WIDTH - chartMargin().right) / Math.max(1, levels.length);
   const fits = (names: string[]) => Math.max(...names.map(labelPx)) <= each;
-  if (fits(levels)) return { names: levels, slant: false };
+  const names = levels.map(levelName);
+  if (fits(names)) return { names, slant: false };
   const short = levels.map(l => SHORT[l] ?? l);
   return { names: short, slant: !fits(short) };
 }

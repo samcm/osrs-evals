@@ -121,35 +121,43 @@ def agent_name(solver: str) -> str:
     return AGENT_NAMES.get(last, last)
 
 
-# The thinking level a run ran at when nothing pinned one, by the route its model was reached
-# through (the Inspect model name without the model: anthropic, openai/openai-codex,
-# openai/anthropic) and the model as its requests named it: what that provider or gateway applies
-# when a request asks for no effort. The requests these runs recorded:
-#   anthropic            thinking: {type: "adaptive"}, no effort
-#   openai/openai-codex  reasoning: {summary: "auto"}, no effort
-#   openai/anthropic     reasoning: {summary: "auto"}, no effort
-# None until it is known; a run whose level is None is left out of thinking-level views and its
-# page says the level was not recorded. Never guess one here.
-UNPINNED_THINKING: dict[tuple[str, str], str | None] = {
-    ("anthropic", "claude-haiku-5-5"): None,
-    ("anthropic", "claude-sonnet-5-5"): None,
-    ("anthropic", "claude-opus-5-5"): None,
-    ("anthropic", "claude-fable-5-2"): None,
-    ("openai/openai-codex", "gpt-5.6-luna"): None,
-    ("openai/openai-codex", "gpt-6.2-sol"): None,
-    ("openai/openai-codex", "gpt-6.2-astra"): None,
-    ("openai/anthropic", "claude-haiku-5-5"): None,
-    ("openai/anthropic", "claude-sonnet-5-5"): None,
-    ("openai/anthropic", "claude-opus-5-5"): None,
-    ("openai/anthropic", "claude-fable-5-2"): None,
+# The thinking level a run ran at when nothing pinned one: what the model gateway its batch played
+# through (omp's) forwarded for a request that asked for no effort, by batch (the log directory),
+# route (the Inspect model name without the model: anthropic, openai/openai-codex, openai/anthropic)
+# and model as its requests named it. The requests these runs recorded asked for no effort:
+#   anthropic            thinking: {type: "adaptive"}
+#   openai/openai-codex  reasoning: {summary: "auto"}
+#   openai/anthropic     reasoning: {summary: "auto"}
+# How the rows were established (the harness thread, 2026-11-21): the same requests replayed through
+# a second omp 19.0.1 gateway behind mitmproxy, to see what it forwarded, and omp 19.0.1's source.
+#   GPT-5.6 Luna, GPT-6.2 Sol, GPT-6.2 Astra  no `reasoning` forwarded; the backend echoed medium
+#   Claude Haiku 5.5                          forwarded thinking: disabled, so off
+#   Claude Sonnet 5.5                         thinking only between tool calls, nothing up front, at
+#                                             Anthropic's default effort: its own level, between_tools
+#   Claude Opus 5.5                           forwarded adaptive with effort: low
+#   Claude Fable 5.2                          not established: no row, so "level not recorded"
+# A batch not listed here (qp-sonnet ran on an unknown gateway version) has no rows: its runs' levels
+# were not recorded. Never guess a row.
+GATEWAY_19 = {  # omp 19.0.0 and 19.0.1
+    ("openai/openai-codex", "gpt-5.6-luna"): "medium",
+    ("openai/openai-codex", "gpt-6.2-sol"): "medium",
+    ("openai/openai-codex", "gpt-6.2-astra"): "medium",
+    ("anthropic", "claude-haiku-5-5"): "off",
+    ("openai/anthropic", "claude-haiku-5-5"): "off",
+    ("anthropic", "claude-sonnet-5-5"): "between_tools",
+    ("openai/anthropic", "claude-sonnet-5-5"): "between_tools",
+    ("anthropic", "claude-opus-5-5"): "low",
+    ("openai/anthropic", "claude-opus-5-5"): "low",
 }
+UNPINNED_THINKING: dict[str, dict[tuple[str, str], str]] = {"qp-models": GATEWAY_19, "ds-batch": GATEWAY_19, "ds-claude": GATEWAY_19}
 LEVELS = {"off", "minimal", "low", "medium", "high", "xhigh", "max"}
 
 
-def requested_thinking(sample, model: str) -> str | None:
-    """The thinking level a run's recorded model requests asked for: an explicit effort in the
-    request (OpenAI's reasoning.effort, Anthropic's output_config.effort, reasoning_effort), else what
-    its route applies to a request with none (UNPINNED_THINKING); None when that isn't known."""
+def requested_thinking(sample, model: str, batch: str) -> str | None:
+    """The thinking level a run's recorded model requests establish: an explicit effort in a request
+    (OpenAI's reasoning.effort, Anthropic's output_config.effort, reasoning_effort; "none" there is
+    reasoning off), else what its batch's gateway applied to a request with none
+    (UNPINNED_THINKING); None when that isn't known."""
     for e in sample.events:
         if e.event != "model" or not e.call or not isinstance(e.call.request, dict):
             continue
@@ -158,15 +166,15 @@ def requested_thinking(sample, model: str) -> str | None:
             if isinstance(effort, str) and effort.lower() in LEVELS | {"none"}:
                 return "off" if effort.lower() == "none" else effort.lower()
         route, _, name = model.rpartition("/")
-        return UNPINNED_THINKING.get((route, name))
+        return UNPINNED_THINKING.get(batch, {}).get((route, name))
     return None
 
 
 def agent_of(log) -> tuple[str, dict, str | None]:
     """The agent (its solver), the parameters worth showing, and the thinking level it pinned: the
-    solver's own `thinking` (omp) or `effort` (Claude Code), Codex's model_reasoning_effort override,
-    else the run's generate config reasoning_effort; None when nothing pinned one (each sample's
-    requests then say, requested_thinking)."""
+    solver's own `thinking` (omp; "none" for a model without levels) or `effort` (Claude Code),
+    Codex's model_reasoning_effort override, else the run's generate config reasoning_effort; None
+    when nothing pinned one (each sample's requests then say, requested_thinking)."""
     step = log.plan.steps[-1]
     raw = step.params or {}
     params = {k: v for k, v in raw.items() if k in ("version", "cmd") and v not in (None, "auto")}
@@ -174,7 +182,8 @@ def agent_of(log) -> tuple[str, dict, str | None]:
     configs = [log.plan.config, log.eval.model_generate_config]
     thinking = raw.get("thinking") or raw.get("effort") or (overrides.get("model_reasoning_effort") if isinstance(overrides, dict) else None) or next((c.reasoning_effort for c in configs if c is not None and c.reasoning_effort), None)
     thinking = str(thinking).lower() if thinking else None
-    return step.solver, params, ("off" if thinking == "none" else thinking)
+    # Pinned as omp records it: "none" is a model with no thinking levels, not thinking off
+    return step.solver, params, thinking
 
 
 # Inspect providers that name a model's maker: a model reached through another provider's API (an
@@ -903,7 +912,7 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
         "agent": solver,
         "agent_name": agent_name(solver),
         "agent_params": solver_params,
-        "thinking": thinking or requested_thinking(s, spec.model),
+        "thinking": thinking or requested_thinking(s, spec.model, Path(info.name).parent.name),
         "agent_version": agent_version,
         "model": canonical_model(spec.model),
         "vendor": vendor_of(canonical_model(spec.model)),
