@@ -63,6 +63,15 @@ Every page has the same skeleton, and nothing on a page invents its own.
 - **Only model-driven runs.** The scripted baseline ("Program") is not on the site; the export skips
   it. There is no ideas page.
 
+### Home
+
+No description line (the sidebar names the product). A toolbar with the Filters button, then one
+row: the Leaderboard (eight of twelve columns: rank, pairing, its score of 100 with "How it's
+scored" in the card's action, a heat cell per eval that more than one pairing ran; ten rows a page,
+`?page=`; on a phone the eval cells sit under the pairing's name) and the featured eval (four
+columns: a Select of the evals heads the card, `?eval=` as the eval's slug; its best run's last
+moment, then every pairing's median progress, compact, keyed by the leaderboard beside it).
+
 ### Eval page
 
 `PageHeader`, one line: the eval's sprite, the goal (the prompt, which says what wins), the budget
@@ -72,8 +81,11 @@ are read (varps, save files) is the README's business, never the site's. Then ta
 on one playhead; then `Progress`, the eval's measure over time, starting on the first screen at
 1440), **Cost** (cost against result, finished within a budget, attempts), **Behaviour** (time and
 tool mix, where they went), **Runs** (the table). The toolbar beside the tabs holds the open view's
-controls and the pairing filters (`PairingFilters`, one Filters popover on a phone). Files:
-`src/pages/eval/`.
+controls (the runs shown, the spend, the grouping) and one Filters button (`PairingFilters`).
+Behaviour's rows run in the leaderboard's order; a narrow card shows one effort measure at a time
+(`?measure=`); the heat map shows every pairing pooled or one, from a Select bound to `focus`. The
+Cost tab's Pareto points are labelled where they fit (the frontier always) with no legend, and a
+narrow chart has a legend and no labels. Files: `src/pages/eval/`.
 
 The race card is about 420 px tall: the standings in five of twelve columns and the map in seven at
 `fitHeight`, the standings first on a phone. The standings rank the pairings by the eval's score,
@@ -84,7 +96,7 @@ the better of two middle runs, or its best, or every run, from `agg`) along a tr
 eval's quest stages as ticks and its newest quest as a sprite, and holds its result and median
 cost as fixed columns; the track opens the run, and what the agent was doing at the playhead in
 its own words is the track's tooltip (`centerpiece/lanes.ts`). The playhead reads game time and the
-race plays on open. The map's view is fitted once to where every run of the eval went (the middle
+race plays on open (under reduced motion it opens at the end). The map's view is fitted once to where every run of the eval went (the middle
 99% of their positions, so a stray far-off point doesn't widen it) and never follows the pins.
 
 ### Model pages
@@ -92,11 +104,11 @@ race plays on open. The map's view is fitted once to where every run of the eval
 `/models/$model` (e.g. `/models/gpt-6-2-astra`): one model across every eval. The header bar names
 the model; `PageHeader` has the maker's mark, the models.dev description and its facts as meta
 (maker, released, weights, context, knowledge cutoff, the inference provider when it isn't the
-maker), then what ran. Its thinking filter lists the levels the model advertises. Then, first, per
-eval its place among the models (by each model's best pairing), result, time and cost; its score
-on every eval as on Home, a row per thinking level and harness, only when it ran as more than one
-pairing (each cell opens the eval's model page with that row's level and harness); score and cost
-by thinking level across evals, only when it ran at more than one level; then its runs. Filtered by `level` and
+maker), then what ran. Its thinking filter lists the levels the model advertises. Then, first, one
+table: per eval its place among the models (by each model's best pairing), result, time and cost,
+and under an eval it ran as several pairings a row per pairing (each opens the eval's model page at
+that level and harness); a phone keeps the eval, place and result. Score and cost by thinking level
+across evals, only when it ran at more than one level; then its runs. Filtered by `level` and
 `harness`, cut by `effort`. A Home row opens it with the row's level and harness preset; the
 sidebar lists the models.
 
@@ -104,15 +116,19 @@ sidebar lists the models.
 header bar names the eval and the model; `PageHeader` has the vendor's mark, its place among the
 models on this eval, its result, median cost and runs. Then its runs race (the eval's
 `Centerpiece`), the result, ticks to finish and cost by thinking level (levels along x, each
-harness a series) when it ran at more than one level, its progress over time, and its runs. Filtered by `level` and
+harness a series) when it ran at more than one level, its progress over time over every model's
+median in grey, and its runs. On a phone the breadcrumb keeps the eval. Filtered by `level` and
 `harness`, this page's own params. Files: `src/pages/model/`.
 
 ### Run page
 
 A debugger. The header bar names the eval and the pairing with its marks (vendor, thinking level,
-harness); `PageHeader` holds the result as meta, the run id (its facts behind it), the epoch and
-previous/next. Then the game player with the playback bar as its footer (quests and attempts on
-its track), and the transcript card beside it at the game's height. Then the timeline: a toolbar
+harness); `PageHeader` holds the result, its place among the eval's runs and its cost as meta,
+the run id (its facts behind it), the epoch and previous/next. Then the game player with the
+playback bar as its footer (quests and attempts on its track; the default speed plays the run in
+about two minutes), and the transcript card beside it at the game's height. Without a live game
+the player is the run's end screenshot, labelled "End of run", and the run doesn't start playing
+by itself. Then the timeline: a toolbar
 (the x measure, the lanes menu) over a card per lane, every lane shown unless `?lanes=` names some,
 each with its title, its unit as the description, its cut in the card's action, its key under the
 chart and the playhead in it; the map is a media card beside the lanes (first on a phone). Every
@@ -170,7 +186,7 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   param every page reads from the root.
 - Names are short and plain: `x`, `by`, `agg`, `scale`, `sort`, `page`, `hide`, `focus`, `turn`,
   `t`, `tab`, `lanes`, `code`, `speed`, `eval`, `effort`, `level`, `harness`, `map` (the race
-  map's view), `heat` (the heat map's). Lists are comma-separated. Sorts are a column id with a leading `-` for descending.
+  map's view), `heat` (the heat map's), `measure`. Lists are comma-separated. Sorts are a column id with a leading `-` for descending.
 - Paths are readable: an eval is its id in kebab case (`/evals/dragon-slayer`; the old snake-case
   links redirect), a model its name without the provider route (`claude-opus-5-5`, `gpt-6.2-sol`).
 - An eval's race with `t` absent plays from the start on load, at its normal pace; a link with `t`
