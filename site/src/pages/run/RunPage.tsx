@@ -171,7 +171,7 @@ function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure
 
 /**
  * The result as meta; the run id (its facts behind it) and the epochs on the right. The header bar
- * already names the eval and the pairing.
+ * already names the eval and the pairing, with its marks.
  */
 function Header({ run, evalInfo, runs, measure }: { run: RunDetail; evalInfo: Eval | undefined; runs: Run[]; measure: XMeasure }) {
   return (
@@ -216,9 +216,10 @@ export function RunPage() {
 
   /*
    * The debugger, on one playhead. The lead band is the main screen: the game with its playback bar
-   * attached, and the agent's thinking beside it on wide screens (it takes the game's height and
-   * scrolls inside; contain-size keeps it from growing the row). Then the timeline: the lanes, with
-   * the map beside them, sticking under the site header while the lanes scroll past.
+   * attached, and the transcript beside it on wide screens (it takes the game's height and scrolls
+   * inside; contain-size keeps it from growing the row). Then the timeline: its toolbar and a card
+   * per lane, with the map's card beside them, sticking under the site header while the lanes
+   * scroll past.
    */
   return (
     <>
@@ -252,7 +253,11 @@ export function RunPage() {
         clock={clock}
         search={search}
         price={index.prices[run.model]}
-        aside={<RunMap run={run} account={account} clock={clock} view={search.map} zoom={search.mz} height={420} />}
+        aside={
+          <Card className="py-0">
+            <RunMap run={run} account={account} clock={clock} view={search.map} zoom={search.mz} height={420} />
+          </Card>
+        }
       />
     </>
   );

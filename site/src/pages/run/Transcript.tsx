@@ -11,7 +11,7 @@ import { memo, useEffect, useMemo, useRef, type ReactElement, type ReactNode } f
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock, linkClassName } from '@/components/bits';
-import { Card } from '@/components/ui/card';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { RunDetail, ToolCategory } from '@/data/types';
 import { formatInt } from '@/lib/format';
 import { TOOL_CATEGORY } from '@/lib/tools';
@@ -155,8 +155,13 @@ export const Transcript = memo(function Transcript({ run, clock, search, tick }:
   }, [current]);
 
   return (
-    <Card className="h-full gap-0 py-0">
-      <ol ref={list} aria-label="What the agent was doing" className="relative min-h-0 flex-1 overflow-y-auto py-3">
+    // The feed runs to the card's bottom edge and scrolls inside it
+    <Card className="h-full pb-0">
+      <CardHeader>
+        <CardTitle>Transcript</CardTitle>
+        <CardDescription>{formatInt(run.turns.length)} model calls</CardDescription>
+      </CardHeader>
+      <ol ref={list} aria-label="What the agent was doing" className="relative min-h-0 flex-1 overflow-y-auto pb-3">
         {prompt && (
           <li className="mx-4 mb-2 rounded-lg bg-muted px-3 py-2 text-muted-foreground">
             <p className="line-clamp-3 whitespace-pre-line" title={prompt}>

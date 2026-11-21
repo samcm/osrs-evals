@@ -12,8 +12,8 @@ import { indexQuery } from '@/data/queries';
 import { setHovered } from '@/lib/hover';
 import { useSearchUpdate } from '@/lib/search';
 import { evalArt, evalBySlug, evalIdOf, evalSlug, siteEvals } from '@/lib/evals';
-import { modelInfo, modelSlug, variantOf } from '@/lib/series';
-import { BrandMark } from '@/components/marks';
+import { modelInfo, modelSlug } from '@/lib/series';
+import { BrandMark, VariantLabel } from '@/components/marks';
 import { setTheme, useTheme, type Theme } from '@/lib/theme';
 import { Button } from '@/components/ui/button';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
@@ -146,12 +146,15 @@ function ThemeToggle() {
 }
 
 interface Crumb {
-  label: string;
+  label: ReactNode;
   to?: string;
   params?: Record<string, string>;
 }
 
-/** The page's name: "Home", "Compare", "Runs", an eval's title, a model under its eval, or a run under its eval. */
+/**
+ * The page's name: "Home", "Compare", "Runs", an eval's title, a model under its eval, or a run
+ * under its eval as its pairing with its marks (the vendor's, the thinking level, the harness's).
+ */
 function useCrumbs(): Crumb[] {
   const pathname = useRouterState({ select: s => s.location.pathname });
   const { data } = useQuery(indexQuery);
@@ -169,7 +172,7 @@ function useCrumbs(): Crumb[] {
     const e = run && data?.evals.find(x => x.id === run.eval);
     return [
       ...(e ? [{ label: e.title, to: '/evals/$evalId', params: { evalId: evalSlug(e.id) } }] : []),
-      { label: run ? `${variantOf(run).name}, epoch ${run.epoch}` : parts[1] },
+      { label: run ? <VariantLabel run={run} size={20} /> : parts[1] },
     ];
   }
   if (parts[0] === 'models' && parts[1]) {
@@ -190,7 +193,7 @@ function AppBreadcrumb() {
           return [
             <BreadcrumbItem key={`c${i}`} className={last ? 'min-w-0' : 'min-w-0 max-sm:hidden'}>
               {last || !crumb.to ? (
-                <BreadcrumbPage className="truncate font-medium">{crumb.label}</BreadcrumbPage>
+                <BreadcrumbPage className={typeof crumb.label === 'string' ? 'truncate font-medium' : 'flex min-w-0 font-medium'}>{crumb.label}</BreadcrumbPage>
               ) : (
                 <BreadcrumbLink asChild className="truncate">
                   <Link to={crumb.to as '/'} params={crumb.params as never}>

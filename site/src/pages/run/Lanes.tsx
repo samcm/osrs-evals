@@ -1,10 +1,12 @@
 /**
- * The run as one instrument: lanes on one shared x axis and one playhead. Progress with its events
- * (sprites in a row of their own, on a 24px grid), model calls, SDK actions and activity show by
- * default; spend, context and XP are a menu away (`?lanes=`). Every lane is a shadcn chart of the
- * same height sampled on the same grid of x values, so Recharts' `syncId` moves one crosshair
- * through all of them. Hovering previews that moment everywhere on the page; clicking puts the
- * playhead there. The playhead is one vertical line through every lane.
+ * The run as one instrument: lanes on one shared x axis and one playhead. Every lane the run has
+ * data for shows (progress, model calls, SDK actions, activity, spend, context, XP); the lanes menu
+ * hides some (`?lanes=`). Each lane is its own card: its title, its unit as the description, its cut
+ * in the card's action, the chart, and its key under it. Every lane is a shadcn chart of the same
+ * height sampled on the same grid of x values, so Recharts' `syncId` moves one crosshair through all
+ * of them. Hovering previews that moment everywhere on the page; clicking puts the playhead there.
+ * The playhead is a vertical line in every lane. The x measure and the lanes menu sit in a toolbar
+ * above the lanes; the map is a card beside them.
  */
 
 import { memo, useMemo, useRef, type ReactNode, type RefObject } from 'react';
@@ -14,12 +16,11 @@ import { ParamSegmented, Segmented } from '@/components/bits';
 import { ChartFrame, crosshairCursor, gridProps, KeyLegend, syncProps, Y_AXIS_WIDTH, type LegendItem } from '@/components/charts';
 import { Sprite } from '@/components/marks';
 import { Button } from '@/components/ui/button';
-import { PageSection } from '@/components/page';
+import { PageSection, PageToolbar } from '@/components/page';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import type { Price, RunDetail, RunEvent, ToolCategory, Turn } from '@/data/types';
-import { questSrc, skillSrc, uiSrc } from '@/lib/assets';
+import { skillSrc } from '@/lib/assets';
 import { cssColor, modelSeries, seriesKey } from '@/lib/chartSeries';
 import { evalArt } from '@/lib/evals';
 import { formatClock, formatCost, formatInt, formatSeconds, formatTokens } from '@/lib/format';
@@ -29,7 +30,6 @@ import { useSearchUpdate } from '@/lib/search';
 import { hashColor } from '@/lib/series';
 import { SDK_OUTCOMES, TOKEN_KINDS, type TokenKind } from '@/lib/tokens';
 import { TOOL_CATEGORY } from '@/lib/tools';
-import { useWidth } from '@/lib/useWidth';
 import { cn } from '@/lib/utils';
 import {
   animationName,
@@ -54,9 +54,9 @@ const GRID_POINTS = 720;
 const Y_WIDTH = Y_AXIS_WIDTH;
 /** Room right of every plot, so the last x label fits */
 const RIGHT = 20;
-/** A sprite in the events row and the grid it sits on */
-const SPRITE = 20;
-const SLOT = 24;
+/** Above every plot, and the x axis under it: where the playhead line starts and stops */
+const TOP = 4;
+const X_AXIS = 24;
 
 /** Where each kind of token sits in the calls series and in the price list. */
 const TOKEN_FIELDS: Record<TokenKind, { calls: 'input_uncached' | 'cache_write' | 'cache_read' | 'output'; price: keyof Price }> = {
@@ -75,19 +75,11 @@ interface TipItem {
   color?: string;
 }
 
-/** An event in the progress lane's row of sprites. */
-interface StripMarker {
-  id: string;
-  tick: number;
-  x: number;
-  src: string;
-  title: string;
-  inferred: boolean;
-}
-
 interface Lane {
   id: LaneId;
-  title: ReactNode;
+  title: string;
+  /** The lane's unit or window, when the title does not say it */
+  description?: string;
   control?: ReactNode;
   config: ChartConfig;
   rows: Row[];
@@ -99,8 +91,6 @@ interface Lane {
   legend?: LegendItem[];
   /** The legend toggles series (hide/focus) */
   bound?: boolean;
-  /** Events as sprites in a row above the plot */
-  strip?: StripMarker[];
 }
 
 interface Ctx {
@@ -156,12 +146,6 @@ type AttemptStart = Extract<RunEvent, { kind: 'attempt' }>;
 
 const attempts = (run: RunDetail): AttemptStart[] => run.events.filter((e): e is AttemptStart => e.kind === 'attempt');
 
-function eventSprite(e: Marked): string {
-  if (e.kind === 'quest') return e.quest ? questSrc(e.quest) : uiSrc('quests');
-  if (e.kind === 'death') return skillSrc('hitpoints');
-  return skillSrc(e.skill);
-}
-
 function eventName(e: Marked): string {
   if (e.kind === 'quest') return `${e.source === 'inferred' ? '≈ ' : ''}${e.name ?? 'A quest'}`;
   if (e.kind === 'death') return 'Died';
@@ -170,6 +154,7 @@ function eventName(e: Marked): string {
 
 function progressLane(ctx: Ctx): Lane {
   const { run, clock, measure, xs, ticks } = ctx;
+  // The quests show on the playback bar's track; here they are named in the tooltip
   const measureName = evalArt(run.eval).measure;
   const spec = modelSeries(run.model);
   const at = lastAtOrBefore(
@@ -182,14 +167,6 @@ function progressLane(ctx: Ctx): Lane {
   const max = Math.max(1, ...run.timeline.map(p => p.value));
   const target = run.target;
   const yTicks = target != null ? (target % 2 === 0 ? [0, target / 2, target] : niceTicks(target, 2, true).filter(t => t <= target).concat(target)) : niceTicks(max, 2, true);
-  const strip: StripMarker[] = marked.map(e => ({
-    id: `${e.kind}-${e.tick}`,
-    tick: e.tick,
-    x: clock.x(e.tick, measure),
-    src: eventSprite(e),
-    title: e.kind === 'quest' && e.source === 'inferred' ? `≈ ${e.name ?? 'A quest'}: guessed from the quest-points jump` : eventName(e),
-    inferred: e.kind === 'quest' && e.source === 'inferred',
-  }));
   const span = ctx.maxX || 1;
 
   return {
@@ -200,7 +177,6 @@ function progressLane(ctx: Ctx): Lane {
     yTicks: [...new Set(yTicks)],
     yFormat: formatCompact,
     body: area('v', undefined, 0.12),
-    strip,
     tip: i => {
       const tick = ticks[i];
       const attempt = attemptStarts.filter(a => a.tick <= tick).at(-1);
@@ -242,6 +218,7 @@ function spendLane(ctx: Ctx, price: Price | undefined, cut: RunSearch['cost']): 
   return {
     id: 'spend',
     title: 'Spend',
+    description: usd ? 'Running total in US dollars' : 'Running total in tokens',
     control: price ? (
       <ParamSegmented
         param="cost"
@@ -278,6 +255,7 @@ function contextLane(ctx: Ctx): Lane {
   return {
     id: 'context',
     title: 'Context',
+    description: 'Tokens per call',
     config: { c: { label: 'Context', color: spec.color } },
     rows,
     yTicks: niceTicks(max, 3),
@@ -345,6 +323,7 @@ function callsLane(ctx: Ctx): Lane {
   return {
     id: 'calls',
     title: 'Model calls',
+    description: 'Seconds per call, faint while its tools ran',
     config: { zero: { label: 'Model calls' } },
     rows: ctx.xs.map(x => ({ x, zero: 0 })),
     yTicks: latencyTicks,
@@ -450,7 +429,8 @@ function sdkLane(ctx: Ctx, cut: RunSearch['sdk']): Lane | null {
     ctx,
     {
       id: 'sdk',
-      title: 'SDK actions per 100 ticks',
+      title: 'SDK actions',
+      description: 'Per 100 ticks',
       control: (
         <ParamSegmented
           param="sdk"
@@ -495,7 +475,8 @@ function activityLane(ctx: Ctx, cut: RunSearch['act']): Lane | null {
     ctx,
     {
       id: 'activity',
-      title: cut === 'moving' ? 'Ticks moving per 100' : 'Animations per 100 ticks',
+      title: 'Activity',
+      description: cut === 'moving' ? 'Ticks moving, per 100 ticks' : 'Animations per 100 ticks',
       control: (
         <ParamSegmented
           param="act"
@@ -554,48 +535,7 @@ function xpLane(ctx: Ctx): Lane | null {
 }
 
 /**
- * The progress lane's events as sprites in one row, each at its moment on the x axis, nudged along
- * a 24px grid so none overlap. Hover names it; a click puts the playhead there.
- */
-function EventStrip({ markers, maxX, onSelect }: { markers: StripMarker[]; maxX: number; onSelect: (tick: number) => void }) {
-  const [ref, width] = useWidth();
-  const placed = useMemo(() => {
-    if (width <= 0) return [];
-    const sorted = [...markers].sort((a, b) => a.x - b.x);
-    const lefts = sorted.map(m => (m.x / (maxX || 1)) * width - SPRITE / 2);
-    for (let i = 1; i < lefts.length; i++) lefts[i] = Math.max(lefts[i], lefts[i - 1] + SLOT);
-    // Pull back from the right edge, then drop what still does not fit
-    if (lefts.length) lefts[lefts.length - 1] = Math.min(lefts[lefts.length - 1], width - SPRITE / 2);
-    for (let i = lefts.length - 2; i >= 0; i--) lefts[i] = Math.min(lefts[i], lefts[i + 1] - SLOT);
-    return sorted.map((m, i) => ({ ...m, left: Math.round(lefts[i]) })).filter(m => m.left >= -SPRITE / 2);
-  }, [markers, maxX, width]);
-  return (
-    <div ref={ref} className="relative h-6" style={{ marginLeft: Y_WIDTH, marginRight: RIGHT }}>
-      {placed.map(m => (
-        <Tooltip key={m.id}>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label={m.title}
-              onClick={() => onSelect(m.tick)}
-              className={cn(
-                'absolute top-0 flex cursor-pointer rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                m.inferred && 'border-b border-dashed border-muted-foreground'
-              )}
-              style={{ left: m.left }}
-            >
-              <Sprite src={m.src} size={SPRITE} alt="" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{m.title}</TooltipContent>
-        </Tooltip>
-      ))}
-    </div>
-  );
-}
-
-/**
- * The playhead through every lane, in the page's playhead colour (primary): where the game is
+ * The playhead in a lane, over its plot, in the page's playhead colour (primary): where the game is
  * (scrubbing or playing, else `?t=`, else the end). A jump glides over the page's 150 ms; a drag or
  * playing moves it as it goes.
  */
@@ -607,8 +547,8 @@ function PlayheadLine({ run, clock, measure }: { run: RunDetail; clock: Clock; m
   return (
     <div
       aria-hidden
-      className={cn('pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-primary', !head.playing && head.scrub == null && 'transition-[left]')}
-      style={{ left: `calc(${Y_WIDTH}px + (100% - ${Y_WIDTH + RIGHT}px) * ${share})` }}
+      className={cn('pointer-events-none absolute w-0.5 -translate-x-1/2 bg-primary', !head.playing && head.scrub == null && 'transition-[left]')}
+      style={{ top: TOP, bottom: X_AXIS, left: `calc(${Y_WIDTH}px + (100% - ${Y_WIDTH + RIGHT}px) * ${share})` }}
     />
   );
 }
@@ -681,18 +621,6 @@ export const Lanes = memo(function Lanes({ run, clock, search, price, aside }: {
   const requested: readonly LaneId[] = search.lanes.length ? (search.lanes as LaneId[]) : DEFAULT_LANES;
   const shown = available.map(l => l.id).filter(id => requested.includes(id));
 
-  const xControl = (
-    <Segmented
-      label="x axis"
-      value={measure}
-      onChange={x => update({ x })}
-      options={[
-        { value: 'ticks', label: 'Game ticks' },
-        { value: 'seconds', label: 'Wall-clock' },
-      ]}
-    />
-  );
-
   const shownKey = shown.join(',');
   const { lanes, ticks } = useMemo(() => {
     const xs = Array.from({ length: GRID_POINTS + 1 }, (_, i) => (i / GRID_POINTS) * maxX);
@@ -721,53 +649,56 @@ export const Lanes = memo(function Lanes({ run, clock, search, price, aside }: {
   );
 
   return (
-    <PageSection
-      title="Timeline"
-      actions={
-        <>
-          <LanesMenu available={available} shown={shown} />
-          {xControl}
-        </>
-      }
-    >
-      <div className="grid items-start gap-gutter xl:grid-cols-5">
-        <div
-          className="relative flex min-w-0 cursor-crosshair flex-col gap-stack select-none xl:col-span-3"
-          onMouseLeave={() => {
-            hovered.current = null;
-            setMoment({ hover: null });
-          }}
-        >
-          {lanes.map((lane, n) => (
-            <LaneChart
-              key={lane.id}
-              lane={lane}
-              last={n === lanes.length - 1}
-              measure={measure}
-              maxX={maxX}
-              xTicks={xTicks}
-              attempts={attemptXs}
-              legend={legend}
-              hovered={hovered}
-              onHover={i => setMoment({ hover: Math.round(ticks[i]) })}
-              onSelect={i => settle(ticks[i])}
-              onSelectTick={tick => settle(tick)}
-              gridSize={ticks.length}
-            />
-          ))}
-          <PlayheadLine run={run} clock={clock} measure={measure} />
-        </div>
-        {/* Beside the lanes on wide screens, under the site header and the gutter (top-header is
-            3rem, the gutter 1.5rem at xl) while the lanes scroll past */}
-        {aside && <div className="min-w-0 xl:sticky xl:top-18 xl:col-span-2">{aside}</div>}
+    // The toolbar over the lanes and the map on wide screens; on a phone the map comes first, by the game
+    <div className="grid items-start gap-gutter xl:grid-cols-5">
+      <PageToolbar label="Timeline" className="xl:col-span-5">
+        <Segmented
+          label="x axis"
+          value={measure}
+          onChange={x => update({ x })}
+          options={[
+            { value: 'ticks', label: 'Game ticks' },
+            { value: 'seconds', label: 'Wall-clock' },
+          ]}
+        />
+        <LanesMenu available={available} shown={shown} />
+      </PageToolbar>
+      <div
+        className="flex min-w-0 flex-col gap-gutter select-none xl:col-span-3"
+        onMouseLeave={() => {
+          hovered.current = null;
+          setMoment({ hover: null });
+        }}
+      >
+        {lanes.map(lane => (
+          <LaneChart
+            key={lane.id}
+            lane={lane}
+            run={run}
+            clock={clock}
+            measure={measure}
+            maxX={maxX}
+            xTicks={xTicks}
+            attempts={attemptXs}
+            legend={legend}
+            hovered={hovered}
+            onHover={i => setMoment({ hover: Math.round(ticks[i]) })}
+            onSelect={i => settle(ticks[i])}
+            gridSize={ticks.length}
+          />
+        ))}
       </div>
-    </PageSection>
+      {/* Beside the lanes on wide screens, under the site header and the gutter (top-header is
+          3rem, the gutter 1.5rem at xl) while the lanes scroll past */}
+      {aside && <div className="order-first min-w-0 xl:sticky xl:top-18 xl:order-none xl:col-span-2">{aside}</div>}
+    </div>
   );
 });
 
 function LaneChart({
   lane,
-  last,
+  run,
+  clock,
   measure,
   maxX,
   xTicks,
@@ -776,11 +707,11 @@ function LaneChart({
   hovered,
   onHover,
   onSelect,
-  onSelectTick,
   gridSize,
 }: {
   lane: Lane;
-  last: boolean;
+  run: RunDetail;
+  clock: Clock;
   measure: XMeasure;
   maxX: number;
   xTicks: number[];
@@ -789,86 +720,83 @@ function LaneChart({
   hovered: RefObject<string | null>;
   onHover: (i: number) => void;
   onSelect: (i: number) => void;
-  onSelectTick: (tick: number) => void;
   gridSize: number;
 }) {
   const index = (state: MouseHandlerDataParam): number | null => {
+    // No point under the pointer is null, not the first point (a click there must not rewind)
+    if (state.activeIndex == null) return null;
     const i = Number(state.activeIndex);
     return Number.isInteger(i) && i >= 0 && i < gridSize ? i : null;
   };
   const yTop = lane.yTicks[lane.yTicks.length - 1] ?? 1;
   return (
-    <section aria-label={typeof lane.title === 'string' ? lane.title : lane.id} className="flex flex-col gap-1">
-      <div className="flex min-h-8 flex-wrap items-center gap-x-4 gap-y-1">
-        <h3 className="text-sm text-muted-foreground">{lane.title}</h3>
-        {lane.legend && lane.legend.length > 0 && <KeyLegend items={lane.legend} legend={lane.bound ? legend : undefined} className="justify-start pt-0 text-muted-foreground" />}
-        {lane.control && <div className="ml-auto">{lane.control}</div>}
-      </div>
-      {lane.strip && lane.strip.length > 0 && <EventStrip markers={lane.strip} maxX={maxX} onSelect={onSelectTick} />}
-      <ChartFrame config={lane.config} height="compact">
-        <ComposedChart
-          data={lane.rows}
-          {...syncProps(SYNC)}
-          // Every lane is the compact chart height; the last one gives part of it to the x axis
-          margin={{ top: 4, right: RIGHT, bottom: last ? 0 : 4, left: 0 }}
-          onMouseMove={state => {
-            hovered.current = lane.id;
-            const i = index(state);
-            if (i != null) onHover(i);
-          }}
-          onClick={state => {
-            const i = index(state);
-            if (i != null) onSelect(i);
-          }}
-        >
-          <CartesianGrid {...gridProps} />
-          <XAxis
-            dataKey="x"
-            type="number"
-            domain={[0, maxX]}
-            ticks={xTicks}
-            tickFormatter={(v: number) => (measure === 'ticks' ? formatCompact(v) : formatClock(v))}
-            tickLine={false}
-            axisLine={false}
-            tickMargin={6}
-            height={24}
-            interval={0}
-            allowDataOverflow
-            hide={!last}
-          />
-          <YAxis width={Y_WIDTH} domain={[0, yTop]} ticks={lane.yTicks} tickFormatter={lane.yFormat} tickLine={false} axisLine={false} tickMargin={8} interval={0} allowDataOverflow />
-          <ChartTooltip
-            cursor={crosshairCursor}
-            isAnimationActive={false}
-            content={(props: TooltipContentProps<ValueType, NameType>) => {
-              // Every lane follows the crosshair; only the lane under the pointer shows its values
-              if (hovered.current !== lane.id || !props.active) return null;
-              const i = Number(props.activeIndex ?? -1);
-              if (!Number.isInteger(i) || i < 0 || i >= gridSize) return null;
-              const tip = lane.tip(i);
-              return (
-                <ChartTooltipContent
-                  className="min-w-44"
-                  active
-                  label={tip.title as never}
-                  labelFormatter={() => tip.title}
-                  payload={tip.items.map(item => ({ name: item.name, dataKey: item.name, value: item.value, color: item.color ?? 'transparent', payload: {} })) as never}
-                />
-              );
+    <PageSection title={lane.title} description={lane.description} actions={lane.control} className="cursor-crosshair">
+      <div className="relative">
+        <ChartFrame config={lane.config} height="compact">
+          <ComposedChart
+            data={lane.rows}
+            {...syncProps(SYNC)}
+            margin={{ top: TOP, right: RIGHT, bottom: 0, left: 0 }}
+            onMouseMove={state => {
+              hovered.current = lane.id;
+              const i = index(state);
+              if (i != null) onHover(i);
             }}
-          />
-          {lane.body}
-          {attempts.map(a => (
-            <ReferenceLine
-              key={a.attempt}
-              x={a.x}
-              stroke="var(--muted-foreground)"
-              strokeDasharray="3 3"
-              label={lane.id === 'progress' ? { value: `Attempt ${a.attempt}`, position: 'insideTopLeft', fontSize: 12, className: 'fill-muted-foreground' } : undefined}
+            onClick={state => {
+              const i = index(state);
+              if (i != null) onSelect(i);
+            }}
+          >
+            <CartesianGrid {...gridProps} />
+            <XAxis
+              dataKey="x"
+              type="number"
+              domain={[0, maxX]}
+              ticks={xTicks}
+              tickFormatter={(v: number) => (measure === 'ticks' ? formatCompact(v) : formatClock(v))}
+              tickLine={false}
+              axisLine={false}
+              tickMargin={6}
+              height={X_AXIS}
+              interval={0}
+              allowDataOverflow
             />
-          ))}
-        </ComposedChart>
-      </ChartFrame>
-    </section>
+            <YAxis width={Y_WIDTH} domain={[0, yTop]} ticks={lane.yTicks} tickFormatter={lane.yFormat} tickLine={false} axisLine={false} tickMargin={8} interval={0} allowDataOverflow />
+            <ChartTooltip
+              cursor={crosshairCursor}
+              isAnimationActive={false}
+              content={(props: TooltipContentProps<ValueType, NameType>) => {
+                // Every lane follows the crosshair; only the lane under the pointer shows its values
+                if (hovered.current !== lane.id || !props.active) return null;
+                const i = Number(props.activeIndex ?? -1);
+                if (!Number.isInteger(i) || i < 0 || i >= gridSize) return null;
+                const tip = lane.tip(i);
+                return (
+                  <ChartTooltipContent
+                    className="min-w-44"
+                    active
+                    label={tip.title as never}
+                    labelFormatter={() => tip.title}
+                    payload={tip.items.map(item => ({ name: item.name, dataKey: item.name, value: item.value, color: item.color ?? 'transparent', payload: {} })) as never}
+                  />
+                );
+              }}
+            />
+            {lane.body}
+            {attempts.map(a => (
+              <ReferenceLine
+                key={a.attempt}
+                x={a.x}
+                stroke="var(--muted-foreground)"
+                strokeDasharray="3 3"
+                label={lane.id === 'progress' ? { value: `Attempt ${a.attempt}`, position: 'insideTopLeft', fontSize: 12, className: 'fill-muted-foreground' } : undefined}
+              />
+            ))}
+          </ComposedChart>
+        </ChartFrame>
+        <PlayheadLine run={run} clock={clock} measure={measure} />
+      </div>
+      {lane.legend && lane.legend.length > 0 && <KeyLegend items={lane.legend} legend={lane.bound ? legend : undefined} className="pt-0" />}
+    </PageSection>
   );
 }

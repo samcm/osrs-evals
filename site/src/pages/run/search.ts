@@ -9,10 +9,10 @@ import { pause } from './playhead';
 
 export const TOOL_CATEGORIES: readonly ToolCategory[] = TOOLS.map(c => c.id);
 
-/** The timeline's lanes, in their order; the first four show unless `lanes` names others */
+/** The timeline's lanes, in their order; every one shows unless `lanes` names some */
 export const LANE_IDS = ['progress', 'calls', 'sdk', 'activity', 'spend', 'context', 'xp'] as const;
 export type LaneId = (typeof LANE_IDS)[number];
-export const DEFAULT_LANES: readonly LaneId[] = ['progress', 'calls', 'sdk', 'activity'];
+export const DEFAULT_LANES: readonly LaneId[] = LANE_IDS;
 
 export const runSearch = defineSearch({
   /** The lanes' x measure and the transcript's clock */

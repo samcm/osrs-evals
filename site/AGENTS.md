@@ -103,11 +103,15 @@ along x, each harness a series), its progress over time, and its runs. Filtered 
 
 ### Run page
 
-A debugger. The header bar names the eval and the pairing; `PageHeader` holds the result as meta,
-the epoch and previous/next. Then the game player and the agent's thinking side by side on one playhead,
-the playback bar under them, then the timeline lanes and the map on the same playhead. Every part
-reads and moves the playhead through `src/pages/run/playhead.ts` (`?t=` when settled). Files:
-`src/pages/run/`.
+A debugger. The header bar names the eval and the pairing with its marks (vendor, thinking level,
+harness); `PageHeader` holds the result as meta, the run id (its facts behind it), the epoch and
+previous/next. Then the game player with the playback bar as its footer (quests and attempts on
+its track), and the transcript card beside it at the game's height. Then the timeline: a toolbar
+(the x measure, the lanes menu) over a card per lane, every lane shown unless `?lanes=` names some,
+each with its title, its unit as the description, its cut in the card's action, its key under the
+chart and the playhead in it; the map is a media card beside the lanes (first on a phone). Every
+part reads and moves the one playhead through `src/pages/run/playhead.ts` (`?t=` when settled).
+Files: `src/pages/run/`.
 
 ## The five rules that matter most
 
