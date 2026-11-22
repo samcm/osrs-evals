@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from inspect_ai.agent import sandbox_agent_bridge
 from inspect_ai.agent._bridge import responses_impl
+from inspect_ai.agent._bridge.sandbox import service as bridge_service
 from inspect_ai.log import transcript
 from inspect_ai.model import ChatMessageUser, GenerateConfig, GenerateInput, Model, get_model
 from inspect_ai.solver import solver
@@ -54,8 +55,9 @@ def omp(thinking: str = "high", version: str = VERSION, model: str | None = None
         # omp's own provider for the model, in its own API, pointed at the bridge: omp keeps what it knows
         # about the model (context window, thinking levels, request format).
         await sb.write_file(f"{HOME}/.omp/agent/models.yml", json.dumps({"providers": {provider: {"baseUrl": f"{BRIDGE}/v1", "apiKey": "inspect", "auth": "apiKey"}}}))
-        # omp's own intent field on every tool call (off by default in print mode), and no update check.
-        await sb.write_file(f"{HOME}/.omp/agent/config.yml", json.dumps({"tools": {"intentTracing": True}, "startup": {"checkUpdate": False}}))
+        # omp's own intent field on every tool call (off by default in print mode), no update check, and
+        # no retries: a failed model call reaches the agent as it failed (omp retries 10 times by default).
+        await sb.write_file(f"{HOME}/.omp/agent/config.yml", json.dumps({"tools": {"intentTracing": True}, "startup": {"checkUpdate": False}, "retry": {"enabled": False}}))
         await sb.exec(concurrency=False, cmd=["chown", "-R", "agent", f"{HOME}/.omp"])
         if thinking != "none":
             # omp's bundled subagents (task, scout, ...) set their own thinking levels (auto, medium):
@@ -74,7 +76,7 @@ def omp(thinking: str = "high", version: str = VERSION, model: str | None = None
         ]
         env = {"HOME": HOME, "PATH": "/usr/local/bin:/usr/bin:/bin", "PI_OPENAI_STATEFUL": "0"}
         # omp's own generation settings (its thinking level, output cap) reach --model as it sent them
-        async with sandbox_agent_bridge(forward_generation_config=True, filter=budget_as_effort if inspect_provider == "openai" else None):
+        async with sandbox_agent_bridge(forward_generation_config=True, filter=one_try):
             result = await sb.exec(concurrency=False, cmd=cmd, user="agent", cwd="/work", env=env)
         output = (result.stdout + result.stderr)[-6000:]
         state.metadata["omp"] = {"version": version, "model": name, "thinking": thinking, "exit": result.returncode, "output": output}
@@ -86,13 +88,18 @@ def omp(thinking: str = "high", version: str = VERSION, model: str | None = None
     return solve
 
 
-async def budget_as_effort(model: Model, messages, tools, tool_choice, config: GenerateConfig):
-    """omp asks some models for a thinking budget (it speaks Anthropic's API to them, as for Qwen on
-    OpenCode Go), and Inspect's OpenAI provider drops budgets: send the level the budget stands for."""
-    if config.reasoning_tokens and not config.reasoning_effort:
-        level = BUDGET_LEVELS.get(config.reasoning_tokens, "high")
-        return GenerateInput(messages, tools, tool_choice, config.model_copy(update={"reasoning_effort": level, "reasoning_tokens": None}))
-    return None
+async def one_try(model: Model, messages, tools, tool_choice, config: GenerateConfig):
+    """Every model call is sent once: Inspect retries a failed call (429, 5xx) without limit by default.
+
+    omp asks some models for a thinking budget (it speaks Anthropic's API to them, as for Qwen on
+    OpenCode Go), and Inspect's OpenAI provider drops budgets: send it the level the budget stands for."""
+    client = getattr(model.api, "client", None)
+    if client is not None and hasattr(client, "max_retries"):
+        client.max_retries = 0  # the provider's SDK client (OpenAI's, Anthropic's) retries twice by default
+    update: dict = {"max_retries": 0}
+    if str(model).startswith("openai/") and config.reasoning_tokens and not config.reasoning_effort:
+        update |= {"reasoning_effort": BUDGET_LEVELS.get(config.reasoning_tokens, "high"), "reasoning_tokens": None}
+    return GenerateInput(messages, tools, tool_choice, config.model_copy(update=update))
 
 
 _echo_tool_choice = responses_impl.responses_tool_choice_param_to_tool_choice
@@ -111,6 +118,22 @@ def _echo_tool_choice_or_auto(tool_choice):
 
 
 responses_impl.responses_tool_choice_param_to_tool_choice = _echo_tool_choice_or_auto
+
+_provider_error_payload = bridge_service.provider_error_payload
+
+
+def _not_retryable(ex: Exception):
+    """omp's HTTP client sends a request again, up to 5 times, on a 408, 409, 429 or 5xx reply (no
+    setting turns that off): forward a failed model call as a 400, with its own status in the message."""
+    payload = _provider_error_payload(ex)
+    status = payload.get("status")
+    if status is None or status in (408, 409, 429) or status >= 500:
+        payload["message"] = f"{status or 'error'}: {payload['message']}"
+        payload["status"] = 400
+    return payload
+
+
+bridge_service.provider_error_payload = _not_retryable
 
 
 async def check_installed(sb, version: str) -> None:

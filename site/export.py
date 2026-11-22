@@ -1191,7 +1191,7 @@ def export(log_dirs: list[str], price_source: str, out: Path):
     for info in infos:
         log = read_eval_log(info.name, resolve_attachments=True)
         if log.status != "success" or not log.samples:
-            continue  # failed logs are retried by eval-set; their samples have no scores
+            continue  # a failed log's samples have no scores
         solver, solver_params, thinking = agent_of(log)
         if solver == "command":
             continue  # scripted programs play without a model; the site is about models

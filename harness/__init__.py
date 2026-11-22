@@ -190,7 +190,7 @@ def game(track: Callable[[Accounts], float] | None = None, done: Callable[[Accou
                 remove(f"{g.run_dir}/live.json")
                 return
             if active:
-                # Error, not score, when the agent never reached its model: eval-set retries it.
+                # Error, not score, when the agent never reached its model.
                 if unreachable := model_unreachable():
                     transcript().info(unreachable, source="game")
                 active.interrupt("error" if unreachable else "score")
@@ -245,7 +245,7 @@ async def read_saves(state) -> Accounts:
     sb = sandbox()
     await end_game(sb, state, "agent finished")
     # A run whose agent never reached its model measured the model route, not the agent: fail the
-    # sample (eval-set retries it) instead of scoring it.
+    # sample instead of scoring it.
     if unreachable := model_unreachable():
         raise RuntimeError(unreachable)
     names = [a["username"] for a in state.metadata["accounts"]]

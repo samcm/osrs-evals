@@ -229,11 +229,16 @@ each. The models and omp's thinking level are given at run time, so the same fil
 (`--model a,b`) and thinking levels (one `-T thinking=<level>` per run, into the same log dir):
 
 ```sh
-PYTHONPATH=. inspect eval-set evals/matrix.py --model anthropic/claude-haiku-5-5 -T thinking=high --log-dir logs/haiku
-PYTHONPATH=. inspect eval-set evals/matrix.py --model anthropic/claude-haiku-5-5 -T thinking=low --log-dir logs/haiku --log-dir-allow-dirty
+PYTHONPATH=. inspect eval-set evals/matrix.py --model anthropic/claude-haiku-5-5 -T thinking=high --log-dir logs/haiku --retry-attempts 0
+PYTHONPATH=. inspect eval-set evals/matrix.py --model anthropic/claude-haiku-5-5 -T thinking=low --log-dir logs/haiku --log-dir-allow-dirty --retry-attempts 0
 ```
 
-Run it again on the same log dir and it runs only what is missing or failed. Every run pins its
+Nothing is retried. A failed game stays failed: `--retry-attempts 0` stops eval-set from replaying it
+(it replays up to 10 times by default). A failed model call reaches the agent as it failed: omp's
+solver sends each call once (Inspect retries without limit by default and its OpenAI and Anthropic
+clients twice), turns off omp's own retries, and forwards a 429 or 5xx to omp as a 400, which omp's
+HTTP client does not send again. Run the same command on the same log dir to rerun what is missing
+or failed, by hand. Every run pins its
 thinking level; a model with no thinking levels takes `-T thinking=none` (omp sends it no thinking
 setting), recorded as such.
 
