@@ -231,10 +231,12 @@ def one_sentence(summary: str) -> bool:
 
 def shorten(long: LongSummary, args) -> dict:
     """Ask the model to cut a too-long summary to one sentence of at most 25 words, keeping its facts."""
-    text = cut(ask(SHORTEN.format(summary=long.summary), args).strip().strip('"'), 240)
-    if not one_sentence(text):
-        raise LongSummary(text, long.chapters)
-    return {"summary": text, "chapters": long.chapters}
+    text = long.summary
+    for _ in range(3):  # each pass shortens the last one
+        text = cut(ask(SHORTEN.format(summary=text), args).strip().strip('"'), 240)
+        if one_sentence(text):
+            return {"summary": text, "chapters": long.chapters}
+    raise LongSummary(text, long.chapters)
 
 
 def summarize(path: Path, evals: dict, items: dict, args) -> tuple[str, str]:
