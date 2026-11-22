@@ -435,15 +435,70 @@ def stopped_by_harness(error) -> bool:
     return error is not None and "operator" in str(error).lower()
 
 
-def turns_of(sample, prices: dict, clock: Clock, starts) -> list[dict]:
+# Wall time that passed between two of a sample's events while its working time did not, beyond
+# this many seconds, is the machine paused (an orb paused mid-run), not Inspect waiting on a semaphore
+PAUSE_SECONDS = 60
+
+
+class RunTime:
+    """Seconds on the run's clock (0 at the harness's first sample, its first "score over time"
+    event) for a wall time: a model call's start, or a time in the run's logs. The harness's clock is
+    monotonic, so it held still while the machine was paused; wall time didn't, and a turn timed by
+    the wall after a pause would land past the end of the game. A pause shows in the sample's events
+    as wall time passing between two events while Inspect's working time does not; that time is taken
+    out. (Working time itself is no clock to use: it also leaves out semaphore waits, and drifts.)"""
+
+    def __init__(self, sample):
+        events = sorted((e for e in sample.events if getattr(e, "working_start", None) is not None), key=lambda e: e.timestamp)
+        first = next((e for e in events if e.event == "info" and e.source == "score over time"), events[0] if events else None)
+        self.t0 = first.timestamp.timestamp() if first else 0.0
+        # Each pause as the wall span it took: after the work between the two events, up to the second
+        self.pauses: list[tuple[float, float]] = []
+        for a, b in zip(events, events[1:]):
+            wall = (b.timestamp - a.timestamp).total_seconds()
+            idle = wall - max(0.0, b.working_start - a.working_start)
+            if idle > PAUSE_SECONDS:
+                start = a.timestamp.timestamp()
+                self.pauses.append((start, start + idle))
+        # The working time between two events also leaves out Inspect's own waits, so a pause measured
+        # by it can be off by seconds. The harness's samples ("score over time", "game over") say what
+        # its own clock read at their wall time: after each pause, the median difference is the fix.
+        first_seconds = first.data.get("seconds", 0.0) if first and isinstance(first.data, dict) else 0.0
+        anchors = [
+            (e.timestamp.timestamp(), e.data["seconds"] - first_seconds)
+            for e in events
+            if e.event == "info" and e.source in ("score over time", "game over") and isinstance(e.data, dict) and isinstance(e.data.get("seconds"), (int, float))
+        ]
+        self.fixes: list[tuple[float, float]] = []  # (from wall, seconds to add), one per pause
+        for k, (_, resumed) in enumerate(self.pauses):
+            until = self.pauses[k + 1][0] if k + 1 < len(self.pauses) else float("inf")
+            off = sorted(truth - self.between(self.t0, w) for w, truth in anchors if resumed <= w < until)
+            if off:
+                self.fixes.append((resumed, off[len(off) // 2]))
+
+    def between(self, a: float, b: float) -> float:
+        """Seconds the run went on between two wall times (epoch seconds), pauses taken out."""
+        if b < a:
+            return -self.between(b, a)
+        return (b - a) - sum(max(0.0, min(b, p1) - max(a, p0)) for p0, p1 in self.pauses)
+
+    def wall(self, epoch: float) -> float:
+        """A wall time (epoch seconds) on the run's clock."""
+        fix = next((f for since, f in reversed(self.fixes) if epoch >= since), 0.0)
+        return self.between(self.t0, epoch) + fix
+
+    def of(self, event) -> float:
+        """An event's start on the run's clock."""
+        return self.wall(event.timestamp.timestamp())
+
+
+def turns_of(sample, prices: dict, clock: Clock, starts, time: RunTime, end_tick: int | None) -> list[dict]:
     """The agent's turns, the same way for every agent: each model call (when it started on the
     run's clock, how long it took, its tokens and cost), the tool calls it made with their results,
     and how long until the next model call (the agent running its tools and code)."""
     results = {m.tool_call_id: m for m in sample.messages if m.role == "tool"}
     tool_events = {e.id: e for e in sample.events if e.event == "tool"}
     calls = [e for e in sample.events if e.event == "model"]
-    # The run's clock starts at the harness's first sample: its "score over time" event.
-    t0 = next((e.timestamp for e in sample.events if e.event == "info" and e.source == "score over time"), sample.events[0].timestamp)
     turns = []
     for i, e in enumerate(calls):
         u = e.output.usage if e.output else None
@@ -469,10 +524,13 @@ def turns_of(sample, prices: dict, clock: Clock, starts) -> list[dict]:
                 "sdk_calls": sorted(set(SDK_CALL.findall(str(text)))),
                 "intent": intent[:200] if intent else None,
             })
-        done = e.completed or e.timestamp
-        nxt = calls[i + 1].timestamp if i + 1 < len(calls) else None
-        at = round((e.timestamp - t0).total_seconds(), 1)
-        tick = clock.tick(at)
+        # On the run's monotonic clock: a pause of the machine moves neither the call nor its gap
+        at = round(time.of(e), 1)
+        took = e.working_time or ((e.completed or e.timestamp) - e.timestamp).total_seconds()
+        done = time.wall((e.completed or e.timestamp).timestamp())
+        nxt = time.of(calls[i + 1]) if i + 1 < len(calls) else None
+        # A call after the game ended (the agent's last word) sits at the game's end
+        tick = clock.tick(at) if end_tick is None else min(clock.tick(at), end_tick)
         c = usage_cost(canonical_model(e.model), u, prices)
         harness = stopped_by_harness(e.error)
         turns.append({
@@ -480,8 +538,8 @@ def turns_of(sample, prices: dict, clock: Clock, starts) -> list[dict]:
             "tick": tick,
             "attempt": attempt_at(starts, tick),
             "model": canonical_model(e.model),
-            "model_seconds": round(e.working_time or (done - e.timestamp).total_seconds(), 2),
-            "then_seconds": round((nxt - done).total_seconds(), 1) if nxt else None,
+            "model_seconds": round(took, 2),
+            "then_seconds": round(nxt - done, 1) if nxt is not None else None,
             "input_tokens": u and (u.input_tokens + (u.input_tokens_cache_read or 0) + (u.input_tokens_cache_write or 0)),
             "input_uncached": u and u.input_tokens,
             "cache_read": u and (u.input_tokens_cache_read or 0),
@@ -518,7 +576,7 @@ def call_series(turns: list[dict], prices_known: bool) -> dict:
     return s
 
 
-def sdk_of(world_log: str, t0_epoch: float, clock: Clock, end_tick: int | None) -> dict:
+def sdk_of(world_log: str, time: "RunTime", clock: Clock, end_tick: int | None) -> dict:
     """The rs-sdk actions from the gateway's log: every action with its time and result, binned per
     BUCKET ticks by function, and the times scripts connected. The harness's own logouts (sessions
     that only click the logout button) are left out."""
@@ -526,10 +584,10 @@ def sdk_of(world_log: str, t0_epoch: float, clock: Clock, end_tick: int | None) 
     current = None
     for line in world_log.splitlines():
         if m := re.search(r"SDK connected: sdk-(\d+)-", line):
-            current = {"seconds": round(int(m.group(1)) / 1000 - t0_epoch, 1), "actions": []}
+            current = {"seconds": round(time.wall(int(m.group(1)) / 1000), 1), "actions": []}
             sessions.append(current)
         elif (m := re.search(r"SDK action: (\w+) \(act-(\d+)-", line)) and current is not None:
-            current["actions"].append([round(int(m.group(2)) / 1000 - t0_epoch, 2), m.group(1), None, ""])
+            current["actions"].append([round(time.wall(int(m.group(2)) / 1000), 2), m.group(1), None, ""])
         elif (m := re.search(r"Action result: (success|failed)(.*)", line)) and current is not None and current["actions"] and current["actions"][-1][2] is None:
             current["actions"][-1][2] = m.group(1) == "success"
             current["actions"][-1][3] = m.group(2)
@@ -921,18 +979,18 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], items: dict, o
     timeline = timeline_of(raw_timeline, end_tick)
     clock = Clock(timeline, tick_ms)
     starts = attempt_starts(timeline)
-    turns = turns_of(s, prices, clock, starts)
+    time = RunTime(s)
+    turns = turns_of(s, prices, clock, starts, time, end_tick)
     usage = s.model_usage or {}
     account = m["accounts"][0]["username"]
     run_id = f"{spec.run_id[:8]}-{spec.task_id[:6]}-{s.id}-{s.epoch}"
-    t0 = next((e.timestamp for e in s.events if e.event == "info" and e.source == "score over time"), s.events[0].timestamp)
     agent_version = solver_params.get("version")
 
     world = world_of(files["world.jsonl.gz"], account, game.get("start_tick"), end_tick) if "world.jsonl.gz" in files else None
     # A team's other accounts: where each went, on the same clock as the first
     names = [a["username"] for a in m["accounts"]]
     others = {n: world_of(files["world.jsonl.gz"], n, world["start_tick"], end_tick)["path"] for n in names[1:]} if world else {}
-    sdk = sdk_of(files["world.log"].decode(errors="replace"), t0.timestamp(), clock, end_tick) if "world.log" in files else None
+    sdk = sdk_of(files["world.log"].decode(errors="replace"), time, clock, end_tick) if "world.log" in files else None
     states = states_of(files.get("states.jsonl.gz"), end_tick)
     for r in states:
         r["seconds"] = round(r["seconds"] - offset, 1)
@@ -1002,7 +1060,8 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], items: dict, o
         "max_context_tokens": max((t["context_tokens"] or 0 for t in turns), default=None) or None,
         "cost_by": cost_by,
         "wall_seconds": round(s.total_time, 1) if s.total_time is not None else None,
-        "setup_seconds": round((t0 - datetime.fromisoformat(str(s.started_at))).total_seconds(), 1) if s.started_at else None,
+        # Wall time to the first sample, a pause of the machine taken out
+        "setup_seconds": round(time.between(datetime.fromisoformat(str(s.started_at)).timestamp(), time.t0), 1) if s.started_at else None,
         "latency_p50": pct(latencies, 0.5),
         "latency_p90": pct(latencies, 0.9),
         "gap_p50": pct(gaps, 0.5),

@@ -372,6 +372,9 @@ everywhere: a faint dashed ring or underline on its icon, "≈" and one line of 
   The prompt says to describe, not judge, and never to invent; the script checks the ticks.
 - One clock: every `seconds` counts from the harness's first sample; every `tick` counts straight
   through all attempts. Never add an attempt offset to a tick.
+- The harness's clock is monotonic, so it stood still while a machine was paused mid-run; wall
+  times (model calls, the SDK log) are put on it with the pause taken out (`export.py` RunTime),
+  never by wall time since the start. A model call after the game ended sits at its end.
 - Each run's result is its best value over its attempts, not its last.
 - Game art comes from `site/game/build.sh` (the rs-sdk image at the pinned commit); run
   `site/game/build.sh avatars` after an export so new runs get their character. Don't hand-edit
