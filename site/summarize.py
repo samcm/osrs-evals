@@ -67,7 +67,15 @@ THE RECORD
 {record}
 """
 
-PROMPT_HASH = hashlib.sha256(PROMPT.encode()).hexdigest()[:12]
+SHORTEN = """\
+Shorten this summary of a RuneScape agent's run to ONE sentence of at most 20 words, with a single \
+full stop at the end. Keep its route and strategy (places, what it did there, how it got its result); \
+drop detail first, and add nothing new. Answer with the sentence only.
+
+{summary}
+"""
+
+PROMPT_HASH = hashlib.sha256((PROMPT + SHORTEN).encode()).hexdigest()[:12]
 MAX_LINE = 280  # characters of one record line
 MAX_RECORD = 240_000  # characters of the whole record, about 60K tokens: long runs keep every game line and thin the rest
 
@@ -204,10 +212,29 @@ def parse(text: str, end_tick: int) -> dict:
     summary = cut(str(raw.get("summary", "")), 240)
     if not summary:
         raise ValueError("no summary")
-    # The glance the site needs: one sentence, at most 25 words (a longer one is asked for again)
-    if len(summary.split()) > 25 or re.search(r"[.!?]\s+\S", summary):
-        raise ValueError(f"summary is not one sentence of at most 25 words: {summary}")
+    if not one_sentence(summary):
+        raise LongSummary(summary, chapters)
     return {"summary": summary, "chapters": chapters}
+
+
+class LongSummary(ValueError):
+    """A reply whose chapters are good but whose summary is longer than the glance the site needs."""
+
+    def __init__(self, summary: str, chapters: list[dict]):
+        super().__init__(f"summary is not one sentence of at most 25 words: {summary}")
+        self.summary, self.chapters = summary, chapters
+
+
+def one_sentence(summary: str) -> bool:
+    return len(summary.split()) <= 25 and not re.search(r"[.!?]\s+\S", summary)
+
+
+def shorten(long: LongSummary, args) -> dict:
+    """Ask the model to cut a too-long summary to one sentence of at most 25 words, keeping its facts."""
+    text = cut(ask(SHORTEN.format(summary=long.summary), args).strip().strip('"'), 240)
+    if not one_sentence(text):
+        raise LongSummary(text, long.chapters)
+    return {"summary": text, "chapters": long.chapters}
 
 
 def summarize(path: Path, evals: dict, items: dict, args) -> tuple[str, str]:
@@ -234,16 +261,20 @@ def summarize(path: Path, evals: dict, items: dict, args) -> tuple[str, str]:
     if args.print_prompt:
         print(prompt)
         return run["id"], "printed"
-    note = ""
     for attempt in range(3):
         try:
-            told = parse(ask(prompt + note, args), end_tick)
+            told = parse(ask(prompt, args), end_tick)
             break
+        except LongSummary as err:  # the chapters are fine; only the sentence needs shortening
+            try:
+                told = shorten(err, args)
+                break
+            except Exception as err2:
+                if attempt == 2:
+                    return run["id"], f"failed: {err2}"
         except Exception as err:  # a malformed or failed reply: ask again, then give up on this run
             if attempt == 2:
                 return run["id"], f"failed: {err}"
-            if "one sentence" in str(err):  # say what was wrong with the last summary
-                note = f"\nYour last answer's summary was too long or more than one sentence: \"{str(err).split(': ', 1)[1]}\". Keep the same chapters and give a summary of one sentence, at most 25 words.\n"
     out.write_text(json.dumps({**told, **stamp}, separators=(",", ":")))
     return run["id"], "told"
 
