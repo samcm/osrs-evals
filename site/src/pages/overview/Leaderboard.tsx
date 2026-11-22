@@ -4,11 +4,11 @@
  * didn't run), ten to a page. An eval only one pairing ran has no column: one cell compares nothing.
  * On a phone the eval cells sit under the pairing's name, so the score stays in view beside it.
  * Sorting by any column is `?sort=`, the page `?page=`; a row opens the model's page, filtered to
- * the row's level and harness.
+ * the row's level and harness, and an eval's cell that model's runs of that eval.
  */
 
 import { useMemo } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/DataTable';
 import { Empty } from '@/components/bits';
@@ -18,7 +18,7 @@ import { PageSection } from '@/components/page';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Eval } from '@/data/types';
-import { evalArt } from '@/lib/evals';
+import { evalArt, evalSlug } from '@/lib/evals';
 import { formatScore, type Pairing } from '@/lib/score';
 import { modelSlug } from '@/lib/series';
 import { cn } from '@/lib/utils';
@@ -30,13 +30,21 @@ export const tint = (score: number): string => TINTS[Math.min(TINTS.length - 1, 
 function HeatCell({ pairing, e, mark }: { pairing: Pairing; e: Eval; mark?: boolean }) {
   const s = pairing.evals.get(e.id);
   if (!s) return mark ? null : <span className="inline-flex h-6 w-10 items-center justify-center text-muted-foreground">–</span>;
+  const { variant } = pairing;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className={cn('inline-flex h-6 items-center justify-center gap-1 rounded-sm tabular-nums', mark ? 'px-1' : 'w-10', tint(s.score))}>
+        {/* The model's runs of this eval, at the row's level and harness */}
+        <Link
+          to="/evals/$evalId/$model"
+          params={{ evalId: evalSlug(e.id), model: modelSlug(variant.model) }}
+          search={{ level: [variant.thinking], harness: [variant.agent] } as never}
+          onClick={ev => ev.stopPropagation()}
+          className={cn('inline-flex h-6 items-center justify-center gap-1 rounded-sm tabular-nums outline-none hover:ring-2 hover:ring-ring/40 focus-visible:ring-3 focus-visible:ring-ring/50', mark ? 'px-1' : 'w-10', tint(s.score))}
+        >
           {mark && <EvalMark evalId={e.id} size={14} title="" />}
           {formatScore(s.score)}
-        </span>
+        </Link>
       </TooltipTrigger>
       <TooltipContent>
         {e.title}, {s.runs === 1 ? '1 run' : `${s.runs} runs`}
