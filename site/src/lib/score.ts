@@ -55,9 +55,15 @@ export interface Pairing {
   evals: Map<string, EvalScore>;
   /** The blended score, 0 to 1 */
   score: number;
+  /** It ran every eval that has runs: a partial pairing's score is over fewer evals, so it ranks below every complete one */
+  complete: boolean;
 }
 
-/** Every pairing's per-eval and blended scores, from all runs; best first. */
+/**
+ * Every pairing's per-eval and blended scores, from all runs; best first, every complete pairing
+ * (one that ran every eval with runs) before any partial one, so a pairing that ran one eval well
+ * (a thinking-level sweep) never outranks one that ran them all.
+ */
 export function blendedScores(evals: Eval[], runs: Run[]): Pairing[] {
   const byPairing = new Map<string, Run[]>();
   for (const r of runs) {
@@ -75,7 +81,7 @@ export function blendedScores(evals: Eval[], runs: Run[]): Pairing[] {
       const s = mean(own.map(r => runScore(e, r, best.get(e.id) ?? 0)));
       if (s != null) scores.set(e.id, { score: s, runs: own.length });
     }
-    return { variant: variantOf(list[0]), sample: list[0], runs: list, evals: scores, score: 0 };
+    return { variant: variantOf(list[0]), sample: list[0], runs: list, evals: scores, score: 0, complete: false };
   });
 
   // How every pairing did on each eval, and over all evals
@@ -87,11 +93,12 @@ export function blendedScores(evals: Eval[], runs: Run[]): Pairing[] {
   const overall = mean([...evalMean.values()]) ?? 0;
 
   for (const p of pairings) {
+    p.complete = [...evalMean.keys()].every(id => p.evals.has(id));
     const leads = [...p.evals.entries()].map(([id, s]) => s.score - (evalMean.get(id) ?? s.score));
     // One more eval at the mean pulls a pairing with few evals toward the middle
     p.score = clamp01(overall + leads.reduce((a, b) => a + b, 0) / (leads.length + 1));
   }
-  return pairings.sort((a, b) => b.score - a.score || a.variant.name.localeCompare(b.variant.name));
+  return pairings.sort((a, b) => Number(b.complete) - Number(a.complete) || b.score - a.score || a.variant.name.localeCompare(b.variant.name));
 }
 
 /** A 0–1 score as the 0–100 the site shows. */

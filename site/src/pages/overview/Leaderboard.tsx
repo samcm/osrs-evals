@@ -116,7 +116,17 @@ export function Leaderboard({
           header: () => <span title="Out of 100: how it's scored, top right">Score of 100</span>,
           meta: { numeric: true, className: 'w-px' },
           sortDescFirst: true,
-          cell: ({ getValue }) => <span className="font-medium tabular-nums">{formatScore(getValue())}</span>,
+          // Complete pairings above partial ones, whichever way it sorts by score
+          sortingFn: (a, b) => Number(a.original.complete) - Number(b.original.complete) || a.original.score - b.original.score,
+          // A partial pairing's score is over the evals it ran: muted, and says so
+          cell: ({ row, getValue }) =>
+            row.original.complete ? (
+              <span className="font-medium tabular-nums">{formatScore(getValue())}</span>
+            ) : (
+              <span className="text-muted-foreground tabular-nums" title={`Over the ${row.original.evals.size} evals it ran, not all of them: it ranks below every pairing that ran them all`}>
+                {formatScore(getValue())}
+              </span>
+            ),
         }),
         ...evals.map(e =>
           col.accessor(p => p.evals.get(e.id)?.score ?? -1, {
