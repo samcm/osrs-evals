@@ -225,6 +225,8 @@
  * `transition-*` utilities), content that arrives fades in (`animate-fade-in`), and space is held
  * by a skeleton of the final size so nothing jumps. Reduced motion turns it all off. */
 @theme {
+  /* A wide screen: the eval race gives the map eight of twelve columns from here */
+  --breakpoint-3xl: 112.5rem;
   --default-transition-duration: 150ms;
   --default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
   --animate-fade-in: fade-in 150ms cubic-bezier(0.2, 0, 0, 1);

@@ -1,9 +1,9 @@
 /**
  * The eval's centrepiece at the top of the race: every run together in the game on one playhead,
- * and the eval's one ranked list beside it. The standings (five of twelve columns) rank the pairings
+ * and the eval's one ranked list beside it. The standings (five of twelve columns, four on a wide screen) rank the pairings
  * by the eval's score from the first frame, each row racing its run (the pairing's median or best
  * run, or every run, from the page's `agg`) along its track as the playhead moves; the world map
- * (seven columns, fitted to the runs' shape) holds a pin and trail per racing run in a view fitted
+ * (seven columns, eight on a wide screen, fitted to the runs' shape) holds a pin and trail per racing run in a view fitted
  * once to where all the eval's runs went. On a phone the standings come first, the map under them.
  */
 
@@ -141,7 +141,7 @@ export function Centerpiece({
     // map, the standings take the height they need, up to the card's, and scroll inside it past that;
     // the map, fitted to the runs' shape, is never shorter than they are
     <Card ref={ref} className="gap-0 overflow-hidden py-0 lg:grid lg:grid-cols-12" aria-label="Every run in the game">
-      <div ref={standingsRef} className="relative flex min-w-0 flex-col gap-2 py-4 lg:col-span-5 lg:self-start" style={beside ? { maxHeight: RACE_HEIGHT } : undefined}>
+      <div ref={standingsRef} className="relative flex min-w-0 flex-col gap-2 py-4 lg:col-span-5 lg:self-start 3xl:col-span-4" style={beside ? { maxHeight: RACE_HEIGHT } : undefined}>
         <CardContent className="flex shrink-0 items-center gap-3">
           <Button
             variant="outline"
@@ -175,7 +175,7 @@ export function Centerpiece({
           <Standings e={e} rows={lanes} max={top} perRun={agg === 'runs'} lit={lit} stages={target != null ? stages : []} />
         </CardContent>
       </div>
-      <div className="relative min-w-0 border-t lg:col-span-7 lg:border-t-0 lg:border-l" onPointerMove={onPointerMove} onPointerLeave={() => setHovered(undefined)}>
+      <div className="relative min-w-0 border-t lg:col-span-7 lg:border-t-0 3xl:col-span-8 lg:border-l" onPointerMove={onPointerMove} onPointerLeave={() => setHovered(undefined)}>
         {width === 0 || !grid ? (
           <Skeleton className="w-full rounded-none" style={{ height }} />
         ) : (
