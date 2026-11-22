@@ -1,6 +1,10 @@
 // Game art for the site, from the rs-sdk cache. Run by build.sh inside rs-sdk:71d949d with the repo's
-// site/ mounted at /site:
-//   items/<id>.png      inventory sprites (ItemViewer.renderItemIcon; outline and shadow as in game)
+// site/ mounted at /site (or with RS_SDK=<rs-sdk checkout>/server and SITE=site, its pack built):
+//   bun art.ts [items]  (items: only the item sprites and game/items.json)
+//   items/<id>.png      every item's inventory sprite (ItemViewer.renderItemIcon; outline and shadow
+//                       as in game), a note drawn as the game draws it, and the stack sprites
+//   game/items.json     every item: name, store value, the item a note stands for, and which sprite
+//                       a stack of it shows by count (coins: a pile)
 //   quests/<id>.png     each quest's completion-scroll item, from site/game/quests.json
 //   skills/<name>.png   stats-tab icons (media: staticons, staticons2) + site/game/skills.json
 //   ui/<name>.png       side-panel tab icons (media: sideicons) and the stone panel (media: invback)
@@ -30,6 +34,33 @@ for (const key of ITEMS) {
     const [id, count] = key.split('-').map(Number);
     fs.writeFileSync(`${OUT}/items/${key}.png`, icon(id, count || 1));
 }
+
+// Every named item, for the runs' inventories and banks: its sprite at a count of one, and the item
+// whose sprite a bigger stack shows ([at least this many, item]); the site picks the sprite by count.
+const { default: ObjType } = await import(`${WC}/config/ObjType.ts`);
+ObjType.memServer = true; // members' items by their own names
+const table: Record<number, { name: string; cost: number; unnoted: number; stacks?: [number, number][] }> = {};
+let drawn = 0;
+for (let id = 0; id < ObjType.numDefinitions; id++) {
+    const o = ObjType.list(id);
+    if (!o.name) continue;
+    const stacks: [number, number][] = [];
+    for (let i = 0; o.countco && o.countobj && i < o.countco.length; i++) if (o.countco[i] > 0) stacks.push([o.countco[i], o.countobj[i]]);
+    table[id] = { name: o.name, cost: o.cost, unnoted: o.certtemplate !== -1 ? o.certlink : id, ...(stacks.length ? { stacks } : {}) };
+    const s = v.renderItemIcon(id, 1);
+    if (!s) continue;
+    fs.writeFileSync(`${OUT}/items/${id}.png`, encodePng(s.data, s.wi, s.hi));
+    drawn++;
+}
+// A stack's own sprite items may have no name: draw them too
+for (const obj of Object.values(table)) for (const [, id] of obj.stacks ?? []) {
+    if (fs.existsSync(`${OUT}/items/${id}.png`)) continue;
+    const s = v.renderItemIcon(id, 1);
+    if (s) fs.writeFileSync(`${OUT}/items/${id}.png`, encodePng(s.data, s.wi, s.hi));
+}
+fs.writeFileSync(`${SITE}/game/items.json`, JSON.stringify(table) + '\n');
+console.log(`item sprites: ${drawn} of ${Object.keys(table).length} named items`);
+if (process.argv[2] === 'items') process.exit(0);
 fs.writeFileSync(`${OUT}/items/${PROGRAM}.png`, icon(PROGRAM));
 fs.writeFileSync(`${OUT}/brands/program.png`, icon(PROGRAM));
 console.log(`items: ${ITEMS.length + 1}, program = ${PROGRAM} (${v.getItemName(PROGRAM)})`);
