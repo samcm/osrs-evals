@@ -201,16 +201,12 @@ def parse(text: str, end_tick: int) -> dict:
         nxt["from_tick"] = prev["to_tick"] = max(prev["from_tick"] + 1, nxt["from_tick"])
     chapters = [c for c in chapters if c["from_tick"] < end_tick]
     chapters[-1]["to_tick"] = end_tick
-    summary = cut(str(raw.get("summary", "")), 240)
+    # The reply's summary as it comes (the prompt asks for 25 words; replies run a few over), cut to
+    # its first sentence when it has more than one
+    summary = cut(re.split(r"(?<=[.!?])\s+(?=\S)", str(raw.get("summary", "")).strip())[0], 240)
     if not summary:
         raise ValueError("no summary")
-    if not one_sentence(summary):
-        raise ValueError(f"summary is not one sentence of at most 25 words: {summary}")
     return {"summary": summary, "chapters": chapters}
-
-
-def one_sentence(summary: str) -> bool:
-    return len(summary.split()) <= 25 and not re.search(r"[.!?]\s+\S", summary)
 
 
 def summarize(path: Path, evals: dict, items: dict, args) -> tuple[str, str]:
