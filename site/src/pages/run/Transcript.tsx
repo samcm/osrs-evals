@@ -12,7 +12,7 @@ import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock, linkClassName } from '@/components/bits';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { RunDetail, ToolCategory } from '@/data/types';
+import type { RunDetail, RunSummary, ToolCategory } from '@/data/types';
 import { formatInt } from '@/lib/format';
 import { TOOL_CATEGORY } from '@/lib/tools';
 import { cn } from '@/lib/utils';
@@ -106,17 +106,54 @@ function Line({ row }: { row: Extract<Row, { kind: 'did' }> }) {
  * The feed at `tick`, the playhead. It fills its container's height and scrolls inside it, keeping
  * the current call in view without moving the page.
  */
-export const Transcript = memo(function Transcript({ run, clock, search, tick }: { run: RunDetail; clock: Clock; search: RunSearch; tick: number }) {
+export const Transcript = memo(function Transcript({
+  run,
+  clock,
+  search,
+  tick,
+  chapters,
+}: {
+  run: RunDetail;
+  clock: Clock;
+  search: RunSearch;
+  tick: number;
+  /** The run's chapters (site/summarize.py): each heads the first line at or after its start */
+  chapters?: RunSummary['chapters'];
+}) {
   const settle = useSettle();
   const list = useRef<HTMLOListElement>(null);
   const current = currentTurn(run.turns, clock, tick, search.turn);
   const rows = useMemo(() => feedRows(run), [run]);
 
+  // Each chapter's heading goes before the first row whose call is at or after its start
+  const headings = useMemo(() => {
+    const at = new Map<number, NonNullable<typeof chapters>[number]>();
+    for (const c of chapters ?? []) {
+      const n = rows.findIndex(r => turnTick(run.turns[r.first], clock) >= c.from_tick);
+      if (n >= 0 && !at.has(n)) at.set(n, c);
+    }
+    return at;
+  }, [chapters, rows, run.turns, clock]);
+
   const body = useMemo(
     () =>
-      rows.map((row, n) => {
+      rows.flatMap((row, n) => {
         const state = current >= row.first && current <= row.last ? 'current' : row.first > current ? 'future' : 'past';
-        return (
+        const chapter = headings.get(n);
+        return [
+          chapter && (
+            <li key={`chapter-${chapter.from_tick}`} className={cn('px-4', n > 0 && 'pt-3')}>
+              <button
+                type="button"
+                onClick={() => settle(chapter.from_tick)}
+                title={chapter.text}
+                className="flex w-full min-w-0 flex-col items-start gap-0.5 rounded-md border-b pb-1.5 text-left outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <span className="font-medium">{chapter.title}</span>
+                <span className="text-xs text-pretty text-muted-foreground">{chapter.text}</span>
+              </button>
+            </li>
+          ),
           <li key={n} data-current={state === 'current' || undefined} aria-current={state === 'current' ? 'step' : undefined} className={cn(row.kind === 'said' && n > 0 && 'pt-2')}>
             <button
               type="button"
@@ -132,10 +169,10 @@ export const Transcript = memo(function Transcript({ run, clock, search, tick }:
               {row.kind === 'error' && <span className="min-w-0 truncate text-destructive">{row.text}</span>}
               {row.kind === 'did' && <Line row={row} />}
             </button>
-          </li>
-        );
+          </li>,
+        ];
       }),
-    [rows, current, clock, settle, run.turns]
+    [rows, current, clock, settle, run.turns, headings]
   );
 
   useEffect(() => {

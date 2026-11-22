@@ -112,6 +112,8 @@ export function Standings({ e, rows, max, perRun, lit, stages }: { e: Eval; rows
                   to="/evals/$evalId/$model"
                   params={{ evalId: evalSlug(e.id), model: modelSlug(variant.model) }}
                   search={{ level: [variant.thinking], harness: [variant.agent] } as never}
+                  // The raced run in one sentence (site/summarize.py), on hover
+                  title={run.summary ?? undefined}
                   className="flex min-w-0 items-center gap-1.5 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
                   <VariantLabel run={run} variant={variant} compact size={14} className="min-w-0" />

@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { RunDetail, RunEvent } from '@/data/types';
+import type { RunDetail, RunEvent, RunSummary } from '@/data/types';
 import { questSrc, skillSrc, uiSrc } from '@/lib/assets';
 import { formatClock, formatInt } from '@/lib/format';
 import { useSearchUpdate } from '@/lib/search';
@@ -74,7 +74,7 @@ function EventMark({ mark }: { mark: Mark }) {
   );
 }
 
-export function Playback({ run, clock, measure }: { run: RunDetail; clock: Clock; measure: XMeasure }) {
+export function Playback({ run, clock, measure, chapters }: { run: RunDetail; clock: Clock; measure: XMeasure; chapters?: RunSummary['chapters'] }) {
   const [committed, write] = useCommitted(run, clock);
   const head = usePlayhead(clock, committed, write);
   const auto = String(defaultSpeed(clock.maxTicks));
@@ -140,7 +140,7 @@ export function Playback({ run, clock, measure }: { run: RunDetail; clock: Clock
             ))}
           </div>
         )}
-        <div ref={trackRef}>
+        <div ref={trackRef} className="flex flex-col gap-1">
           <Slider
             aria-label="Playhead"
             min={0}
@@ -153,6 +153,32 @@ export function Playback({ run, clock, measure }: { run: RunDetail; clock: Clock
             }}
             onValueCommit={([v]) => commit(v)}
           />
+          {/* The run's chapters (site/summarize.py) as segments under the track: a click starts one */}
+          {chapters && chapters.length > 0 && max > 0 && (
+            <ol className="relative flex h-1.5 gap-px" aria-label="Chapters">
+              {chapters.map((c, i) => {
+                const current = tick >= c.from_tick && (tick < c.to_tick || i === chapters.length - 1);
+                return (
+                  <li key={c.from_tick} className="flex min-w-0" style={{ width: `${(Math.min(max, c.to_tick) - Math.min(max, c.from_tick)) / max * 100}%` }}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={c.title}
+                          onClick={() => {
+                            pause();
+                            commit(c.from_tick);
+                          }}
+                          className={cn('h-full w-full rounded-full outline-none hover:bg-foreground/40 focus-visible:ring-3 focus-visible:ring-ring/50', current ? 'bg-primary' : 'bg-muted-foreground/25')}
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent>{c.title}</TooltipContent>
+                    </Tooltip>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
         </div>
       </div>
       <span className="text-sm text-muted-foreground tabular-nums">{label}</span>

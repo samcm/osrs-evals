@@ -23,6 +23,7 @@ import { pickRunners } from './centerpiece/race';
 import { ProgressChart } from './Progress';
 import { RunsTable } from './RunsTable';
 import { WhereMap } from './Where';
+import { HeldView, heldTab } from './Held';
 
 const route = getRouteApi('/evals/$evalId');
 
@@ -162,7 +163,7 @@ export function EvalPage() {
       <PageHeader mark={<EvalMark evalId={e.id} size={40} />} description={e.goal} meta={facts(e, all)} />
       {/* The views and the controls that drive the open one share a row, as shadcn's dashboards do */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PageTabs value={search.tab} tabs={[...TABS]} />
+        <PageTabs value={search.tab} tabs={heldTab(e) ? [...TABS.slice(0, 1), { value: 'held' as const, label: heldTab(e)! }, ...TABS.slice(1)] : [...TABS]} />
         <PageToolbar label="View controls">
           {runs.length > 0 && controls}
           <PairingFilters runs={all} thinking={scope.thinking} agent={scope.agent} onChange={setScope} />
@@ -232,6 +233,8 @@ export function EvalPage() {
             <WhereMap curves={curves} grid={grid} legend={legend} view={search.heat} />
           </PageSection>
         </>
+      ) : search.tab === 'held' && heldTab(e) ? (
+        <HeldView e={e} ranked={ranked} grid={grid} />
       ) : (
         <PageSection>
           <RunsTable e={e} runs={runs} curves={curves} sort={search.sort} page={search.page} />

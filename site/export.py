@@ -32,6 +32,7 @@ from inspect_ai.log import list_eval_logs, read_eval_log
 
 SITE = Path(__file__).resolve().parent
 QUESTS = SITE / "game" / "quests.json"  # written by site/game/quests.py from rs-sdk's content
+ITEMS = SITE / "game" / "items.json"  # every item's name, store value and note link: site/game/art.ts
 EVAL_NAMES = {"quest_points": "Quest points in 30 minutes", "dragon_slayer": "Dragon Slayer", "total_level": "Total level", "collection": "Collection", "team_wealth": "Team wealth", "coins": "Coins", "gold": "Gold"}
 MEASURES = {"quest_points": "Quest points", "dragon_slayer": "Quest stage", "total_level": "Total level", "collection": "Different items", "team_wealth": "Wealth", "coins": "Coins", "gold": "Coins"}
 # Short task names in the batch files (evals/matrix.py names a task <eval>_<agent>)
@@ -685,6 +686,71 @@ def states_of(raw: bytes | None, end_tick: int | None) -> list[dict]:
     return out
 
 
+HELD_TABLES = ("inv", "bank", "worn")
+
+
+def held_of(states: list[dict]) -> dict[str, list[dict]]:
+    """Each account's items and skill levels over time, as the changes the run page replays:
+    {account: [{tick, inv?, bank?, worn?, levels?}]}, each table {id: count} (or {skill: level}) of
+    what changed at that tick, 0 for gone."""
+    out: dict[str, list[dict]] = {}
+    before: dict[str, dict] = {}
+    for r in states:
+        for name, st in r["accounts"].items():
+            now = {**{k: st[k] for k in HELD_TABLES}, "levels": {k: level_of(v) for k, v in st["xp"].items()}}
+            was = before.get(name, {k: {} for k in now})
+            change = {}
+            for k, table in now.items():
+                diff = {i: n for i, n in table.items() if was[k].get(i) != n} | {i: 0 for i in was[k] if i not in table}
+                if diff:
+                    change[k] = diff
+            before[name] = now
+            if not change:
+                continue
+            series = out.setdefault(name, [])
+            if series and series[-1]["tick"] == r["tick"]:
+                for k, diff in change.items():
+                    series[-1][k] = {**series[-1].get(k, {}), **diff}
+            else:
+                series.append({"tick": r["tick"], **change})
+    return out
+
+
+def wealth_of(state: dict, items: dict) -> int:
+    """An account's store value of what it holds, as the team wealth eval counts it (a note at its item's value)."""
+    return sum(n * items.get(str(i), {}).get("cost", 0) for k in HELD_TABLES for i, n in state[k].items())
+
+
+def wealth_series(states: list[dict], items: dict) -> dict[str, list[list[int]]]:
+    """Each account's wealth over time: [tick, value] where it changed."""
+    out: dict[str, list[list[int]]] = {}
+    for r in states:
+        for name, st in r["accounts"].items():
+            v, series = wealth_of(st, items), out.setdefault(name, [])
+            if not series or series[-1][1] != v:
+                if series and series[-1][0] == r["tick"]:
+                    series[-1][1] = v
+                else:
+                    series.append([r["tick"], v])
+    return out
+
+
+def held_at_end(states: list[dict], items: dict) -> dict:
+    """What the run ended with, for the eval's views across runs: every item held (a note as the item
+    it notes), summed over the accounts and where they kept it, and each skill's level (the best
+    account's)."""
+    if not states:
+        return {}
+    held, levels = Counter(), {}
+    for st in states[-1]["accounts"].values():
+        for k in HELD_TABLES:
+            for i, n in st[k].items():
+                held[str(items.get(str(i), {}).get("unnoted", i))] += n
+        for skill, xp in st["xp"].items():
+            levels[skill] = max(levels.get(skill, 1), level_of(xp))
+    return {"items": dict(held), "levels": levels}
+
+
 def xp_series(states: list[dict]) -> dict[str, list[list[float]]]:
     """XP per skill over time, summed over the accounts: [tick, xp] where it changed."""
     out: dict[str, list[list[float]]] = {}
@@ -834,7 +900,7 @@ def resample(grid: list[int], timeline: list[dict], clock: Clock, turns: list[di
     return out
 
 
-def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, solver: str, solver_params: dict, thinking: str | None) -> tuple[dict, dict, dict, dict]:
+def export_sample(log, info, s, prices: dict, quests: list[dict], items: dict, out: Path, solver: str, solver_params: dict, thinking: str | None) -> tuple[dict, dict, dict, dict]:
     spec = log.eval
     m = s.metadata
     attempts = m.get("attempts", 1)
@@ -843,6 +909,10 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
     main_score = next((sc for name, sc in s.scores.items() if name == "ticks_to_target"), next(iter(s.scores.values())))
     md = main_score.metadata or {}
     files = run_dir_files(m["run_dir"]) if m.get("run_dir") else {}
+    if m.get("run_dir") and not files:
+        # Logs moved off the machine that ran them: the run folder sits beside its log as it did there
+        # (<log without .eval>/<sample>-<epoch>)
+        files = run_dir_files(f"{info.name.removesuffix('.eval')}/{m['run_dir'].rstrip('/').split('/')[-1]}")
     game = m.get("game") or {}
     end_tick = game.get("ticks")
     tick_ms = int(m["world"]["NODE_TICKRATE"])
@@ -1024,7 +1094,10 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
             "sdk": {"bucket_ticks": BUCKET, "functions": sdk["functions"], "bins": sdk["bins"]} if sdk else None,
             "activity": {"bucket_ticks": BUCKET, "rows": activity} if activity is not None else None,
             "xp": xp,
+            # Each account's wealth over time, on the eval that counts it
+            "wealth": wealth_series(states, items) if states and items and base == "team_wealth" else None,
         },
+        "held": held_of(states) if states else None,
         "events": events,
         "has_states": bool(states),
         "answer": last_answer(s),
@@ -1036,6 +1109,7 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], out: Path, sol
         (out / "runs" / f"{run_id}.world.jsonl.gz").write_bytes(files["world.jsonl.gz"])
     grid = resample(grid_of(m["budget_ticks"], attempts), timeline, clock, turns, end_tick, run["cost"] is not None)
     grid["path"] = downsample(path, EVAL_PATH_EVERY)
+    grid["end"] = held_at_end(states, items)
     if others:
         grid["paths"] = {n: downsample(q, EVAL_PATH_EVERY) for n, q in others.items()}
     return run, evl, detail, grid
@@ -1047,7 +1121,8 @@ def export(log_dirs: list[str], price_source: str, out: Path):
     (out / "runs").mkdir(parents=True, exist_ok=True)
     (out / "evals").mkdir(parents=True, exist_ok=True)
     quests = json.loads(QUESTS.read_text()) if QUESTS.exists() else []
-    runs, evals, grids = [], {}, {}
+    items = json.loads(ITEMS.read_text()) if ITEMS.exists() else {}
+    runs, evals, grids, seen_items = [], {}, {}, set()
     infos = [info for log_dir in log_dirs for info in list_eval_logs(log_dir)]
     headers = [read_eval_log(info.name, header_only=True) for info in infos]
     catalog = load_catalog(price_source)
@@ -1067,7 +1142,8 @@ def export(log_dirs: list[str], price_source: str, out: Path):
         for s in log.samples:
             if s.error or not s.scores:
                 continue
-            run, evl, _, grid = export_sample(log, info, s, prices, quests, out, solver, solver_params, thinking)
+            run, evl, detail, grid = export_sample(log, info, s, prices, quests, items, out, solver, solver_params, thinking)
+            seen_items.update(str(i) for changes in (detail["held"] or {}).values() for c in changes for k in HELD_TABLES for i in c.get(k, {}))
             runs.append(run)
             evals.setdefault(run["eval"], evl)
             grids.setdefault(run["eval"], {})[run["id"]] = grid
@@ -1076,6 +1152,10 @@ def export(log_dirs: list[str], price_source: str, out: Path):
     for f in (out / "runs").iterdir():  # this script's files of runs no longer in these logs
         if f.name.endswith((".json", ".world.jsonl.gz")) and f.name.split(".")[0] not in keep:
             f.unlink()
+    # Each run's one-sentence summary, from site/summarize.py's files (kept across exports)
+    for r in runs:
+        summary = out / "runs" / f"{r['id']}.summary.json"
+        r["summary"] = json.loads(summary.read_text()).get("summary") if summary.exists() else None
     for eval_id, by_run in grids.items():
         e = evals[eval_id]
         (out / "evals" / f"{eval_id}.json").write_text(json.dumps({
@@ -1098,6 +1178,8 @@ def export(log_dirs: list[str], price_source: str, out: Path):
         "prices": {m: {k: v for k, v in p.items() if k != "tiers"} for m, p in prices.items()},
         "models": facts,
         "providers": providers,
+        # The items the runs held: name, store value, the item a note stands for, stack sprites
+        "items": {i: items[i] for i in sorted(seen_items | {str(i) for g in grids.values() for r in g.values() for i in r["end"].get("items", {})}, key=int) if i in items},
     }))
     print(f"{len(runs)} runs, {len(evals)} evals:", dict(Counter((r['eval'], r['model'], r['agent_name'], r['thinking']) for r in runs)))
 

@@ -51,6 +51,16 @@ const facetValue: Record<Facet, (r: Run) => string> = {
 const col = createColumnHelper<Row>();
 
 /** The best value the run held; a filled or hollow dot says whether it reached the eval's target. */
+/** A run's one sentence (site/summarize.py) under its name, cut to one line; whole on hover. */
+export function RunSummaryLine({ run }: { run: Run }) {
+  if (!run.summary) return null;
+  return (
+    <span className="block max-w-96 truncate text-xs text-muted-foreground max-md:max-w-60" title={run.summary}>
+      {run.summary}
+    </span>
+  );
+}
+
 function ResultCell({ run, e }: { run: Run; e: Eval | undefined }) {
   const value = formatInt(resultValue(run));
   const text = resultText(run, e);
@@ -88,9 +98,12 @@ export function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[]
       id: 'variant',
       header: 'Pairing',
       cell: ({ row }) => (
-        <span className="inline-flex min-w-0 items-center gap-2">
-          {!oneEval && <EvalMark evalId={row.original.eval} size={16} title={row.original.e?.title ?? row.original.eval} className="md:hidden" />}
-          <VariantLabel run={row.original} compact />
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="inline-flex min-w-0 items-center gap-2">
+            {!oneEval && <EvalMark evalId={row.original.eval} size={16} title={row.original.e?.title ?? row.original.eval} className="md:hidden" />}
+            <VariantLabel run={row.original} compact />
+          </span>
+          <RunSummaryLine run={row.original} />
         </span>
       ),
     }),

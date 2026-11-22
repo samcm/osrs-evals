@@ -494,6 +494,40 @@ function activityLane(ctx: Ctx, cut: RunSearch['act']): Lane | null {
   );
 }
 
+/** Each account's wealth over time, a line per account: the team wealth eval's measure, cut by who holds it. */
+function wealthLane(ctx: Ctx): Lane | null {
+  const wealth = ctx.run.series.wealth;
+  if (!wealth || Object.keys(wealth).length === 0) return null;
+  const accounts = Object.keys(wealth);
+  const idx = Object.fromEntries(accounts.map(a => [a, lastAtOrBefore(wealth[a].map(p => p[0]), ctx.ticks)]));
+  const at = (a: string, i: number): number => wealth[a][idx[a][i]]?.[1] ?? 0;
+  const rows = ctx.xs.map((x, i) => Object.fromEntries([['x', x], ...accounts.map(a => [seriesKey(a), at(a, i)])]) as Row);
+  const visible = accounts.filter(a => ctx.visible(a));
+  const max = Math.max(1, ...visible.flatMap(a => wealth[a].map(p => p[1])));
+  return {
+    id: 'wealth',
+    title: 'Wealth',
+    description: 'Store value of what each account holds',
+    config: Object.fromEntries(accounts.map(a => [seriesKey(a), { label: a, color: cssColor(hashColor(a)) }])),
+    rows,
+    yTicks: niceTicks(max, 3),
+    yFormat: formatCompact,
+    bound: true,
+    legend: accounts.map(a => ({ id: a, label: a, color: hashColor(a), line: 'solid' as const })),
+    body: (
+      <>
+        {visible.map(a => (
+          <Line key={a} dataKey={seriesKey(a)} type="stepAfter" stroke={`var(--color-${seriesKey(a)})`} strokeOpacity={fade(ctx.faded(a))} strokeWidth={2} dot={false} activeDot={false} isAnimationActive={false} />
+        ))}
+      </>
+    ),
+    tip: i => ({
+      title: formatX(ctx.measure, ctx.xs[i]),
+      items: visible.map(a => ({ name: a, value: formatInt(at(a, i)), color: cssColor(hashColor(a)) })),
+    }),
+  };
+}
+
 function xpLane(ctx: Ctx): Lane | null {
   const xp = ctx.run.series.xp;
   if (!xp || Object.keys(xp).length === 0) return null;
@@ -558,6 +592,7 @@ function availableLanes(run: RunDetail): { id: LaneId; label: string }[] {
   const hasCalls = run.series.calls.seconds.length > 0;
   const has: Record<LaneId, boolean> = {
     progress: true,
+    wealth: Object.keys(run.series.wealth ?? {}).length > 0,
     calls: hasCalls,
     sdk: (run.series.sdk?.bins.length ?? 0) > 0,
     activity: (run.series.activity?.rows.length ?? 0) > 0,
@@ -567,6 +602,7 @@ function availableLanes(run: RunDetail): { id: LaneId; label: string }[] {
   };
   const labels: Record<LaneId, string> = {
     progress: evalArt(run.eval).measure,
+    wealth: 'Wealth',
     calls: 'Model calls',
     sdk: 'SDK actions',
     activity: 'Activity',
@@ -628,6 +664,7 @@ export const Lanes = memo(function Lanes({ run, clock, search, price, aside }: {
     const ctx: Ctx = { run, clock, measure, maxX, xs, ticks, visible, tools: [], errorsOnly: false, faded: hover.faded };
     const build: Record<LaneId, () => Lane | null> = {
       progress: () => progressLane(ctx),
+      wealth: () => wealthLane(ctx),
       calls: () => callsLane(ctx),
       sdk: () => sdkLane(ctx, search.sdk),
       activity: () => activityLane(ctx, search.act),

@@ -14,6 +14,7 @@ import { formatCost, formatInt } from '@/lib/format';
 import { useSearchUpdate } from '@/lib/search';
 import { variantKey, variantOf } from '@/lib/series';
 import { endedWord, resultText } from '@/lib/runResult';
+import { RunSummaryLine } from '../RunsPage';
 import { resultValue, totalBudgetTicks, type RunCurve } from './model';
 
 const col = createColumnHelper<Run>();
@@ -38,7 +39,16 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
   const top = e.target ?? Math.max(1, ...[...curves.values()].flatMap(cv => cv.points.map(p => p.value)));
   // The result next to the pairing (phones keep both in view), then cost; the epoch and ticks last
   return [
-    col.accessor(r => variantOf(r).name, { id: 'variant', header: 'Pairing', cell: ({ row }) => <VariantLabel run={row.original} compact /> }),
+    col.accessor(r => variantOf(r).name, {
+      id: 'variant',
+      header: 'Pairing',
+      cell: ({ row }) => (
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <VariantLabel run={row.original} compact />
+          <RunSummaryLine run={row.original} />
+        </span>
+      ),
+    }),
     col.accessor(r => (r.success ? 1e9 - (r.ticks ?? 0) : 0) + (resultValue(r) ?? -1), {
       id: 'result',
       header: target ? 'Result' : e.measure,

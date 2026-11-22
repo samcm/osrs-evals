@@ -1,14 +1,14 @@
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Outcome, Segmented } from '@/components/bits';
 import { PageHeader, type MetaItem } from '@/components/page';
-import { Card, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Sprite } from '@/components/marks';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { indexQuery, runQuery } from '@/data/queries';
+import { indexQuery, runQuery, runSummaryQuery } from '@/data/queries';
 import type { Eval, Run, RunDetail } from '@/data/types';
 import { questSrc, uiSrc } from '@/lib/assets';
 import { formatCost, formatDate, formatDuration, formatInt } from '@/lib/format';
@@ -24,6 +24,7 @@ import { Playback } from './Playback';
 import { RunMap } from './RunMap';
 import { runSearch } from './search';
 import { Transcript } from './Transcript';
+import { Held } from './Held';
 
 const route = getRouteApi('/runs/$runId');
 
@@ -188,10 +189,12 @@ function placeAmong(run: Run, runs: Run[]): { place: number; of: number } {
  * The result, its place among the eval's runs and its cost as meta; the run id (its facts behind it)
  * and the epochs on the right. The header bar already names the eval and the pairing, with its marks.
  */
-function Header({ run, evalInfo, runs, measure }: { run: RunDetail; evalInfo: Eval | undefined; runs: Run[]; measure: XMeasure }) {
+function Header({ run, evalInfo, runs, measure, summary }: { run: RunDetail; evalInfo: Eval | undefined; runs: Run[]; measure: XMeasure; summary?: string }) {
   const { place, of } = placeAmong(run, runs);
   return (
     <PageHeader
+      // The run in one sentence (site/summarize.py), above its facts
+      description={summary}
       meta={[
         ...resultMeta(run, evalInfo, measure),
         ...(of > 1 ? [{ term: 'Place', value: `#${formatInt(place)} of ${formatInt(of)} runs` }] : []),
@@ -233,6 +236,10 @@ export function RunPage() {
   // A team's runs: the game and the map follow one account, the first unless the reader picks another
   const accounts = run.accounts ?? [run.account];
   const account = search.acct && accounts.includes(search.acct) ? search.acct : run.account;
+  // What the accounts held over time, in data exported with it
+  const held = run.held != null && Object.keys(run.held).length > 0;
+  // Its chapters and summary from site/summarize.py, when it has them
+  const { data: told } = useQuery(runSummaryQuery(runId));
 
   /*
    * The debugger, on one playhead. The lead band is the main screen: the game with its playback bar
@@ -243,28 +250,38 @@ export function RunPage() {
    */
   return (
     <>
-      <Header run={run} evalInfo={evalInfo} runs={index.runs} measure={search.x} />
-      <div className="grid gap-gutter xl:grid-cols-5">
-        <Card className="min-w-0 gap-0 pt-0 xl:col-span-3">
-          <div className="relative">
-            <Player key={run.id} run={run} head={head} autoplay={autoplay} account={account} />
-            {accounts.length > 1 && (
-              <Segmented
-                className="absolute top-2 left-2 bg-card"
-                label="Account followed"
-                value={account}
-                options={accounts.map(a => ({ value: a, label: a }))}
-                onChange={a => update({ acct: a === run.account ? undefined : a })}
-              />
+      <Header run={run} evalInfo={evalInfo} runs={index.runs} measure={search.x} summary={told?.summary ?? run.summary ?? undefined} />
+      <div className={cn('grid gap-gutter', held ? 'xl:grid-cols-12' : 'xl:grid-cols-5')}>
+        <Card className={cn('min-w-0 gap-0 pt-0', held ? 'xl:col-span-8' : 'xl:col-span-3')}>
+          {/* The game, and beside it what the followed account held, as the client's side panel */}
+          <div className="flex flex-col md:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <Player key={run.id} run={run} head={head} autoplay={autoplay} account={account} />
+              {accounts.length > 1 && (
+                <Segmented
+                  className="absolute top-2 left-2 bg-card"
+                  label="Account followed"
+                  value={account}
+                  options={accounts.map(a => ({ value: a, label: a }))}
+                  onChange={a => update({ acct: a === run.account ? undefined : a })}
+                />
+              )}
+            </div>
+            {held && (
+              <div className="border-b py-4 md:relative md:w-56 md:shrink-0 md:border-b-0 md:border-l md:py-0">
+                <CardContent className="flex flex-col md:absolute md:inset-0 md:py-4">
+                  <Held run={run} clock={clock} account={account} tab={search.panel} />
+                </CardContent>
+              </div>
             )}
           </div>
           <CardFooter>
-            <Playback run={run} clock={clock} measure={search.x} />
+            <Playback run={run} clock={clock} measure={search.x} chapters={told?.chapters} />
           </CardFooter>
         </Card>
         {run.turns.length > 0 && (
-          <div className="h-120 min-w-0 xl:col-span-2 xl:h-auto xl:contain-size">
-            <Transcript run={run} clock={clock} search={search} tick={head.tick} />
+          <div className={cn('h-120 min-w-0 xl:h-auto xl:contain-size', held ? 'xl:col-span-4' : 'xl:col-span-2')}>
+            <Transcript run={run} clock={clock} search={search} tick={head.tick} chapters={told?.chapters} />
           </div>
         )}
       </div>

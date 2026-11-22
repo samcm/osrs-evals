@@ -118,6 +118,8 @@ export interface RunMetrics {
 export interface Run {
   id: string;
   eval: string;
+  /** The run in one sentence (site/summarize.py); absent until it has run */
+  summary?: string | null;
   agent: string;
   agent_name: string;
   agent_params: Record<string, string>;
@@ -197,6 +199,8 @@ export interface Index {
   models?: Record<string, ModelFacts>;
   /** Each maker and inference provider by models.dev id (absent in older data) */
   providers?: Record<string, ProviderInfo>;
+  /** The items the runs held, by id (absent in older data) */
+  items?: Record<string, ItemInfo>;
 }
 
 /** A model's maker and facts, from models.dev (export.py model_facts). */
@@ -331,6 +335,8 @@ export interface RunSeries {
   /** XP per skill over time, summed over the accounts: [tick, xp] where it changed. Only when the
    * harness recorded the accounts' states (has_states) */
   xp: Record<string, [number, number][]> | null;
+  /** Each account's wealth over time, [tick, value] where it changed: the team wealth eval's runs only */
+  wealth?: Record<string, [number, number][]> | null;
 }
 
 /** Things that happened, on both clocks. */
@@ -363,9 +369,40 @@ export interface RunDetail extends Run {
   events: RunEvent[];
   /** The harness recorded the accounts' saved states over time (xp, items, quest varps) */
   has_states: boolean;
+  /** Each account's items and skill levels over time, as changes to replay (absent in older data) */
+  held?: Record<string, HeldChange[]> | null;
   answer: string | null;
   program_output: string | null;
   log: string;
+}
+
+/** What changed in an account at a tick: each table holds only what changed, 0 for gone. */
+export interface HeldChange {
+  tick: number;
+  /** Item id → count */
+  inv?: Record<string, number>;
+  bank?: Record<string, number>;
+  worn?: Record<string, number>;
+  /** Skill → level */
+  levels?: Record<string, number>;
+}
+
+/** An item, from the game's config (site/game/items.json, through the export). */
+export interface ItemInfo {
+  name: string;
+  /** Store value in coins (a note: its item's) */
+  cost: number;
+  /** The item a note stands for; its own id when it isn't a note */
+  unnoted: number;
+  /** The sprite a stack shows from a count up: [count, item id] */
+  stacks?: [number, number][];
+}
+
+/** public/data/runs/<id>.summary.json, from site/summarize.py: the run told in chapters and one sentence. */
+export interface RunSummary {
+  summary: string;
+  chapters: { from_tick: number; to_tick: number; title: string; text: string }[];
+  model?: string;
 }
 
 /** public/data/evals/<id>.json: every run of one eval on one tick grid, for overlays. */
@@ -386,6 +423,8 @@ export interface EvalRuns {
       path: PathPoint[];
       /** Each other account's path, by account, in a team's run */
       paths?: Record<string, PathPoint[]>;
+      /** What it ended with: items held (a note as its item) and each skill's level (absent in older data) */
+      end?: { items?: Record<string, number>; levels?: Record<string, number> };
     }
   >;
 }

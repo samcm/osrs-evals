@@ -66,7 +66,8 @@ Every page has the same skeleton, and nothing on a page invents its own.
 ### Home
 
 No description line (the sidebar names the product). A toolbar with the Filters button, then the
-Leaderboard (rank, pairing, its score of 100 with "How it's scored" in the card's action, a heat
+Leaderboard (rank, pairing, its score of 100, every pairing that ran every eval ranked above any that
+didn't, whose partial score is muted (a thinking-level sweep runs two evals) with "How it's scored" in the card's action, a heat
 cell per eval that more than one pairing ran, headed by the eval's sprite with its name on hover so
 every eval's column fits at 1280 without scrolling; ten rows a page, `?page=`; on a phone the eval
 cells sit under the pairing's name) and the featured eval (a Select of the evals heads the card,
@@ -82,7 +83,10 @@ are read (varps, save files) is the README's business, never the site's. Then ta
 (`Centerpiece`: the standings, the eval's one ranked list, beside every run together in the game
 on one playhead; then `Progress`, the eval's measure over time, starting on the first screen at
 1440), **Cost** (cost against result, finished within a budget, attempts), **Behaviour** (time and
-tool mix, where they went), **Runs** (the table). The toolbar beside the tabs holds the open view's
+tool mix, where they went), **Runs** (the table). An eval about items or skills has a tab for what
+the runs ended with, after Race (`eval/Held.tsx`): **Items** (collection, team wealth: the items most
+runs ended holding, then each run's items as the game's sprites) or **Skills** (total level: each
+run's level in every trained skill). The toolbar beside the tabs holds the open view's
 controls (the runs shown, the spend, the grouping) and one Filters button (`PairingFilters`).
 Behaviour's rows run in the leaderboard's order; a narrow card shows one effort measure at a time
 (`?measure=`); the heat map shows every pairing pooled or one, from a Select bound to `focus`. The
@@ -131,7 +135,12 @@ the run id (its facts behind it), the epoch and previous/next. Then the game pla
 playback bar as its footer (quests and attempts on its track; the default speed plays the run in
 about two minutes), and the transcript card beside it at the game's height. Without a live game
 the player is the run's end screenshot, labelled "End of run", and the run doesn't start playing
-by itself. Then the timeline: a toolbar
+by itself. In data with the accounts' held items (`held`), the game card has the client's side panel
+beside the game (`run/Held.tsx`): the followed account's inventory, worn items, bank and skills at
+the playhead, as the game's own sprites and stack counts, the tab in `?panel=` (skills on total
+level, else the inventory). A run told by `summarize.py` has its sentence as the header's
+description, its chapters as segments under the playback track and as headings in the transcript;
+clicking one seeks the playhead there. Then the timeline: a toolbar
 (the x measure, the lanes menu) over a card per lane, every lane shown unless `?lanes=` names some,
 each with its title, its unit as the description, its cut in the card's action, its key under the
 chart and the playhead in it; the map is a media card beside the lanes (first on a phone). Every
@@ -346,13 +355,21 @@ named on hover; the game and the map follow one account at a time (`acct`).
 `public/data/index.json` has `evals`, `runs` (one summary per run, with `metrics`), `prices`,
 `models` (each model's models.dev facts) and `providers` (each maker and inference provider: name,
 logo in `public/data/logos/`).
-`public/data/runs/<id>.json` has one run's detail: turns, timeline, path, and the time series
+`index.json` also has `items` (the items the runs held, from `site/game/items.json`, which
+`site/game/art.ts` writes with every item's sprite) and each run's `summary`.
+`public/data/runs/<id>.json` has one run's detail (with `held`, each account's items and levels as
+changes to replay, and, on team wealth, `series.wealth`): turns, timeline, path, and the time series
 derived from the logs and the world recording. `public/data/evals/<id>.json` has every run of one
 eval resampled for overlays. Shapes are in `src/data/types.ts`; keep them in step with
 `site/export.py`. Never present an inferred value (such as a quest guessed from a quest-points
 jump) as read from the game: the data says which it is (`source: 'inferred'`). Mark it the same way
 everywhere: a faint dashed ring or underline on its icon, "≈" and one line of why in its tooltip.
 
+- **Chapters and summaries** come from `site/summarize.py`, an offline step after the export: a
+  model (through omp's gateway on Sam's subscriptions, `claude-sonnet-5-5` at medium thinking by
+  default) reads each run's record and writes `runs/<id>.summary.json` (`summary`, `chapters` on
+  ticks from the data), cached by the prompt's hash and the model. The site never calls a model.
+  The prompt says to describe, not judge, and never to invent; the script checks the ticks.
 - One clock: every `seconds` counts from the harness's first sample; every `tick` counts straight
   through all attempts. Never add an attempt offset to a tick.
 - Each run's result is its best value over its attempts, not its last.

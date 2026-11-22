@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
 import { registerModels } from '@/lib/series';
-import type { EvalRuns, Index, RunDetail } from './types';
+import { registerItems } from '@/lib/items';
+import type { EvalRuns, Index, RunDetail, RunSummary } from './types';
 
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(path);
@@ -15,6 +16,7 @@ export const indexQuery = queryOptions({
   queryFn: () =>
     getJson<Index>('/data/index.json').then(index => {
       registerModels(index.models ?? {}, index.providers ?? {});
+      registerItems(index.items ?? {});
       return index;
     }),
   staleTime: Infinity,
@@ -33,5 +35,18 @@ export const evalRunsQuery = (evalId: string) =>
   queryOptions({
     queryKey: ['evalRuns', evalId],
     queryFn: () => getJson<EvalRuns>(`/data/evals/${encodeURIComponent(evalId)}.json`),
+    staleTime: Infinity,
+  });
+
+/** A run's chapters and summary (site/summarize.py); null when it has none yet. */
+export const runSummaryQuery = (runId: string) =>
+  queryOptions({
+    queryKey: ['runSummary', runId],
+    queryFn: async () => {
+      const response = await fetch(`/data/runs/${encodeURIComponent(runId)}.summary.json`);
+      // A static host answers a missing file with the page itself
+      if (!response.ok || !response.headers.get('content-type')?.includes('json')) return null;
+      return (await response.json()) as RunSummary;
+    },
     staleTime: Infinity,
   });

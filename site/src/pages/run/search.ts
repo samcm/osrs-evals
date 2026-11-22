@@ -10,7 +10,7 @@ import { pause } from './playhead';
 export const TOOL_CATEGORIES: readonly ToolCategory[] = TOOLS.map(c => c.id);
 
 /** The timeline's lanes, in their order; every one shows unless `lanes` names some */
-export const LANE_IDS = ['progress', 'calls', 'sdk', 'activity', 'spend', 'context', 'xp'] as const;
+export const LANE_IDS = ['progress', 'wealth', 'calls', 'sdk', 'activity', 'spend', 'context', 'xp'] as const;
 export type LaneId = (typeof LANE_IDS)[number];
 export const DEFAULT_LANES: readonly LaneId[] = LANE_IDS;
 
@@ -31,6 +31,8 @@ export const runSearch = defineSearch({
   speed: oneOf(['1', '4', '16', '64'], undefined),
   /** The lanes shown, when not the default ones */
   lanes: list(LANE_IDS),
+  /** The side panel's tab beside the game; absent, the eval's own (skills for total level, else the inventory) */
+  panel: oneOf(['inv', 'worn', 'bank', 'skills'], undefined),
   /** Lane cuts */
   cost: oneOf(['usd', 'tokens'], 'usd'),
   sdk: oneOf(['outcome', 'function'], 'outcome'),
