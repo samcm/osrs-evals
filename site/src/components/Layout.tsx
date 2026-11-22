@@ -249,7 +249,7 @@ function CloseOnNavigate() {
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
-    <SidebarProvider defaultOpen={sidebarOpen()} style={{ '--sidebar-width': 'calc(var(--spacing) * 72)', '--header-height': 'calc(var(--spacing) * 12)' } as CSSProperties}>
+    <SidebarProvider defaultOpen={sidebarOpen()} style={{ '--sidebar-width': 'calc(var(--spacing) * 52)', '--header-height': 'calc(var(--spacing) * 12)' } as CSSProperties}>
       <CloseOnNavigate />
       <AppSidebar />
       <SidebarInset className="min-w-0">

@@ -33,7 +33,7 @@ from inspect_ai.log import list_eval_logs, read_eval_log
 SITE = Path(__file__).resolve().parent
 QUESTS = SITE / "game" / "quests.json"  # written by site/game/quests.py from rs-sdk's content
 ITEMS = SITE / "game" / "items.json"  # every item's name, store value and note link: site/game/art.ts
-EVAL_NAMES = {"quest_points": "Quest points in 30 minutes", "dragon_slayer": "Dragon Slayer", "total_level": "Total level", "collection": "Collection", "team_wealth": "Team wealth", "coins": "Coins", "gold": "Gold"}
+EVAL_NAMES = {"quest_points": "Quest points", "dragon_slayer": "Dragon Slayer", "total_level": "Total level", "collection": "Collection", "team_wealth": "Team wealth", "coins": "Coins", "gold": "Gold"}
 MEASURES = {"quest_points": "Quest points", "dragon_slayer": "Quest stage", "total_level": "Total level", "collection": "Different items", "team_wealth": "Wealth", "coins": "Coins", "gold": "Coins"}
 # Short task names in the batch files (evals/matrix.py names a task <eval>_<agent>)
 EVAL_ALIASES = {"qp": "quest_points", "ds": "dragon_slayer"}
