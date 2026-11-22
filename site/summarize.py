@@ -54,7 +54,9 @@ chapter covers whole ticks from the record, and together they cover the run from
 2. Give each chapter a title of 2 to 6 words and one or two plain sentences of what the agent did \
 and what came of it in the game.
 3. Then sum the run up in ONE sentence of at most 25 words: its strategy and route (where it went, \
-what it did there, how it got its result), so a reader can tell it from the other runs at a glance.
+what it did there, how it got its result), so a reader can tell it from the other runs at a glance. \
+One sentence means a single full stop, at the end; count the words, and leave out detail before \
+going over 25.
 
 Rules: describe, don't judge (no "cleverly", "wasted", "failed to"); never state anything the \
 record doesn't show; name places, items, quests and skills as the record names them; no \
@@ -202,6 +204,9 @@ def parse(text: str, end_tick: int) -> dict:
     summary = cut(str(raw.get("summary", "")), 240)
     if not summary:
         raise ValueError("no summary")
+    # The glance the site needs: one sentence, at most 25 words (a longer one is asked for again)
+    if len(summary.split()) > 25 or re.search(r"[.!?]\s+\S", summary):
+        raise ValueError(f"summary is not one sentence of at most 25 words: {summary}")
     return {"summary": summary, "chapters": chapters}
 
 
@@ -229,13 +234,16 @@ def summarize(path: Path, evals: dict, items: dict, args) -> tuple[str, str]:
     if args.print_prompt:
         print(prompt)
         return run["id"], "printed"
+    note = ""
     for attempt in range(3):
         try:
-            told = parse(ask(prompt, args), end_tick)
+            told = parse(ask(prompt + note, args), end_tick)
             break
         except Exception as err:  # a malformed or failed reply: ask again, then give up on this run
             if attempt == 2:
                 return run["id"], f"failed: {err}"
+            if "one sentence" in str(err):  # say what was wrong with the last summary
+                note = f"\nYour last answer's summary was too long or more than one sentence: \"{str(err).split(': ', 1)[1]}\". Keep the same chapters and give a summary of one sentence, at most 25 words.\n"
     out.write_text(json.dumps({**told, **stamp}, separators=(",", ":")))
     return run["id"], "told"
 
