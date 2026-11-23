@@ -6,21 +6,19 @@
  * and next model call (plain ← and → go to the previous and next run).
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, type JSX } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
+import clsx from 'clsx';
+import { PauseIcon, PlayIcon } from '@heroicons/react/20/solid';
+import { Segmented, Tip } from '@/components/bits';
 import { Sprite } from '@/components/marks';
-import { PauseIcon, PlayIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Kbd } from '@/components/ui/kbd';
-import { Slider } from '@/components/ui/slider';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Button } from '@/components/Elements/Button';
+import { RangeInput } from '@/components/Forms/RangeInput/RangeInput';
 import type { RunDetail, RunEvent, RunSummary } from '@/data/types';
 import { questSrc, skillSrc, uiSrc } from '@/lib/assets';
 import { formatClock, formatInt } from '@/lib/format';
 import { useSearchUpdate } from '@/lib/search';
 import { useWidth } from '@/lib/useWidth';
-import { cn } from '@/lib/utils';
 import { turnTick, type Clock, type XMeasure } from './model';
 import {
   commit,
@@ -59,42 +57,53 @@ function eventTitle(e: Marked): string {
   return `Attempt ${e.attempt}`;
 }
 
-function EventMark({ mark }: { mark: Mark }) {
+/** A key named in a tooltip, in the theme's tokens */
+function Key({ children }: { children: string }): JSX.Element {
+  return <kbd className="rounded-xs border border-border bg-muted-10 px-1 font-mono text-2xs">{children}</kbd>;
+}
+
+/**
+ * A sprite on the track. A plain button, not lab's Button: the track's marks and chapter segments
+ * are drawn to the track's own sizes (a 16px sprite, a 6px bar), which no Button size has.
+ */
+function EventMark({ mark }: { mark: Mark }): JSX.Element {
   const e = mark.events[0];
   const inferred = e.kind === 'quest' && e.source === 'inferred';
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          onClick={() => {
-            pause();
-            commit(mark.tick);
-          }}
-          aria-label={mark.events.map(eventTitle).join(', ')}
-          className={cn(
-            'absolute top-0 size-4 -translate-x-1/2 rounded-sm p-0 text-xs leading-none font-normal text-muted-foreground tabular-nums hover:bg-transparent',
-            inferred && 'rounded-none border-0 border-b border-dashed border-muted-foreground'
-          )}
-          style={{ left: mark.left }}
-        >
-          {e.kind === 'attempt' ? (
-            e.attempt
-          ) : (
-            <Sprite
-              src={e.kind === 'death' ? skillSrc('hitpoints') : e.quest ? questSrc(e.quest) : uiSrc('quests')}
-              size={MARK}
-              alt=""
-            />
-          )}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>
-        {mark.events.map((ev, i) => (
-          <div key={i}>{eventTitle(ev)}</div>
-        ))}
-      </TooltipContent>
-    </Tooltip>
+    <Tip
+      content={
+        <ul>
+          {mark.events.map(ev => (
+            <li key={`${ev.kind}-${ev.tick}-${eventTitle(ev)}`}>{eventTitle(ev)}</li>
+          ))}
+        </ul>
+      }
+    >
+      <button
+        type="button"
+        onClick={() => {
+          pause();
+          commit(mark.tick);
+        }}
+        aria-label={mark.events.map(eventTitle).join(', ')}
+        className={clsx(
+          'absolute top-0 flex size-4 -translate-x-1/2 items-center justify-center text-xs text-muted tabular-nums',
+          'rounded-xs focus-visible:outline-2 focus-visible:outline-primary',
+          inferred && 'border-b border-dashed border-muted'
+        )}
+        style={{ left: mark.left }}
+      >
+        {e.kind === 'attempt' ? (
+          e.attempt
+        ) : (
+          <Sprite
+            src={e.kind === 'death' ? skillSrc('hitpoints') : e.quest ? questSrc(e.quest) : uiSrc('quests')}
+            size={MARK}
+            alt=""
+          />
+        )}
+      </button>
+    </Tip>
   );
 }
 
@@ -108,7 +117,7 @@ export function Playback({
   clock: Clock;
   measure: XMeasure;
   chapters?: RunSummary['chapters'];
-}) {
+}): JSX.Element {
   const [committed, write] = useCommitted(run, clock);
   const head = usePlayhead(clock, committed, write);
   const auto = String(defaultSpeed(clock.maxTicks));
@@ -148,113 +157,119 @@ export function Playback({
     return () => window.removeEventListener('keydown', onKey);
   }, [turnTicks, tick, max]);
 
-  // Events left to right; one closer than a mark's width to the last shares its mark
+  // Events left to right, where the scrubber's thumb is at their tick; one closer than a mark's
+  // width to the last shares its mark
+  const events = useMemo(
+    () =>
+      run.events
+        .filter((e): e is Marked => e.kind === 'quest' || (e.kind === 'attempt' && e.attempt > 1))
+        .filter(e => e.tick <= max)
+        .sort((a, b) => a.tick - b.tick),
+    [run.events, max]
+  );
+  const marked = events.length > 0 && max > 0;
   const marks = useMemo(() => {
     const out: Mark[] = [];
     if (width === 0 || max === 0) return out;
-    const events = run.events
-      .filter((e): e is Marked => e.kind === 'quest' || (e.kind === 'attempt' && e.attempt > 1))
-      .sort((a, b) => a.tick - b.tick);
     for (const e of events) {
-      if (e.tick > max) continue;
       const left = (Math.min(e.tick, max) / max) * width;
       const last = out[out.length - 1];
       if (last && left - last.left < MARK + 2) last.events.push(e);
       else out.push({ left, tick: e.tick, events: [e] });
     }
     return out;
-  }, [run.events, width, max]);
+  }, [events, width, max]);
 
+  // A drag or a key on the scrubber left the playhead scrubbed and paused: settle it there
+  const settle = (): void => {
+    if (head.scrub != null && !head.playing) commit(head.scrub);
+  };
   const label = measure === 'ticks' ? `${formatInt(Math.round(tick))} ticks` : formatClock(clock.toSeconds(tick));
   return (
     <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-2">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={toggle}
-            aria-label={head.playing ? 'Pause' : 'Play'}
-            aria-keyshortcuts="Space"
-          >
-            {head.playing ? <PauseIcon className="fill-current" /> : <PlayIcon className="fill-current" />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          {head.playing ? 'Pause' : 'Play'} <Kbd>Space</Kbd>
-        </TooltipContent>
-      </Tooltip>
-      <div className="order-first flex min-w-0 basis-full flex-col gap-1 sm:order-none sm:flex-1 sm:basis-0">
-        {marks.length > 0 && (
-          <div className="relative h-4">
-            {marks.map(m => (
-              <EventMark key={`${m.events[0].kind}-${m.tick}`} mark={m} />
-            ))}
+      <Tip
+        content={
+          <span className="flex items-center gap-1.5">
+            {head.playing ? 'Pause' : 'Play'} <Key>Space</Key>
+          </span>
+        }
+      >
+        <Button
+          variant="secondary"
+          size="sm"
+          iconOnly
+          leadingIcon={head.playing ? <PauseIcon /> : <PlayIcon />}
+          onClick={toggle}
+          aria-label={head.playing ? 'Pause' : 'Play'}
+          aria-keyshortcuts="Space"
+        />
+      </Tip>
+      <div className="order-first flex min-w-0 basis-full flex-col gap-1 sm:order-0 sm:flex-1 sm:basis-0">
+        {/* The scrubber's thumb travels half its width in from each end: the marks and chapters share that inset */}
+        {marked && (
+          <div className="px-2">
+            <div ref={trackRef} className="relative h-4">
+              {marks.map(m => (
+                <EventMark key={`${m.events[0].kind}-${m.tick}`} mark={m} />
+              ))}
+            </div>
           </div>
         )}
-        <div ref={trackRef} className="flex flex-col gap-1">
-          <Slider
-            aria-label="Playhead"
+        {/* A drag moves the playhead; letting go (or a key's release) settles it in the URL */}
+        <div onPointerUp={settle} onKeyUp={settle}>
+          <RangeInput
+            id="playhead"
+            label="Playhead"
+            hideLabel
             min={0}
             max={max}
             step={1}
-            value={[Math.min(max, Math.round(tick))]}
-            onValueChange={([v]) => {
+            value={Math.min(max, Math.round(tick))}
+            onChange={v => {
               pause();
               seek(v);
             }}
-            onValueCommit={([v]) => commit(v)}
           />
-          {/* The run's chapters (site/summarize.py) as segments under the track: a click starts one */}
-          {chapters && chapters.length > 0 && max > 0 && (
-            <ol className="relative flex h-1.5 gap-px" aria-label="Chapters">
-              {chapters.map((c, i) => {
-                const current = tick >= c.from_tick && (tick < c.to_tick || i === chapters.length - 1);
-                return (
-                  <li
-                    key={c.from_tick}
-                    className="flex min-w-0"
-                    style={{ width: `${((Math.min(max, c.to_tick) - Math.min(max, c.from_tick)) / max) * 100}%` }}
-                  >
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          aria-label={c.title}
-                          onClick={() => {
-                            pause();
-                            commit(c.from_tick);
-                          }}
-                          className={cn(
-                            'h-full w-full rounded-full border-0 p-0 hover:bg-foreground/40 active:not-aria-[haspopup]:translate-y-0',
-                            current ? 'bg-primary' : 'bg-muted-foreground/25'
-                          )}
-                        />
-                      </TooltipTrigger>
-                      <TooltipContent>{c.title}</TooltipContent>
-                    </Tooltip>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
         </div>
+        {/* The run's chapters (site/summarize.py) as segments under the track: a click starts one */}
+        {chapters && chapters.length > 0 && max > 0 && (
+          <ol className="flex h-1.5 gap-px px-2" aria-label="Chapters">
+            {chapters.map((c, i) => {
+              const current = tick >= c.from_tick && (tick < c.to_tick || i === chapters.length - 1);
+              return (
+                <li
+                  key={c.from_tick}
+                  className="flex min-w-0"
+                  style={{ width: `${((Math.min(max, c.to_tick) - Math.min(max, c.from_tick)) / max) * 100}%` }}
+                >
+                  <Tip content={c.title}>
+                    <button
+                      type="button"
+                      aria-label={c.title}
+                      onClick={() => {
+                        pause();
+                        commit(c.from_tick);
+                      }}
+                      className={clsx(
+                        'size-full rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+                        current ? 'bg-primary hover:bg-primary-hover' : 'bg-border hover:bg-muted-50'
+                      )}
+                    />
+                  </Tip>
+                </li>
+              );
+            })}
+          </ol>
+        )}
       </div>
-      <span className="text-sm text-muted-foreground tabular-nums">{label}</span>
-      <ToggleGroup
-        type="single"
-        size="sm"
-        value={speed}
-        onValueChange={v => v && update({ speed: v === auto ? undefined : (v as '1' | '4' | '16' | '64') })}
-        aria-label="Playback speed"
+      <span className="text-sm text-muted tabular-nums">{label}</span>
+      <Segmented
+        label="Playback speed"
         className="ml-auto"
-      >
-        {SPEEDS.map(s => (
-          <ToggleGroupItem key={s} value={String(s)} className="tabular-nums">
-            {s}×
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+        value={speed}
+        options={SPEEDS.map(s => ({ value: String(s), label: `${s}×` }))}
+        onChange={v => update({ speed: v === auto ? undefined : (v as '1' | '4' | '16' | '64') })}
+      />
     </div>
   );
 }

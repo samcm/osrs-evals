@@ -12,6 +12,11 @@ export interface TooltipProps {
   side?: 'top' | 'right' | 'bottom' | 'left';
   /** Classes for the panel, such as a wider `max-w-*` for a long note */
   className?: string;
+  /**
+   * Held open from outside instead of on hover, for a point the pointer is over that is not an
+   * element of its own (a mark drawn on a canvas)
+   */
+  open?: boolean;
 }
 
 export interface TooltipGroupProps {
