@@ -5,29 +5,27 @@
  * what the winners did reads down the top. A narrow card shows one measure at a time (`?measure=`).
  */
 
-import { useMemo } from 'react';
+import { useMemo, type JSX } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Bar, BarChart, CartesianGrid, Cell, Scatter, ScatterChart, XAxis, YAxis } from 'recharts';
-import { ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import {
   ChartFrame,
-  chartMargin,
   KeyLegend,
-  Y_AXIS_WIDTH,
   SeriesLabel,
-  SeriesTooltip,
-  gridProps,
-  xAxisProps,
-} from '@/components/Charts/legacy';
+  XYChart,
+  Y_AXIS_WIDTH,
+  type ChartPoints,
+  type ChartRow,
+  type Plot,
+} from '@/components/Charts';
 import type { Run } from '@/data/types';
-import { extraLabelWidth, toolSeries } from '@/lib/chartSeries';
-import { FADED_OPACITY, setHovered } from '@/lib/hover';
+import { extraLabelWidth, toolSeries, type SeriesSpec } from '@/lib/chartSeries';
+import { FADED_OPACITY } from '@/lib/hover';
 import { faded, useLit } from './lit';
 import { median } from '@/lib/stats';
 import { TOOL_CATEGORIES } from '@/lib/tools';
 import { useWidth } from '@/lib/useWidth';
 import { SelectField } from '@/components/SelectField';
-import { variantKey } from '@/lib/series';
+import { levelName, variantKey } from '@/lib/series';
 import { formatTick, formatX, labelWidth, roundMax, roundTicks, type Measure } from './chartBits';
 import { groupRuns, type Group, type GroupBy, type RankedVariant } from './model';
 
@@ -65,6 +63,7 @@ const COLUMNS: Column[] = [
   },
 ];
 
+// eslint-disable-next-line react-refresh/only-export-components -- EvalPage reads these; integration moves them
 export const STRIP_MEASURES = [
   'calls',
   'waiting',
@@ -77,44 +76,43 @@ export const STRIP_MEASURES = [
 ] as const;
 export type StripMeasure = (typeof STRIP_MEASURES)[number];
 
+// eslint-disable-next-line react-refresh/only-export-components -- as STRIP_MEASURES
 export const GROUP_OPTIONS = [
   { value: 'variant' as const, label: 'Pairing' },
   { value: 'model' as const, label: 'Model' },
   { value: 'agent' as const, label: 'Harness' },
 ];
 
-/** A group's label in the left gutter: its marks, short name, thinking level and harness mark. */
-function GroupTick({
-  x,
-  y,
-  payload,
-  groups,
-  width,
+/** The groups as the chart's rows: each one's marks, short name and thinking level, or none in a column beside the labels. */
+const rowsOf = (groups: Group[], labels: boolean): ChartRow[] =>
+  groups.map(g => ({ key: g.spec.key, label: labels ? <SeriesLabel series={g.spec} size={14} /> : null }));
+
+/** The plot's left edge when another column holds the labels: room for the first tick's label. */
+const NO_LABELS = 12;
+
+/** Each group's median: a small upright bar on its row, over its runs' dots. */
+function Medians({
+  medians,
+  plot,
+  lit,
 }: {
-  x?: number;
-  y?: number;
-  payload?: { value: number };
-  groups: Group[];
-  width: number;
-}) {
-  const g = groups[payload?.value ?? -1];
-  if (!g || x == null || y == null) return null;
+  medians: { x: number; row: number; g: Group }[];
+  plot: Plot;
+  lit: string | null;
+}): JSX.Element {
   return (
-    <foreignObject x={x - width} y={y - 11} width={width - 4} height={22}>
-      <div className="flex h-full items-center justify-end text-xs text-foreground">
-        <SeriesLabel series={g.spec} size={14} />
-      </div>
-    </foreignObject>
+    <>
+      {medians.map(m => (
+        <div
+          key={m.g.spec.key}
+          aria-hidden
+          className="pointer-events-none absolute h-4 w-0.5 -translate-1/2 rounded-xs bg-foreground"
+          style={{ left: plot.x(m.x), top: plot.y(m.row), opacity: faded(lit, m.g.spec.id) ? FADED_OPACITY : 1 }}
+        />
+      ))}
+    </>
   );
 }
-
-/** A small vertical bar: the group's median. */
-const MedianMark = (props: { cx?: number; cy?: number }) =>
-  props.cx == null || props.cy == null ? (
-    <g />
-  ) : (
-    <rect x={props.cx - 1} y={props.cy - 8} width={2} height={16} rx={1} className="fill-foreground" />
-  );
 
 function Strip({
   column,
@@ -130,21 +128,24 @@ function Strip({
   labelRoom: number;
   lit: string | null;
   titled?: boolean;
-}) {
+}): JSX.Element {
   const navigate = useNavigate();
   const { dots, medians, max } = useMemo(() => {
-    const dots = groups.flatMap((g, row) =>
-      g.runs.flatMap((run, i) => {
-        const v = column.value(run);
-        // A little vertical spread by epoch, so runs with the same value don't hide each other
-        return v == null ? [] : [{ x: v, y: row + ((i % 5) - 2) * 0.1, run, g }];
+    const dots = groups.map(
+      (g, row): ChartPoints => ({
+        series: g.spec,
+        points: g.runs.flatMap((run, i) => {
+          const v = column.value(run);
+          // A little vertical spread by epoch, so runs with the same value don't hide each other
+          return v == null ? [] : [{ x: v, y: row + ((i % 5) - 2) * 0.1, key: run.id, data: run }];
+        }),
       })
     );
     const medians = groups.flatMap((g, row) => {
       const m = median(g.runs.map(column.value));
-      return m == null ? [] : [{ x: m, y: row, g }];
+      return m == null ? [] : [{ x: m, row, g }];
     });
-    const top = Math.max(0, ...dots.map(d => d.x));
+    const top = Math.max(0, ...dots.flatMap(d => d.points.map(p => p.x)));
     return { dots, medians, max: column.measure === 'share' ? 1 : roundMax(Math.max(1, top)) };
   }, [column, groups]);
   const ticks = column.measure === 'share' ? [0, 0.5, 1] : roundTicks(max, column.measure, 3);
@@ -152,73 +153,26 @@ function Strip({
   return (
     <div className="flex min-w-0 flex-col gap-2">
       {titled && (
-        <h3 className="text-sm text-muted-foreground" style={{ paddingLeft: labels ? labelRoom : 0 }}>
+        <h3 className="text-sm text-muted" style={{ paddingLeft: labels ? labelRoom : NO_LABELS }}>
           {column.title}
         </h3>
       )}
-      <ChartFrame config={{}} rows={groups.length}>
-        <ScatterChart margin={chartMargin()}>
-          <CartesianGrid {...gridProps} vertical horizontal={false} />
-          <XAxis
-            {...xAxisProps({ dataKey: 'x', domain: [0, max], ticks, format: v => formatTick(v, column.measure) })}
-          />
-          <YAxis
-            dataKey="y"
-            type="number"
-            domain={[-0.5, groups.length - 0.5]}
-            ticks={groups.map((_, i) => i)}
-            reversed
-            width={labels ? labelRoom : 0}
-            hide={!labels}
-            axisLine={false}
-            tickLine={false}
-            interval={0}
-            tick={<GroupTick groups={groups} width={labelRoom} />}
-          />
-          <ChartTooltip
-            cursor={false}
-            content={({ active, payload }) => {
-              const d = payload?.[0]?.payload as (typeof dots)[number] | undefined;
-              if (!active || !d) return null;
-              return (
-                <ChartTooltipContent
-                  active
-                  label="title"
-                  labelFormatter={() => <SeriesLabel series={d.g.spec} />}
-                  payload={[{ dataKey: 'v', name: 'v', value: d.x, payload: {} }] as never}
-                  formatter={value => (
-                    <div className="flex w-full items-center justify-between gap-4">
-                      <span className="text-muted-foreground">{d.run ? `Epoch ${d.run.epoch}` : 'Median'}</span>
-                      <span className="font-mono font-medium text-foreground tabular-nums">
-                        {formatX(Number(value), column.measure)}
-                      </span>
-                    </div>
-                  )}
-                />
-              );
-            }}
-          />
-          <Scatter
-            data={dots}
-            isAnimationActive={false}
-            className="cursor-pointer"
-            onClick={(d: { payload?: { run?: Run } }) =>
-              d.payload?.run &&
-              navigate({ to: '/runs/$runId', params: { runId: d.payload.run.id }, search: {} as never })
-            }
-          >
-            {dots.map(d => (
-              <Cell
-                key={d.run.id}
-                fill={d.g.spec.color}
-                fillOpacity={faded(lit, d.g.spec.id) ? FADED_OPACITY : 0.8}
-                onMouseEnter={() => setHovered(d.g.spec.id)}
-                onMouseLeave={() => setHovered(undefined)}
-              />
-            ))}
-          </Scatter>
-          <Scatter data={medians} shape={<MedianMark />} isAnimationActive={false} />
-        </ScatterChart>
+      <ChartFrame rows={groups.length}>
+        <XYChart
+          rows={rowsOf(groups, labels)}
+          rowLabelWidth={labels ? labelRoom : NO_LABELS}
+          x={{ domain: [0, max], ticks, format: v => formatTick(v, column.measure) }}
+          points={dots}
+          lit={lit}
+          pointTooltip={(point, spec) => ({
+            title: `Epoch ${(point.data as Run).epoch}`,
+            rows: [{ series: spec, value: formatX(point.x, column.measure) }],
+          })}
+          onPointClick={point =>
+            point.key && navigate({ to: '/runs/$runId', params: { runId: point.key }, search: {} as never })
+          }
+          overlay={plot => <Medians medians={medians} plot={plot} lit={lit} />}
+        />
       </ChartFrame>
     </div>
   );
@@ -228,7 +182,7 @@ function Strip({
 function useGroups(runs: Run[], by: GroupBy, ranked: RankedVariant[]): Group[] {
   return useMemo(() => {
     const place = new Map(ranked.map((r, i) => [r.variant.key, i]));
-    const best = (g: Group) => Math.min(...g.runs.map(r => place.get(variantKey(r)) ?? Infinity));
+    const best = (g: Group): number => Math.min(...g.runs.map(r => place.get(variantKey(r)) ?? Infinity));
     return groupRuns(runs, by).sort((a, b) => best(a) - best(b));
   }, [runs, by, ranked]);
 }
@@ -251,7 +205,7 @@ export function EffortStrips({
   /** The one measure a narrow card shows */
   measure: StripMeasure;
   onMeasure: (measure: StripMeasure) => void;
-}) {
+}): JSX.Element {
   const [ref, width] = useWidth();
   const groups = useGroups(runs, by, ranked);
   const lit = useLit(focus);
@@ -306,73 +260,38 @@ export function EffortStrips({
   );
 }
 
+/** A group's name as a tooltip's title: its short name and thinking level, "Opus 5.5 high". */
+const titleOf = (spec: SeriesSpec): string =>
+  spec.thinking ? `${spec.label} ${levelName(spec.thinking)}` : spec.label;
+
 /** What each group's tool calls were for, as shares of its calls. */
-export function ToolMix({ runs, by, ranked }: { runs: Run[]; by: GroupBy; ranked: RankedVariant[] }) {
+export function ToolMix({ runs, by, ranked }: { runs: Run[]; by: GroupBy; ranked: RankedVariant[] }): JSX.Element {
   const groups = useGroups(runs, by, ranked);
   const labelRoom = roomFor(groups);
   const present = TOOL_CATEGORIES.filter(cat => runs.some(r => (r.metrics.tool_mix[cat.id] ?? 0) > 0));
+  // Each group's share of its calls in each category, one stacked bar per row
+  const shares = groups.map(g => {
+    const counts = present.map(cat => g.runs.reduce((sum, r) => sum + (r.metrics.tool_mix[cat.id] ?? 0), 0));
+    const total = counts.reduce((a, b) => a + b, 0) || 1;
+    return counts.map(c => c / total);
+  });
   const series = present.map(cat => toolSeries(cat.id));
-  const rows = useMemo(
-    () =>
-      groups.map((g, i) => {
-        const counts = present.map(cat => g.runs.reduce((sum, r) => sum + (r.metrics.tool_mix[cat.id] ?? 0), 0));
-        const total = counts.reduce((a, b) => a + b, 0) || 1;
-        return { group: i, total, ...Object.fromEntries(series.map((s, j) => [s.key, counts[j] / total])) };
-      }),
-    [groups, present, series]
-  );
-  const config: ChartConfig = Object.fromEntries(series.map(s => [s.key, { label: s.label, color: s.color }]));
   return (
-    <div className="flex flex-col">
-      <ChartFrame
-        config={config}
-        rows={groups.length}
-        legend={<KeyLegend items={present.map(cat => ({ label: cat.label, color: cat.color }))} />}
-      >
-        <BarChart data={rows} layout="vertical" margin={chartMargin()} barCategoryGap={12} maxBarSize={20}>
-          <CartesianGrid {...gridProps} vertical horizontal={false} />
-          <XAxis
-            {...xAxisProps({ domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1], format: v => `${Math.round(v * 100)}%` })}
-          />
-          <YAxis
-            type="category"
-            dataKey="group"
-            width={labelRoom}
-            axisLine={false}
-            tickLine={false}
-            interval={0}
-            tick={<GroupTick groups={groups} width={labelRoom} />}
-          />
-          <ChartTooltip
-            cursor={{ fill: 'var(--muted)', opacity: 0.6 }}
-            content={({ active, payload, label }) => {
-              const g = groups[Number(label)];
-              if (!g) return null;
-              return (
-                <SeriesTooltip
-                  active={active}
-                  payload={payload}
-                  label={g.spec.name}
-                  series={series}
-                  sort="none"
-                  labelFormat={() => <SeriesLabel series={g.spec} />}
-                  format={v => formatX(v, 'share')}
-                />
-              );
-            }}
-          />
-          {series.map((s, i) => (
-            <Bar
-              key={s.key}
-              dataKey={s.key}
-              stackId="a"
-              fill={s.color}
-              isAnimationActive={false}
-              radius={i === series.length - 1 ? [0, 4, 4, 0] : 0}
-            />
-          ))}
-        </BarChart>
-      </ChartFrame>
-    </div>
+    <ChartFrame
+      rows={groups.length}
+      legend={<KeyLegend items={present.map(cat => ({ label: cat.label, color: cat.color }))} />}
+    >
+      <XYChart
+        rows={rowsOf(groups, true)}
+        rowLabelWidth={labelRoom}
+        x={{ domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1], format: v => formatX(v, 'share') }}
+        bars={series.map((s, j) => ({ series: s, values: shares.map((row, i) => ({ row: i, value: row[j] })) }))}
+        // Pointing at a bar lights its category; the pairings stay as they are
+        barTooltip={bar => ({
+          title: titleOf(groups[bar.row].spec),
+          rows: series.map((s, j) => ({ series: s, value: formatX(shares[bar.row][j], 'share') })),
+        })}
+      />
+    </ChartFrame>
   );
 }

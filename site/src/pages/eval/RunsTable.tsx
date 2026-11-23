@@ -3,13 +3,13 @@
 import { useMemo, type JSX } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
-import { Line, LineChart, YAxis, XAxis } from 'recharts';
 import clsx from 'clsx';
 import { DataTable } from '@/components/DataTable';
 import { Empty, Tip } from '@/components/bits';
 import { VariantLabel } from '@/components/marks';
 import type { Eval, Run } from '@/data/types';
 import { cssColor } from '@/lib/chartSeries';
+import { Sparkline } from '@/components/Charts/Sparkline';
 import { formatCost, formatInt } from '@/lib/format';
 import { useSearchUpdate } from '@/lib/search';
 import { variantKey, variantOf } from '@/lib/series';
@@ -31,20 +31,15 @@ function Spark({
   top: number;
 }): JSX.Element | null {
   if (!curve) return null;
-  const data = curve.points.map(p => ({ t: Math.min(p.tick, maxTick), v: p.value }));
   return (
-    <LineChart width={96} height={24} data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }} aria-hidden>
-      <XAxis dataKey="t" type="number" domain={[0, maxTick]} hide />
-      <YAxis domain={[0, top]} hide />
-      <Line
-        dataKey="v"
-        type="stepAfter"
-        stroke={cssColor(curve.variant.color)}
-        strokeWidth={1.5}
-        dot={false}
-        isAnimationActive={false}
-      />
-    </LineChart>
+    <Sparkline
+      data={curve.points.map(p => [Math.min(p.tick, maxTick), p.value])}
+      xDomain={[0, maxTick]}
+      yDomain={[0, top]}
+      width={96}
+      color={cssColor(curve.variant.color)}
+      step
+    />
   );
 }
 
