@@ -119,15 +119,6 @@ export function EvalModelPage(): JSX.Element {
       <PageHeader
         mark={<BrandMark slug={info.vendor.slug} size={40} title={info.vendor.name} />}
         meta={facts(runs, e.target, e.measure, rank)}
-        actions={
-          <Link
-            to="/models/$model"
-            params={{ model: modelSlug(all[0].model) }}
-            className={buttonClassName({ variant: 'secondary', size: 'sm' })}
-          >
-            Every eval
-          </Link>
-        }
       />
       <PageToolbar label="Filters">
         <PairingFilters
@@ -143,6 +134,14 @@ export function EvalModelPage(): JSX.Element {
             )
           }
         />
+        {/* The model's page across every eval, at the toolbar's end: one row with Filters on a phone */}
+        <Link
+          to="/models/$model"
+          params={{ model: modelSlug(all[0].model) }}
+          className={buttonClassName({ variant: 'secondary', size: 'sm', className: 'ml-auto' })}
+        >
+          Every eval
+        </Link>
       </PageToolbar>
       {runs.length === 0 ? (
         <Empty>No runs match these filters.</Empty>

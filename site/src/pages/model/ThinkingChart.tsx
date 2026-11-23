@@ -20,6 +20,7 @@ import {
 import type { Run } from '@/data/types';
 import { variantSeries, type SeriesSpec } from '@/lib/chartSeries';
 import { formatInt } from '@/lib/format';
+import { useHover } from '@/lib/hover';
 import { levelName } from '@/lib/series';
 import { median } from '@/lib/stats';
 import { useWidth } from '@/lib/useWidth';
@@ -56,14 +57,19 @@ export function ThinkingChart({
 }): JSX.Element {
   const navigate = useNavigate();
   const [ref, width] = useWidth();
-  const { points, lines } = useMemo(() => {
+  const hover = useHover();
+  const { points, lines, pairings } = useMemo(() => {
     const points: ChartPoints[] = [];
     const lines: ChartLine[] = [];
+    /** Each harness's pairings (one per level), by the harness' id */
+    const pairings = new Map<string, Set<string>>();
     series.forEach((spec, h) => {
       // Harnesses side by side at each level, so their points don't hide each other
       const offset = (h - (series.length - 1) / 2) * 0.12;
       const own = runs.filter(r => r.agent === spec.id);
       const line: [number, number][] = [];
+      const ownPairings = new Set<string>();
+      pairings.set(spec.id, ownPairings);
       levels.forEach((level, i) => {
         const at = own.filter(r => r.thinking === level);
         const values = at.flatMap(run => {
@@ -71,14 +77,25 @@ export function ThinkingChart({
           return v == null ? [] : [{ x: i + offset, y: v, key: run.id, data: run }];
         });
         // Each level's runs are their pairing: its level's lightness, hovered with its table rows
-        if (values.length > 0) points.push({ series: variantSeries(at[0]), points: values });
+        if (values.length > 0) {
+          const pairing = variantSeries(at[0]);
+          points.push({ series: pairing, points: values });
+          ownPairings.add(pairing.id);
+        }
         const m = median(values.map(p => p.y));
         if (m != null) line.push([i + offset, m]);
       });
       lines.push({ series: spec, points: line, step: false, width: 1.5 });
     });
-    return { points, lines };
+    return { points, lines, pairings };
   }, [runs, measure, levels, series]);
+  // A harness's median belongs to the harness, not to one pairing: it stays lit while one of its
+  // pairings is hovered, so it takes the hovered id
+  const litLines = lines.map(line =>
+    hover.id != null && line.series && pairings.get(line.series.id)?.has(hover.id)
+      ? { ...line, series: { ...line.series, id: hover.id } }
+      : line
+  );
 
   const values = points.flatMap(group => group.points.map(p => p.y));
   const kind = measure.ticks ? 'ticks' : 'count';
@@ -107,7 +124,7 @@ export function ThinkingChart({
             format: i => labels[Math.round(i)] ?? '',
           }}
           y={y ?? undefined}
-          lines={lines}
+          lines={litLines}
           points={points}
           pointTooltip={(point, spec) => {
             const run = point.data as Run;
