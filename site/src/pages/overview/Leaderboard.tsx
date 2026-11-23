@@ -20,7 +20,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import type { Eval } from '@/data/types';
 import { evalArt, evalSlug } from '@/lib/evals';
 import { formatScore, type Pairing } from '@/lib/score';
-import { modelInfo, modelSlug } from '@/lib/series';
+import { modelSlug } from '@/lib/series';
 import { cn } from '@/lib/utils';
 
 /** One hue in tint steps, darker for a higher score. */
@@ -159,20 +159,8 @@ export function Leaderboard({
     [evals]
   );
 
-  // The answer in one line: who leads, by how much (over pairings that ran every eval)
-  const [first, second] = pairings.filter(p => p.complete);
-  const lead = first && second ? Number(formatScore(first.score)) - Number(formatScore(second.score)) : 0;
-  const description = first && (
-    <span className="inline-flex flex-wrap items-center gap-x-1.5">
-      <VariantLabel variant={first.variant} run={first.sample} className="font-medium text-foreground" />
-      <span>
-        leads with {formatScore(first.score)} of 100
-        {second && (lead > 0 ? `, ${lead} ahead of ${modelInfo(second.variant.model).short}` : `, level with ${modelInfo(second.variant.model).short}`)}
-      </span>
-    </span>
-  );
   return (
-    <PageSection title="Leaderboard" description={description} actions={<Scoring evals={every} />} className="2xl:col-span-8">
+    <PageSection title="Leaderboard" actions={<Scoring evals={every} />} className="2xl:col-span-8">
       <DataTable
         page={page}
         pageSize={50}

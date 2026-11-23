@@ -66,9 +66,9 @@ Every page has the same skeleton, and nothing on a page invents its own.
 ### Home
 
 No description line (the sidebar names the product). A toolbar with the Filters button, then the
-Leaderboard. The blended score is the hero: the card's description names the leading pairing, its
-score and its lead over the next; each row's score is a large number over a bar of its 100 in the
-model's colour. Rank,
+Leaderboard. The blended score is the hero: each row's score is a large number over a bar of its
+100 in the model's colour, so the order and the gaps read at a glance (no sentence restating the top
+row). Rank,
 pairing, its score, every pairing that ran every eval ranked above any that didn't, whose partial
 score is muted (a thinking-level sweep runs two evals), with "How it's scored" in the card's action.
 The per-eval results are secondary: a small muted number per eval that more than one pairing ran
