@@ -12,22 +12,23 @@ deaths, when the score first and last moved, quitting early, ...) into runs/<id>
 those of its eval's other runs, when missing: the agent sees each fact beside the eval's), lays
 the run out in a folder (its transcripts and its subagents', the files it wrote, its run folder,
 its exported data, its facts), and starts omp in print mode (--model, Claude Haiku 5.5 by default)
-in that folder with a shell. The agent reads, greps and computes, checks its claims against the
-data and writes summary.json, which this script checks (`check`: chapters inside the run, in order,
+in that folder with a shell. The agent finds the run's point of difference (what it did that most
+runs didn't, in words that stay true as runs are added), checks it against the data and writes
+summary.json, which this script checks for shape (`check`: chapters inside the run, in order,
 without gaps) and writes to runs/<id>.summary.json:
 
-    {"summary": "...", "chapters": [{"from_tick", "to_tick", "title", "text"}], "run_summary",
-     "model", "thinking", "prompt_hash", "telling": {"calls", "seconds", "input_tokens", "output_tokens"}}
+    {"summary": "...", "chapters": [{"from_tick", "to_tick", "title", "text"}], "model", "thinking",
+     "prompt_hash", "telling": {"calls", "seconds", "input_tokens", "output_tokens"}}
+
+A run's sentence is written once: a run already told with the same prompt and model is skipped, so
+adding runs never rewrites the old ones (--force, or a new prompt, tells them again).
 
 `evals`: for each eval, an omp agent (--model, Claude Sonnet 5.5 by default) reads every run's
-summary, chapters and facts and writes what separated the runs (a short note) and, per run, a few
-traits that set it apart and its sentence again, saying what was distinctive about it. The note and
-traits go to evals/<id>.compare.json; each run's summary.json gets its `traits` and the new
-`summary` (the run's own sentence is kept as `run_summary`).
+sentence, chapters and facts and writes the eval's note to evals/<id>.compare.json: what the best
+runs had in common and how the others mostly went wrong, only as far as many runs show it, with no
+model names or figures (the site shows those). It is written again whenever the eval's runs change.
 
-A run or eval already told with the same prompt and model (and, for an eval, the same runs' texts
-and facts) is skipped; --force tells it again. Writes each run's summary into index.json too, so the
-site shows them without another export.
+Writes each run's summary into index.json too, so the site shows them without another export.
 
 Models are reached through omp's auth gateway (Sam's subscriptions; GATEWAY_URL, default
 http://127.0.0.1:4000) by way of a proxy in this script that sends every request once: omp's own
@@ -54,123 +55,62 @@ from pathlib import Path
 SITE = Path(__file__).resolve().parent
 
 VOICE = """\
-Write like a RuneScape player telling a mate how the run went: plain, with game slang where it fits \
-(blitzed, ground out, speedran, farmed, got turned away), naming the quests, places, skills, items \
-and methods that mattered.
-
-The voice, from other runs of Dragon Slayer:
-- "Farmed the quest scripts out to helper agents, blitzed the prerequisites, then speedran Dragon \
-Slayer from map to Elvarg in four minutes."
-- "Ground out the quest points one script at a time, then took three trips to Crandor before Elvarg \
-went down."
-- "Read the wiki, walked to the Champions' Guild, got turned away for having no quest points, and \
-logged off."
+Write like a RuneScape player telling a mate: plain, with game slang where it fits, naming the \
+quests, places, skills, items and methods that mattered.\
 """
 
 RUN_PROMPT = """\
-You're writing the captions for a site where people watch language-model agents play the 2004 \
-MMORPG RuneScape (2004scape). This folder holds the whole record of one run, and your job is to \
-tell it. The agent played through a TypeScript SDK for up to {budget} of game time. Its goal: \
-"{goal}". It's scored by {measure}.
+You're writing the caption for one run on a site where people watch language-model agents play the \
+2004 MMORPG RuneScape (2004scape). The agent played through a TypeScript SDK for up to {budget} of \
+game time. Its goal: "{goal}". It's scored by {measure}; this run ended with {result}, which the \
+site shows beside your text.
 
-What's here (read with the shell: grep, sed -n, python3; the files are big, so search, don't read \
-them whole):
-- facts.txt: measured from the data, not told by anyone, each with what it means and the same fact \
-across this eval's runs (median, how many above 0), so you can see what's usual and what isn't: \
-subagents, background jobs, accounts used, deaths, game minutes when the score first and last \
-moved, minutes the score sat flat at the end, whether the agent quit early. Trust these over your \
-impressions.
-- record.txt: the run as one line per event in tick order: its tick, its game time, then SAID (the \
-agent's words), DID (a tool call with the intent it gave) or GAME (the score changing, quests, \
-quest stages, levels, items gained and lost, deaths, teleports). Start here for the shape of the run.
-- transcript.txt: the agent's own conversation in full, call by call with its tick and game time: \
-what it thought, said and ran, the scripts it wrote and every result it got back.
-- subagents/<n>.txt: the same for each subagent it handed tasks to (only when it did).
-- files/: the last version of every file the agents wrote with the write tool (their scripts).
-- run.json: the site's data for the run; run_folder/: the raw run folder (states.jsonl.gz, the \
-accounts' saved state over time; world.log, the game server and SDK gateway's log).
+This folder holds everything about the run. Use the shell; the files are big, so search them.
+- facts.txt: facts measured from the data, each beside the same fact across this eval's runs.
+- record.txt: one line per event in tick order: SAID (the agent's words), DID (a tool call and its \
+intent), GAME (the score, quests, levels, items, deaths, teleports).
+- transcript.txt, subagents/<n>.txt: the agents' conversations in full.
+- files/: the scripts they wrote. run.json and run_folder/: the raw data.
 
-Work it out before you write: what the plan was, where the score came from and when, what went \
-wrong and what it cost, and how the agent worked. Check every claim against the files (grep for \
-it); never say anything the data doesn't show. A long stretch where the score didn't move is part \
-of the story: say what the agent was doing then. The run ended with {result}; that's shown next to \
-your text, so don't state the final score or whether it reached the target.
-
-{voice}
-Rules:
-- Say what made this run this run, not what every run does. Every run starts the same way: a fresh \
-character in Lumbridge and the same docs, SDK and server files to read, so don't spend words on \
-reading them, and never title or open a chapter with it. Mention research only when it took much \
-longer than usual (facts.txt: first_game_action_minutes) or what it found changed the run.
-- Say plainly how the agent worked: when facts.txt shows subagents it handed tasks to, several \
-accounts at once, or scripts left running in the background while it did something else that \
-shaped the run, say so in the summary or a chapter; when it didn't, don't suggest it did.
-- Be specific: the quest, the place, the monster, the method, the mistake. "Ground out skills" is \
-too vague; "chopped willows at Draynor" says something.
-- Don't mention what the agent didn't do (no helpers, no deaths) unless that is the story.
-- Use your own words, not the agent's names for its scripts or modes. Call something a grind, a \
-detour or a mistake when the data shows it.
+Every run of this eval started the same way with the same goal. Find this run's point of \
+difference: what it did that most runs didn't (its method, how it worked, where it went wrong); \
+facts.txt shows what's usual. Describe what this run did, in words that stay true however many \
+runs are added later: never how it ranks against other runs or how many others did the same. \
+Check every claim against the files before you write it. {voice}
 
 Write summary.json in this folder:
 {{"summary": "...", "chapters": [{{"from_tick": 0, "to_tick": 1200, "title": "...", "text": "..."}}]}}
-1. "summary": one sentence in that voice, at most 25 words, with no colon and no list of more than \
-three things.
-2. "chapters": 2 to 4 chapters, split where the run changed course or its progress sped up or \
-stalled, not at every new task. Each has "from_tick" and "to_tick" (whole ticks from record.txt; \
-together they cover tick 0 to {end_tick} in order, with no gaps or overlaps), a "title" of 2 to 6 \
-words in the same voice ("Blitzing the prerequisites", "Three trips to Crandor"), and a "text" of \
-one sentence in the same voice with at most two numbers (levels, coins, quest stages, or game time \
-as m:ss or h:mm:ss; never tick counts), telling events in the order they happened.
+- "summary": one sentence of at most 25 words: this run's point of difference.
+- "chapters": 2 to 4, split where the run changed course. Their ticks (from record.txt) cover tick \
+0 to {end_tick} in order without gaps; each has a "title" of 2 to 6 words and a "text" of one \
+sentence on what happened, with game time as m:ss or h:mm:ss, never ticks.
 
-Then check your own words: find every number, time, place, quest and event in summary.json in \
-record.txt, facts.txt or the transcript, and fix or drop what you can't find. Check each place \
-twice: grep the transcript near that game time for where the agent was (its intents, its words, \
-its scripts' walk targets) and make sure the thing you put there happened there, not before or \
-after a move; a summary sentence that joins two chapters often puts one chapter's event in \
-another's place. Then run `{check}` \
-and fix what it reports until it prints "ok". Answer with one line when done.
+Then run `{check}` and fix what it reports until it prints "ok".
 """
 
 EVAL_PROMPT = """\
 You're writing for a site where people watch language-model agents play the 2004 MMORPG RuneScape \
-(2004scape). Every run in this folder played the same eval, "{title}": the goal "{goal}", up to \
-{budget} of game time, scored by {measure}. Each run is one model at one thinking level in the omp \
-agent harness; most pairings ran twice.
+(2004scape). Every run in this folder played the eval "{title}": the goal "{goal}", up to {budget} \
+of game time, scored by {measure}. Each run is one model at one thinking level; most ran twice.
 
-What's here (use the shell: grep, python3, jq):
-- runs.tsv: one row per run: its id, model, thinking level, result, cost, then every measured fact. \
-The facts are measured from the data, not told; facts.txt says what each column means.
-- runs/<id>.json: one run: its model, thinking level, result, cost, facts, and the sentence and \
-chapters another agent wrote after reading the run's full logs.
-- runs.md: every run's sentence and chapters in one file, best result first.
+What's here (use the shell): runs.tsv (one row per run: model, result, cost and facts measured from \
+the data; facts.txt says what each column means) and runs.md (each run's sentence and chapters, \
+best result first, written by an agent that read its full logs).
 
-Find what set the runs apart: the key split indicators. Things one run or a handful did that the \
-rest didn't (only one used subagents; three never touched the game for the first half hour), \
-choices that went with the best and the worst results, and the ways runs failed. Count and \
-compare with the shell; every claim about how many runs did something must come from runs.tsv or \
-the files, never a guess, and must say which runs it counts ("48 that never scored", not "the \
-rest" when some of the rest got further). A fact that every run shares isn't a split. A trait that \
-ranks a run ("most", "only", "fastest") must hold across every run in runs.tsv: sort and check it.
+Write the eval's note: what the runs that did best had in common, then how the others mostly went \
+wrong, in at most two plain sentences. Claim a pattern only when it holds across many runs from \
+several different models: most models ran only twice, so what a few runs share may be chance, and \
+when nothing holds that widely, say less. Name no models and give no counts or figures: the site \
+shows those, and they change as runs are added. Check every claim against runs.tsv and runs.md \
+with the shell. {voice}
 
-Write compare.json in this folder:
-{{"note": "...", "runs": {{"<run id>": {{"traits": ["...", "..."], "summary": "..."}}}}}}
-- "note": what separated the runs, for the eval's page: 2 to 4 plain sentences, at most 90 words, \
-naming the splits and the models on each side (by their names in runs.tsv), with counts.
-- For every run in runs.tsv: "traits", 1 to 3 short phrases (2 to 6 words each) on what set this \
-run apart from the others in this eval ("only run to use subagents", "never left Lumbridge", \
-"three deaths to Elvarg"), and "summary", the run's sentence told again so it says what was \
-distinctive about this run among these: keep what's right in its own sentence, at most 25 words, \
-no colon, and don't repeat its result (shown beside it).
-
-{voice}
-Then run `{check}` and fix what it reports until it prints "ok". Answer with one line when done.
+Write compare.json in this folder: {{"note": "..."}}
+Then run `{check}` and fix what it reports until it prints "ok".
 """
 
 RUN_HASH = hashlib.sha256((RUN_PROMPT + VOICE).encode()).hexdigest()[:12]
 EVAL_HASH = hashlib.sha256((EVAL_PROMPT + VOICE).encode()).hexdigest()[:12]
 MAX_LINE = 280  # characters of one record line
-# Reading what every run is given; worth words only when a run took much longer over it than most
-READING = re.compile(r"\b(read|reading|studied|studying|skimm?(ed|ing)?)\b[^.;]{0,40}\b(docs?|sdk|api|readme|server|source|scripts? files|files)\b", re.I)
 TOOLS = "bash,read,grep,glob,write,edit"
 
 
@@ -279,18 +219,14 @@ def one_sentence(text) -> str:
     return s
 
 
-def problems_run(raw: dict, end_tick: int, subagents: int = 0, slow_start: bool = False) -> list[str]:
-    """What the agent should fix in its summary.json before this script takes it."""
+def problems_run(raw: dict, end_tick: int) -> list[str]:
+    """What the agent should fix in its summary.json before this script takes it: its shape only."""
     out = []
     s = str(raw.get("summary") or "").strip()
     if not s:
         out.append('"summary" is missing')
     elif len(s.split()) > 25:
         out.append(f'"summary" has {len(s.split())} words; at most 25')
-    elif ":" in s:
-        out.append('"summary" has a colon')
-    if s and not slow_start and READING.search(s):
-        out.append('"summary" spends words on reading the docs, SDK or server files, which every run does and this one didn\'t take long over; drop it')
     chapters = raw.get("chapters")
     if not isinstance(chapters, list) or not 2 <= len(chapters) <= 4:
         out.append('"chapters" must be a list of 2 to 4 chapters')
@@ -307,53 +243,24 @@ def problems_run(raw: dict, end_tick: int, subagents: int = 0, slow_start: bool 
         if b <= a:
             out.append(f"chapter {n} ends at or before it starts")
         prev = b
-        if not 2 <= len(str(c.get("title", "")).split()) <= 6:
-            out.append(f"chapter {n}'s title must be 2 to 6 words")
-        text = str(c.get("text", "")).strip()
-        if not text:
-            out.append(f"chapter {n} has no text")
-        if len(text.split()) > 35:
-            out.append(f"chapter {n}'s text has {len(text.split())} words; keep it to one sentence of at most 35")
-        if len(re.findall(r"\d[\d,.:]*", text)) > 2:
-            out.append(f"chapter {n}'s text has more than two numbers")
-        if re.search(r"\btick", text, re.I):
+        if not str(c.get("title", "")).strip() or not str(c.get("text", "")).strip():
+            out.append(f"chapter {n} needs a title and a text")
+        if re.search(r"\btick", str(c.get("text", "")), re.I):
             out.append(f"chapter {n}'s text mentions ticks; use game time (m:ss)")
-        if not slow_start and n == 1 and any(re.match(r"\s*(read|research|stud(y|ied|ying)|scour)", t, re.I) for t in (str(c.get("title", "")), text)):
-            out.append("chapter 1 opens with reading or research; open with what set the run's course")
-        if not slow_start and READING.search(str(c.get("title", "")) + " " + text):
-            out.append(f"chapter {n} spends words on reading the docs, SDK or server files, which every run does and this one didn't take long over; drop it")
     if prev != end_tick:
         out.append(f"the last chapter ends at tick {prev}; it must end at {end_tick}")
-    told = " ".join([s] + [str(c.get("text", "")) + " " + str(c.get("title", "")) for c in chapters if isinstance(c, dict)])
-    if subagents and not re.search(r"helper|subagent|sub-agent|scout|agents|farmed out|handed", told, re.I):
-        out.append(f"facts.txt shows {subagents} subagents; say plainly that it handed work to them")
     return out
 
 
-def problems_eval(raw: dict, ids: list[str]) -> list[str]:
-    out = []
+def problems_eval(raw: dict) -> list[str]:
     note = str(raw.get("note") or "").strip()
     if not note:
-        out.append('"note" is missing')
-    elif len(note.split()) > 100:
-        out.append(f'"note" has {len(note.split())} words; at most 90')
-    runs = raw.get("runs") if isinstance(raw.get("runs"), dict) else {}
-    missing = [i for i in ids if i not in runs]
-    if missing:
-        out.append(f"no entry for {len(missing)} runs: {', '.join(missing[:10])}")
-    extra = [i for i in runs if i not in ids]
-    if extra:
-        out.append(f"entries for runs not in runs.tsv: {', '.join(extra[:10])}")
-    for i in ids:
-        r = runs.get(i)
-        if not isinstance(r, dict):
-            continue
-        traits = r.get("traits")
-        if not isinstance(traits, list) or not 1 <= len(traits) <= 3 or not all(isinstance(t, str) and 1 <= len(t.split()) <= 8 for t in traits):
-            out.append(f"{i}: traits must be 1 to 3 short phrases")
-        s = str(r.get("summary") or "").strip()
-        if not 8 <= len(s.split()) <= 25 or ":" in s:
-            out.append(f"{i}: summary must be one sentence of 8 to 25 words with no colon")
+        return ['"note" is missing']
+    out = []
+    if len(note.split()) > 60:
+        out.append(f'"note" has {len(note.split())} words; two sentences, at most 60')
+    if re.search(r"\d", note):
+        out.append('"note" has a figure; describe the pattern, the site shows the numbers')
     return out
 
 
@@ -365,7 +272,7 @@ def check(args) -> None:
     except json.JSONDecodeError as err:
         print(f"{args.file} is not JSON: {err}")
         sys.exit(1)
-    found = problems_run(raw, args.end_tick, args.subagents, args.slow_start) if args.end_tick is not None else problems_eval(raw, args.ids.split(","))
+    found = problems_run(raw, args.end_tick) if args.end_tick is not None else problems_eval(raw)
     print("\n".join(found) if found else "ok")
     sys.exit(1 if found else 0)
 
@@ -503,8 +410,6 @@ def tell_run(run_id: str, args, data: Path, index: dict, proxy: Proxy) -> tuple[
         return run_id, f"failed: no log ({err})", None
     facts = json.loads((data / "runs" / f"{run_id}.facts.json").read_text())
     peers = [json.loads(f.read_text()) for r in index["runs"] if r["eval"] == run["eval"] and (f := data / "runs" / f"{r['id']}.facts.json").exists()]
-    starts = sorted(p["first_game_action_minutes"] for p in peers if p.get("first_game_action_minutes") is not None)
-    slow_start = facts.get("first_game_action_minutes") is None or bool(starts) and facts["first_game_action_minutes"] >= max(5, 2 * starts[len(starts) // 2])
     work = Path(args.work).resolve() / "runs" / run_id
     shutil.rmtree(work, ignore_errors=True)
     runlog.write_workspace(work, run, sample, convs, folder, facts, peers)
@@ -521,7 +426,7 @@ def tell_run(run_id: str, args, data: Path, index: dict, proxy: Proxy) -> tuple[
         result=result,
         end_tick=end_tick,
         voice=VOICE,
-        check=f"python3 {SITE / 'summarize.py'} check summary.json --end-tick {end_tick} --subagents {facts['subagents']}" + (" --slow-start" if slow_start else ""),
+        check=f"python3 {SITE / 'summarize.py'} check summary.json --end-tick {end_tick}",
     )
     if args.print_prompt:
         print(prompt)
@@ -532,12 +437,12 @@ def tell_run(run_id: str, args, data: Path, index: dict, proxy: Proxy) -> tuple[
         if not (work / "summary.json").exists():
             raise ValueError("the agent wrote no summary.json")
         raw = json.loads((work / "summary.json").read_text())
-        if found := problems_run(raw, end_tick, facts["subagents"], slow_start):
+        if found := problems_run(raw, end_tick):
             raise ValueError("; ".join(found))
         told = parse(raw, end_tick)
     except Exception as err:
         return run_id, f"failed: {err} (omp exit {cost['exit']}, {cost['failed_calls']} failed calls; {work / 'omp.log'})", cost
-    out.write_text(json.dumps({**told, "run_summary": told["summary"], **stamp, "telling": cost}, separators=(",", ":")))
+    out.write_text(json.dumps({**told, **stamp, "telling": cost}, separators=(",", ":")))
     return run_id, "told", cost
 
 
@@ -557,7 +462,7 @@ def tell_eval(eval_id: str, args, data: Path, index: dict, proxy: Proxy) -> tupl
         rows.append({
             "id": r["id"], "model": (index.get("models", {}).get(r["model"]) or {}).get("name") or r["model"].split("/")[-1], "thinking": r["thinking"], "result": r["final_value"],
             **({"reached_target": r["success"]} if r.get("target") is not None else {}), "cost_usd": r["cost"],
-            "facts": facts, "summary": told.get("run_summary") or told["summary"], "chapters": told["chapters"],
+            "facts": facts, "summary": told["summary"], "chapters": told["chapters"],
         })
     if missing:
         return eval_id, f"failed: {len(missing)} runs have no summary or facts yet ({', '.join(missing[:5])}...): run `runs` first", None
@@ -586,11 +491,9 @@ def tell_eval(eval_id: str, args, data: Path, index: dict, proxy: Proxy) -> tupl
         md += [f"- {c['title']} ({clock(c['from_tick'] * tick_ms / 1000)} to {clock(c['to_tick'] * tick_ms / 1000)}): {c['text']}" for c in r["chapters"]]
         md.append("")
     (work / "runs.md").write_text("\n".join(md))
-    ids = [r["id"] for r in rows]
-    (work / "ids.txt").write_text(",".join(ids))
     prompt = EVAL_PROMPT.format(
         title=e.get("title", eval_id), goal=e.get("goal", ""), budget=clock(e["budget_ticks"] * tick_ms / 1000), measure=e.get("measure", "its result"),
-        voice=VOICE, check=f"python3 {SITE / 'summarize.py'} check compare.json --ids $(cat ids.txt)",
+        voice=VOICE, check=f"python3 {SITE / 'summarize.py'} check compare.json",
     )
     if args.print_prompt:
         print(prompt)
@@ -600,16 +503,11 @@ def tell_eval(eval_id: str, args, data: Path, index: dict, proxy: Proxy) -> tupl
         if not (work / "compare.json").exists():
             raise ValueError("the agent wrote no compare.json")
         raw = json.loads((work / "compare.json").read_text())
-        if found := problems_eval(raw, ids):
+        if found := problems_eval(raw):
             raise ValueError("; ".join(found))
     except Exception as err:
         return eval_id, f"failed: {err} (omp exit {cost['exit']}, {cost['failed_calls']} failed calls; {work / 'omp.log'})", cost
-    told = {"note": cut(str(raw["note"]), 900), "runs": {i: {"traits": [cut(t, 60) for t in raw["runs"][i]["traits"]], "summary": one_sentence(raw["runs"][i]["summary"])} for i in ids}}
-    out.write_text(json.dumps({**told, **stamp, "telling": cost}, separators=(",", ":")))
-    for i in ids:
-        s = data / "runs" / f"{i}.summary.json"
-        run_told = json.loads(s.read_text())
-        s.write_text(json.dumps({**run_told, "summary": told["runs"][i]["summary"], "traits": told["runs"][i]["traits"]}, separators=(",", ":")))
+    out.write_text(json.dumps({"note": cut(str(raw["note"]), 600), **stamp, "telling": cost}, separators=(",", ":")))
     return eval_id, "told", cost
 
 
@@ -642,9 +540,6 @@ def main() -> None:
     c = sub.add_parser("check", help="what's wrong with an agent's summary.json or compare.json")
     c.add_argument("file")
     c.add_argument("--end-tick", type=int)
-    c.add_argument("--subagents", type=int, default=0)
-    c.add_argument("--slow-start", action="store_true", help="the run took much longer than most to first act in the game")
-    c.add_argument("--ids", default="")
     args = ap.parse_args()
     if args.cmd == "check":
         return check(args)

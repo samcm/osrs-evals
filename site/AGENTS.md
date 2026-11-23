@@ -421,11 +421,12 @@ everywhere: a faint dashed ring or underline on its icon, "≈" and one line of 
   the data, no model (`site/runlog.py`: subagents, background jobs, accounts, deaths, when the score
   first and last moved, quitting early; `runs/<id>.facts.json`), then an agent (Haiku 5.5) with a
   shell in a folder holding the run's full transcripts, scripts and run folder writes
-  `runs/<id>.summary.json` (`summary`, `chapters` on ticks from the data). `evals`: per eval, an
-  agent (Sonnet 5.5) reads every run's summary, chapters and facts and writes what set the runs
-  apart (`evals/<id>.compare.json`: `note`, each run's `traits`), and each run's sentence again,
-  saying what was distinctive. Cached by the prompt's hash, the model and (evals) the inputs; the
-  script checks the ticks. The site never calls a model.
+  `runs/<id>.summary.json`: one sentence on the run's point of difference, in words that stay true
+  as runs are added (never a rank), and `chapters` on ticks from the data. Written once per run.
+  `evals`: per eval, an agent (Sonnet 5.5) writes `evals/<id>.compare.json`'s `note`: what the best
+  runs had in common and how the rest went wrong, with no model names or figures. Rankings
+  ("fastest", "cheapest") are computed from the facts, never written by a model. The site never
+  calls a model.
 - One clock: every `seconds` counts from the harness's first sample; every `tick` counts straight
   through all attempts. Never add an attempt offset to a tick.
 - The harness's clock is monotonic, so it stood still while a machine was paused mid-run; wall
