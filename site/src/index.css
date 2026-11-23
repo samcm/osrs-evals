@@ -10,6 +10,5 @@
 @import './styles/utilities.css';
 @import './styles/base.css';
 @import './components/Elements/Button/Button.css';
-@import './styles/shadcn-legacy.css';
 
 @source './';

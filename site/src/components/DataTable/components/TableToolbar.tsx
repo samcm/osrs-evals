@@ -85,7 +85,7 @@ export function TableToolbar<TData>({
               transition
               className={clsx(
                 'absolute left-0 z-10 mt-1 w-56 origin-top-left rounded-sm border border-border bg-surface',
-                'data-enter:duration-100 data-enter:ease-out data-closed:scale-95 data-closed:opacity-0',
+                'data-closed:scale-95 data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out',
                 'data-leave:duration-75 data-leave:ease-in',
                 'focus:outline-hidden'
               )}

@@ -20,12 +20,7 @@ import { outcomeWord } from '@/lib/evals';
 import { capitalize, formatInt } from '@/lib/format';
 import { useDocumentTitle, useScope, useSearchUpdate } from '@/lib/search';
 import { agentInfo, compareThinking, levelName, modelInfo, variantKey, vendorOf } from '@/lib/series';
-import { runColumns, type Row } from './runsTable/columns';
-
-// The model page imports the runs table's columns from here; they moved to ./runsTable/columns. Drop this once it
-// imports that.
-// eslint-disable-next-line react-refresh/only-export-components -- a re-export for another page, until integration
-export { runColumns, type Row } from './runsTable/columns';
+import { runColumns, type Row } from '@/pages/runsTable/columns';
 
 const route = getRouteApi('/runs/');
 const PAGE_SIZE = 50;

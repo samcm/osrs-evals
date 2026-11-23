@@ -6,7 +6,7 @@
  */
 
 import type { JSX } from 'react';
-import { cn } from '@/lib/utils';
+import clsx from 'clsx';
 import type { SeriesSpec } from '@/lib/chartSeries';
 import { BrandMark, Sprite, ThinkingLevel, type BrandSize } from '@/components/marks';
 
@@ -20,7 +20,7 @@ export function SeriesLabel({
   className?: string;
 }): JSX.Element {
   return (
-    <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
+    <span className={clsx('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
       {series.sprite ? (
         <Sprite src={series.sprite} size={size} alt="" />
       ) : series.vendor ? (

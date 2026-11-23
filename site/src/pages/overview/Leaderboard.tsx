@@ -25,10 +25,6 @@ import { resultValue } from '@/lib/runResult';
 import { median, sum } from '@/lib/stats';
 import { modelSlug } from '@/lib/series';
 
-// The eval page's Held imports the heat scale from here; it moved to ./tint. Drop this once Held imports that.
-// eslint-disable-next-line react-refresh/only-export-components -- a re-export for another page, until integration
-export { tint } from './tint';
-
 /** The pairing's own result on an eval, in the eval's terms: how many finished and how fast, or its median amount. */
 function resultText(pairing: Pairing, e: Eval): string {
   const runs = pairing.runs.filter(r => r.eval === e.id);

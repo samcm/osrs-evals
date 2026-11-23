@@ -28,7 +28,7 @@ export function Checkbox({
       indeterminate={indeterminate}
       name={name}
       value={value}
-      className={`group relative inline-flex size-4 items-center justify-center ${rounded ? 'rounded-sm' : ''} border border-border bg-background transition-colors data-focus:outline-2 data-focus:outline-offset-2 data-focus:outline-primary data-indeterminate:border-primary data-indeterminate:bg-primary data-checked:border-primary data-checked:bg-primary data-disabled:border-border data-disabled:bg-surface data-disabled:data-checked:bg-surface ${className}`}
+      className={`group relative inline-flex size-4 items-center justify-center ${rounded ? 'rounded-sm' : ''} border border-border bg-background transition-colors data-checked:border-primary data-checked:bg-primary data-disabled:border-border data-disabled:bg-surface data-disabled:data-checked:bg-surface data-focus:outline-2 data-focus:outline-offset-2 data-focus:outline-primary data-indeterminate:border-primary data-indeterminate:bg-primary ${className}`}
       {...props}
     >
       <svg
@@ -41,7 +41,7 @@ export function Checkbox({
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="opacity-0 group-data-indeterminate:opacity-0 group-data-checked:opacity-100"
+          className="opacity-0 group-data-checked:opacity-100 group-data-indeterminate:opacity-0"
         />
         <path
           d="M3 7H11"

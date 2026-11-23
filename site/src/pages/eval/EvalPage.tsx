@@ -15,15 +15,24 @@ import { formatDuration, formatInt } from '@/lib/format';
 import { useLegend, type LegendState } from '@/lib/legend';
 import { inScope, useDocumentTitle, useEffort, useScope, useScopeUpdate, useSearchUpdate } from '@/lib/search';
 import { AttemptsTable, CdfChart, ParetoChart } from '@/pages/eval/Cuts';
-import { EffortStrips, GROUP_OPTIONS, ToolMix } from '@/pages/eval/Effort';
-import { buildCurves, callsByTick, rankVariants, totalBudgetTicks, X_OPTIONS, xRange } from '@/pages/eval/model';
+import { EffortStrips, ToolMix } from '@/pages/eval/Effort';
+import {
+  buildCurves,
+  callsByTick,
+  GROUP_OPTIONS,
+  heldTab,
+  rankVariants,
+  totalBudgetTicks,
+  X_OPTIONS,
+  xRange,
+} from '@/pages/eval/model';
 import { Centerpiece } from '@/pages/eval/Centerpiece';
 import { pickRunners } from '@/pages/eval/centerpiece/race';
 import { ProgressChart } from '@/pages/eval/Progress';
 import { FinishChart } from '@/pages/eval/Finish';
 import { RunsTable } from '@/pages/eval/RunsTable';
 import { WhereMap } from '@/pages/eval/Where';
-import { HeldView, heldTab } from '@/pages/eval/Held';
+import { HeldView } from '@/pages/eval/Held';
 import { EvalHero } from '@/pages/eval/EvalHero';
 
 const route = getRouteApi('/evals/$evalId');
@@ -202,7 +211,7 @@ export function EvalPage(): JSX.Element {
         setup={search.setup === '1'}
         onSetup={open => update({ setup: open ? '1' : undefined })}
       />
-      {/* The views and the controls that drive the open one share a row, as shadcn's dashboards do */}
+      {/* The views and the controls that drive the open one share a row */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PageTabs
           value={search.tab}

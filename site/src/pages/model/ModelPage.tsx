@@ -34,7 +34,7 @@ import {
   variantKey,
 } from '@/lib/series';
 import { median } from '@/lib/stats';
-import { runColumns, type Row } from '@/pages/RunsPage';
+import { runColumns, type Row } from '@/pages/runsTable/columns';
 import { costMeasure, harnessSeries, type ThinkingMeasure } from '@/pages/model/measures';
 import { ThinkingChart } from '@/pages/model/ThinkingChart';
 

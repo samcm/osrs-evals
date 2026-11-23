@@ -22,18 +22,8 @@ import { formatInt } from '@/lib/format';
 import { itemInfo, itemName, itemSprite, stackCount } from '@/lib/items';
 import { resultText } from '@/lib/runResult';
 import { variantKey } from '@/lib/series';
-import type { RankedVariant } from './model';
+import { heldTab, type RankedVariant } from '@/pages/eval/model';
 import { QuestsView, RunListTable, RunName, SpriteTile, type RunRow } from './Quests';
-
-/** The tab's name on an eval that has one: what the eval is about. */
-// eslint-disable-next-line react-refresh/only-export-components -- EvalPage names the tab from here
-export function heldTab(e: Eval): string | null {
-  const base = evalBase(e.id);
-  if (base === 'collection' || base === 'team_wealth') return 'Items';
-  if (base === 'total_level') return 'Skills';
-  if (base === 'quest_points' || base === 'dragon_slayer' || base === 'heros_quest') return 'Quests';
-  return null;
-}
 
 /** A level's cell: one hue in tint steps, deeper for a higher level; an untrained skill stays plain. */
 const LEVEL_TINTS = ['bg-success-5', 'bg-success-15', 'bg-success-25', 'bg-success-40', 'bg-success-50'];

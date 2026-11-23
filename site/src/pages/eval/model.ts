@@ -5,6 +5,7 @@ import { median, stepAbove, stepBelow } from '@/lib/stats';
 import { variantOf, type Variant } from '@/lib/series';
 import { agentSeries, modelSeries, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
 import { resultValue } from '@/lib/runResult';
+import { evalBase } from '@/lib/evals';
 
 export { resultValue };
 
@@ -289,3 +290,31 @@ export function groupRuns(runs: Run[], by: GroupBy): Group[] {
   }
   return [...groups.values()].sort((a, b) => a.spec.name.localeCompare(b.spec.name));
 }
+
+/** The tab's name on an eval that has one: what the eval is about. */
+export function heldTab(e: Eval): string | null {
+  const base = evalBase(e.id);
+  if (base === 'collection' || base === 'team_wealth') return 'Items';
+  if (base === 'total_level') return 'Skills';
+  if (base === 'quest_points' || base === 'dragon_slayer' || base === 'heros_quest') return 'Quests';
+  return null;
+}
+
+/** The Behaviour tab's effort measures (`?measure=`) and its groupings (`?by=`). */
+export const STRIP_MEASURES = [
+  'calls',
+  'waiting',
+  'actions',
+  'failed',
+  'helpers',
+  'deaths',
+  'first_score',
+  'source_reads',
+] as const;
+export type StripMeasure = (typeof STRIP_MEASURES)[number];
+
+export const GROUP_OPTIONS = [
+  { value: 'variant' as const, label: 'Pairing' },
+  { value: 'model' as const, label: 'Model' },
+  { value: 'agent' as const, label: 'Harness' },
+];

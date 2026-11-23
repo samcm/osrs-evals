@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { EvalPage } from '@/pages/eval/EvalPage';
-import { STRIP_MEASURES } from '@/pages/eval/Effort';
+import { STRIP_MEASURES } from '@/pages/eval/model';
 import { evalRunsQuery } from '@/data/queries';
 import { evalIdOf, evalSlug } from '@/lib/evals';
 import { mapViewParam } from '@/lib/map';

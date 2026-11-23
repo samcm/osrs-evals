@@ -25,7 +25,7 @@ import { useWidth } from '@/lib/useWidth';
 import { SelectField } from '@/components/SelectField';
 import { levelName, variantKey } from '@/lib/series';
 import { formatTick, formatX, labelWidth, roundMax, roundTicks, type Measure } from './chartBits';
-import { groupRuns, type Group, type GroupBy, type RankedVariant } from './model';
+import { groupRuns, type Group, type GroupBy, type RankedVariant, type StripMeasure } from '@/pages/eval/model';
 
 interface Column {
   id: StripMeasure;
@@ -59,26 +59,6 @@ const COLUMNS: Column[] = [
     measure: 'count',
     value: r => r.facts?.server_source_reads ?? null,
   },
-];
-
-// eslint-disable-next-line react-refresh/only-export-components -- EvalPage reads these; integration moves them
-export const STRIP_MEASURES = [
-  'calls',
-  'waiting',
-  'actions',
-  'failed',
-  'helpers',
-  'deaths',
-  'first_score',
-  'source_reads',
-] as const;
-export type StripMeasure = (typeof STRIP_MEASURES)[number];
-
-// eslint-disable-next-line react-refresh/only-export-components -- as STRIP_MEASURES
-export const GROUP_OPTIONS = [
-  { value: 'variant' as const, label: 'Pairing' },
-  { value: 'model' as const, label: 'Model' },
-  { value: 'agent' as const, label: 'Harness' },
 ];
 
 /** The groups as the chart's rows: each one's marks, short name and thinking level, or none in a column beside the labels. */
