@@ -92,7 +92,10 @@ two lines, the whole sentence and its chapters' titles on hover; `components/Run
 on `/runs`). An eval about items or skills has a tab for what
 the runs ended with, after Race (`eval/Held.tsx`): **Items** (collection, team wealth: the items most
 runs ended holding, then each run's items as the game's sprites) or **Skills** (total level: each
-run's level in every trained skill). The toolbar beside the tabs holds the open view's
+run's level in every trained skill) or **Quests** (quest points and Dragon Slayer, `eval/Quests.tsx`:
+the usual order, every quest and step by the median time runs reached it and how many did, then each
+run's quests in the order it finished them; on Dragon Slayer the quest's stages and the 32 quest
+points its guild asks for are steps too). The toolbar beside the tabs holds the open view's
 controls (the runs shown, the spend, the grouping) and one Filters button (`PairingFilters`).
 Behaviour's rows run in the leaderboard's order; a narrow card shows one effort measure at a time
 (`?measure=`); the heat map shows every pairing pooled or one, from a Select bound to `focus`. The

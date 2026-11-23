@@ -2,7 +2,8 @@
  * What the runs ended with, across the eval (its own tab): on an eval about items (collection, team
  * wealth), the items most runs ended holding, then each run's items in the leaderboard's order (the
  * commonest first for collection, so a run's rare finds stand out at its end; the most valuable first
- * for wealth); on total level, each run's level in every skill it trained, as the game's skill icons.
+ * for wealth); on total level, each run's level in every skill it trained, as the game's skill icons;
+ * on an eval about quests, the quests in order (Quests.tsx).
  * Read from the eval file's `end` (export.py held_at_end).
  */
 
@@ -22,12 +23,14 @@ import { variantKey } from '@/lib/series';
 import { cn } from '@/lib/utils';
 import { tint } from '../overview/Leaderboard';
 import type { RankedVariant } from './model';
+import { QuestsView } from './Quests';
 
 /** The tab's name on an eval that has one: what the eval is about. */
 export function heldTab(e: Eval): string | null {
   const base = evalBase(e.id);
   if (base === 'collection' || base === 'team_wealth') return 'Items';
   if (base === 'total_level') return 'Skills';
+  if (base === 'quest_points' || base === 'dragon_slayer') return 'Quests';
   return null;
 }
 
@@ -35,12 +38,13 @@ function ItemCell({ id, count, note }: { id: string; count: number; note?: strin
   return (
     <li className="relative flex size-9 items-center justify-center rounded-sm bg-muted/60" title={`${itemName(id)}${count > 1 ? `, ${formatInt(count)}` : ''}${note ? `: ${note}` : ''}`}>
       <Sprite src={itemSprite(id, count)} size={32} alt={itemName(id)} />
-      {count > 1 && <span className="absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums">{stackCount(count)}</span>}
+      {count > 1 && <span className="absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums text-shadow-sm text-shadow-card">{stackCount(count)}</span>}
     </li>
   );
 }
 
 export function HeldView({ e, ranked, grid }: { e: Eval; ranked: RankedVariant[]; grid: EvalRuns | undefined }) {
+  if (heldTab(e) === 'Quests') return <QuestsView e={e} ranked={ranked} grid={grid} />;
   const wealth = evalBase(e.id) === 'team_wealth';
   const skills = evalBase(e.id) === 'total_level';
   // Runs in the leaderboard's order, each pairing's by epoch

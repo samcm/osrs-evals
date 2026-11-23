@@ -1191,6 +1191,9 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], items: dict, o
     grid = resample(grid_of(m["budget_ticks"], attempts), timeline, clock, turns, end_tick, run["cost"] is not None)
     grid["path"] = downsample(path, EVAL_PATH_EVERY)
     grid["end"] = held_at_end(states, items)
+    # The run's quests in the order it finished them, and (on an eval with a target) its stages and
+    # the quest points it needed, for the eval's Quests view
+    grid["quests"] = [{k: e[k] for k in ("tick", "kind", "quest", "name", "qp", "stage", "source") if k in e} for e in events if e["kind"] in ("quest", "stage", "qp")]
     if others:
         grid["paths"] = {n: downsample(q, EVAL_PATH_EVERY) for n, q in others.items()}
     return run, evl, detail, grid

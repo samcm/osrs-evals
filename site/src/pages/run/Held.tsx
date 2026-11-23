@@ -39,7 +39,7 @@ function Slot({ id, count }: { id?: string; count?: number }) {
   return (
     <span className="relative flex size-9 items-center justify-center rounded-sm bg-muted/60" title={id ? `${itemName(id)}${count && count > 1 ? `, ${formatInt(count)}` : ''}` : undefined}>
       {id && <Sprite src={itemSprite(id, count)} size={32} alt={itemName(id)} />}
-      {id && count != null && count > 1 && <span className="absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums">{stackCount(count)}</span>}
+      {id && count != null && count > 1 && <span className="absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums text-shadow-sm text-shadow-card">{stackCount(count)}</span>}
     </span>
   );
 }

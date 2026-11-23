@@ -23,10 +23,12 @@ export function itemSprite(id: string | number, count = 1): string {
   return itemSrc(sprite);
 }
 
-/** A stack's count as the game writes it: as is below 100,000, then K, then M. */
+/** A stack's count in its slot: as is below 10,000, then K, then M, at most four characters. */
 export function stackCount(count: number): string {
+  // At most four characters, so it stays inside its slot: 9999, 245K, 2.2M, 12M
   if (count >= 10_000_000) return `${Math.floor(count / 1_000_000)}M`;
-  if (count >= 100_000) return `${Math.floor(count / 1000)}K`;
+  if (count >= 1_000_000) return `${Math.floor(count / 100_000) / 10}M`;
+  if (count >= 10_000) return `${Math.floor(count / 1000)}K`;
   return String(count);
 }
 
