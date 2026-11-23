@@ -68,10 +68,10 @@ export interface ChartPoints {
   series: SeriesSpec;
   points: ChartPoint[];
   /**
-   * Mark size in pixels
+   * Mark size in pixels, or [width, height] for a mark that isn't square (a strip chart's median tick)
    * @default 8
    */
-  size?: number;
+  size?: number | [number, number];
 }
 
 /** A bar segment on a chart with rows: a series' value in one row, stacked after the bars before it. */
@@ -97,6 +97,8 @@ export interface ChartRule {
 export interface ChartRow {
   key: string;
   label: ReactNode;
+  /** A value right of the plot, such as the row's median on a strip chart that is its own ranking */
+  value?: ReactNode;
 }
 
 export interface XYChartProps {
@@ -150,8 +152,9 @@ export interface XYChartProps {
   /**
    * The series id at full strength while the rest fade: the legend's focus, else the page's hover
    * (lib/hover), which is the default. Pointing at a line or point hovers its series page-wide.
+   * Several ids light several series (every pairing of a model whose legend key is hovered).
    */
-  lit?: string | null;
+  lit?: string | readonly string[] | null;
   /**
    * Charts with the same id (on one page, sharing an x measure) share the crosshair and tooltip, matched
    * by x value; give them the same x domain
