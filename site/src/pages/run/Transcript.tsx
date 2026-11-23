@@ -5,24 +5,25 @@
  * talk"). No code, output or token counts: those live in the log. A line's dot is its tool
  * category's colour; the same line repeated across calls folds into one with a count. The call at the playhead is marked and kept in view inside the feed's own
  * scroll; clicking a message or a line puts the playhead at its call (`?t=`, `?turn=`). A run told in
- * chapters (site/summarize.py) groups the feed by them: the chapter at the playhead is open, its
- * header (title, text, which of how many) pinned to the top of the feed; the others fold to their
- * title, and clicking one starts it.
+ * chapters (site/summarize.py) shows those instead: each its title and what happened, the one at the
+ * playhead marked and kept in view, clicking one starts it; "Every call" (`?calls=1`) puts each
+ * chapter's calls under it.
  */
 
 import { memo, useEffect, useMemo, useRef, type ReactElement, type ReactNode } from 'react';
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock, linkClassName } from '@/components/bits';
-import { ChevronRightIcon } from 'lucide-react';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardAction, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Toggle } from '@/components/ui/toggle';
+import { useSearchUpdate } from '@/lib/search';
 import type { RunDetail, RunSummary, ToolCategory } from '@/data/types';
 import { formatInt } from '@/lib/format';
 import { TOOL_CATEGORY } from '@/lib/tools';
 import { cn } from '@/lib/utils';
 import { actionClauses, gameSteps, type Clause } from './actionLines';
 import { currentTurn, plainLine, turnTick, type Clock } from './model';
-import { useSettle, type RunSearch } from './search';
+import { runSearch, useSettle, type RunSearch } from './search';
 
 /** Markdown in the page's type: body text, bold headings, code in Geist Mono. */
 const MARKDOWN: Components = {
@@ -125,6 +126,10 @@ export const Transcript = memo(function Transcript({
   chapters?: RunSummary['chapters'];
 }) {
   const settle = useSettle();
+  const update = useSearchUpdate(runSearch);
+  // The chapters alone unless the reader asks for every call; a run without chapters shows its calls
+  const told = Boolean(chapters && chapters.length > 0);
+  const calls = !told || search.calls === '1';
   const chapterIndex = chapters ? chapters.findLastIndex(c => c.from_tick <= tick) : -1;
   const list = useRef<HTMLOListElement>(null);
   const current = currentTurn(run.turns, clock, tick, search.turn);
@@ -165,35 +170,39 @@ export const Transcript = memo(function Transcript({
     () =>
       groups.map(g => {
         if (!g.chapter) return rows.slice(g.from, g.to).map((row, k) => rowItem(row, g.from + k));
-        // The chapter at the playhead is open, its header pinned to the top of the feed as it
-        // scrolls; the others fold to their header, and clicking one starts it
-        const open = g.index === chapterIndex;
-        const done = g.index < chapterIndex;
+        // By default the feed is the chapters alone, each its title and what happened, the one at the
+        // playhead marked and kept in view; with every call shown (`?calls=1`) each chapter wraps its
+        // calls, its header pinned to the top of the feed while they scroll by
+        const now = g.index === chapterIndex;
+        const future = g.index > chapterIndex;
         return (
-          <li key={`chapter-${g.chapter.from_tick}`} className="border-b last:border-b-0">
+          <li key={`chapter-${g.chapter.from_tick}`} data-current={(!calls && now) || undefined} className={cn(calls && 'border-b last:border-b-0')}>
             <button
               type="button"
               onClick={() => settle(g.chapter!.from_tick)}
-              aria-expanded={open}
+              aria-current={now ? 'step' : undefined}
               className={cn(
-                'flex w-full min-w-0 flex-col items-start gap-0.5 bg-card px-4 py-2 text-left outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset',
-                open && 'sticky top-0 z-10 border-b'
+                'flex w-full min-w-0 flex-col items-start gap-0.5 border-l-2 border-transparent bg-card px-4 py-2 text-left transition-colors outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset',
+                now && 'border-primary',
+                // Pinned over the calls, it stays solid; in the chapters alone the current one is shaded
+                now && !calls && 'bg-muted/50',
+                calls && 'sticky top-0 z-10 border-b',
+                future && 'opacity-50'
               )}
             >
-              <span className="flex w-full min-w-0 items-center gap-2">
-                <ChevronRightIcon aria-hidden className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')} />
-                <span className={cn('min-w-0 flex-1 truncate font-medium', !open && !done && 'text-muted-foreground')}>{g.chapter.title}</span>
+              <span className="flex w-full min-w-0 items-baseline gap-2">
+                <span className="min-w-0 flex-1 font-medium">{g.chapter.title}</span>
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                   {formatInt(g.index + 1)} of {formatInt(chapters!.length)}
                 </span>
               </span>
-              {open && <span className="pl-6 text-xs text-pretty text-muted-foreground">{g.chapter.text}</span>}
+              <span className="text-xs text-pretty text-muted-foreground">{g.chapter.text}</span>
             </button>
-            {open && <ol className="pb-2">{rows.slice(g.from, g.to).map((row, k) => rowItem(row, g.from + k))}</ol>}
+            {calls && <ol className="pb-2">{rows.slice(g.from, g.to).map((row, k) => rowItem(row, g.from + k))}</ol>}
           </li>
         );
       }),
-    [groups, rows, current, clock, settle, run.turns, chapterIndex, chapters]
+    [groups, rows, current, clock, settle, run.turns, chapterIndex, chapters, calls]
   );
 
   useEffect(() => {
@@ -208,14 +217,21 @@ export const Transcript = memo(function Transcript({
     const top = row.offsetTop;
     const bottom = top + Math.min(row.offsetHeight, container.clientHeight);
     if (top < container.scrollTop || bottom > container.scrollTop + container.clientHeight) container.scrollTop = Math.max(0, top - container.clientHeight / 3);
-  }, [current]);
+  }, [current, calls, chapterIndex]);
 
   return (
     // The feed runs to the card's bottom edge and scrolls inside it
     <Card className="h-full pb-0">
       <CardHeader>
-        <CardTitle>Transcript</CardTitle>
+        <CardTitle>{told ? 'What it did' : 'Transcript'}</CardTitle>
         <CardDescription>{formatInt(run.turns.length)} model calls</CardDescription>
+        {told && (
+          <CardAction>
+            <Toggle size="sm" variant="outline" pressed={search.calls === '1'} onPressedChange={on => update({ calls: on ? '1' : undefined })} aria-label="Show every call">
+              Every call
+            </Toggle>
+          </CardAction>
+        )}
       </CardHeader>
       <ol ref={list} aria-label="What the agent was doing" className="relative min-h-0 flex-1 overflow-y-auto border-t pb-3">
         {body}

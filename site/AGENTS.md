@@ -157,9 +157,10 @@ beside the game (`run/Held.tsx`): the followed account's inventory, worn items, 
 the playhead, as the game's own sprites and stack counts, the tab in `?panel=` (skills on total
 level, else the inventory). A run told by `summarize.py` has its sentence as the header's
 description, its chapters as segments under the playback track and as headings in the transcript,
-and the transcript is grouped by them: each chapter wraps its calls, the one at the playhead open
-with its header (title, text, which of how many) pinned to the top of the feed as it scrolls, the
-others folded to their title; clicking a chapter seeks the playhead there. Shown once, there. Then the timeline: a toolbar
+and the transcript card ("What it did") lists just the chapters (title, text, which of how many),
+the one at the playhead marked and scrolled into view; clicking one seeks the playhead there. Its
+"Every call" toggle (`?calls=1`) puts each chapter's calls under it, the chapter header pinned to
+the top of the feed as it scrolls. A run without chapters shows its calls. Shown once, there. Then the timeline: a toolbar
 (the x measure, the lanes menu) over a card per lane, every lane shown unless `?lanes=` names some,
 each with its title, its unit as the description, its cut in the card's action, its key under the
 chart and the playhead in it; the map is a media card beside the lanes (first on a phone). Every

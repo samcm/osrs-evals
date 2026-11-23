@@ -33,6 +33,8 @@ export const runSearch = defineSearch({
   lanes: list(LANE_IDS),
   /** The side panel's tab beside the game; absent, the eval's own (skills for total level, else the inventory) */
   panel: oneOf(['inv', 'worn', 'bank', 'skills'], undefined),
+  /** The transcript's every call under its chapters; absent, the chapters alone */
+  calls: oneOf(['1'], undefined),
   /** Lane cuts */
   cost: oneOf(['usd', 'tokens'], 'usd'),
   sdk: oneOf(['outcome', 'function'], 'outcome'),
