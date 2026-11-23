@@ -123,7 +123,11 @@ one sentence in the same voice with at most two numbers (levels, coins, quest st
 as m:ss or h:mm:ss; never tick counts), telling events in the order they happened.
 
 Then check your own words: find every number, time, place, quest and event in summary.json in \
-record.txt, facts.txt or the transcript, and fix or drop what you can't find. Then run `{check}` \
+record.txt, facts.txt or the transcript, and fix or drop what you can't find. Check each place \
+twice: grep the transcript near that game time for where the agent was (its intents, its words, \
+its scripts' walk targets) and make sure the thing you put there happened there, not before or \
+after a move; a summary sentence that joins two chapters often puts one chapter's event in \
+another's place. Then run `{check}` \
 and fix what it reports until it prints "ok". Answer with one line when done.
 """
 
@@ -144,7 +148,9 @@ Find what set the runs apart: the key split indicators. Things one run or a hand
 rest didn't (only one used subagents; three never touched the game for the first half hour), \
 choices that went with the best and the worst results, and the ways runs failed. Count and \
 compare with the shell; every claim about how many runs did something must come from runs.tsv or \
-the files, never a guess. A fact that every run shares isn't a split.
+the files, never a guess, and must say which runs it counts ("48 that never scored", not "the \
+rest" when some of the rest got further). A fact that every run shares isn't a split. A trait that \
+ranks a run ("most", "only", "fastest") must hold across every run in runs.tsv: sort and check it.
 
 Write compare.json in this folder:
 {{"note": "...", "runs": {{"<run id>": {{"traits": ["...", "..."], "summary": "..."}}}}}}
