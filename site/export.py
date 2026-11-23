@@ -1249,7 +1249,7 @@ def export(log_dirs: list[str], price_source: str, out: Path):
             "runs": by_run,
         }, separators=(",", ":")))
     for f in (out / "evals").iterdir():
-        if f.suffix == ".json" and f.stem not in evals:
+        if f.suffix == ".json" and f.name.split(".")[0] not in evals:  # and summarize.py's <id>.compare.json
             f.unlink()
     # A run's vendor is its model's maker, also for a model a router served
     for r in runs:
