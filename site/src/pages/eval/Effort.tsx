@@ -40,9 +40,14 @@ const COLUMNS: Column[] = [
     measure: 'share',
     value: r => (r.metrics.sdk_actions ? (r.metrics.sdk_failed ?? 0) / r.metrics.sdk_actions : null),
   },
+  // How it worked, as site/summarize.py measured it from the logs
+  { id: 'helpers', title: 'Helper agents', measure: 'count', value: r => r.facts?.subagents ?? null },
+  { id: 'deaths', title: 'Deaths', measure: 'count', value: r => r.facts?.deaths ?? null },
+  { id: 'first_score', title: 'Time to first score', measure: 'seconds', value: r => (r.facts?.first_score_minutes != null ? r.facts.first_score_minutes * 60 : null) },
+  { id: 'source_reads', title: 'Reads of the server source', measure: 'count', value: r => r.facts?.server_source_reads ?? null },
 ];
 
-export const STRIP_MEASURES = ['calls', 'waiting', 'actions', 'failed'] as const;
+export const STRIP_MEASURES = ['calls', 'waiting', 'actions', 'failed', 'helpers', 'deaths', 'first_score', 'source_reads'] as const;
 export type StripMeasure = (typeof STRIP_MEASURES)[number];
 
 export const GROUP_OPTIONS = [
@@ -197,7 +202,8 @@ export function EffortStrips({
     >
       {width > 0 &&
         (wide ? (
-          COLUMNS.map((column, i) => <Strip key={column.id} column={column} groups={groups} labels={i === 0} labelRoom={labelRoom} lit={lit} />)
+          // Four to a row, each row's first column holding the labels
+          COLUMNS.map((column, i) => <Strip key={column.id} column={column} groups={groups} labels={i % 4 === 0} labelRoom={labelRoom} lit={lit} />)
         ) : (
           <>
             <SelectField label="Measure" hideLabel value={measure} options={COLUMNS.map(c => ({ value: c.id, label: c.title }))} onChange={v => v && onMeasure(v as StripMeasure)} />

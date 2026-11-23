@@ -1,6 +1,6 @@
 /**
  * The eval's header: the goal first, as the agents got it, then what counts and what makes it hard,
- * then its facts, then a Setup section, closed unless `?setup=1`, with the exact prompt every agent got and
+ * then its facts, then what happened across its runs (site/summarize.py's note), then a Setup section, closed unless `?setup=1`, with the exact prompt every agent got and
  * the eval's settings.
  */
 
@@ -21,6 +21,13 @@ export function EvalHero({ e, runs, meta, setup, onSetup }: { e: Eval; runs: Run
   const art = evalArt(e.id);
   return (
     <PageHero mark={<EvalMark evalId={e.id} size={40} />} lead={e.goal} detail={art.why} meta={meta}>
+      {/* What happened across its runs (site/summarize.py's cross-run pass) */}
+      {e.note && (
+        <div className="flex flex-col gap-1 border-t px-6 py-4 sm:pl-[calc(--spacing(6)+--spacing(16)+--spacing(5))]">
+          <h3 className="text-sm text-muted-foreground">What happened</h3>
+          <p className="max-w-3xl text-pretty">{e.note}</p>
+        </div>
+      )}
       <Collapsible open={setup} onOpenChange={onSetup}>
         <CollapsibleTrigger className="group flex w-full items-center gap-2 border-t px-6 py-3 text-left text-sm font-medium transition-colors hover:bg-muted/50">
           <ChevronRight className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />

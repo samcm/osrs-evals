@@ -23,6 +23,15 @@ export const METRIC_IDS = [
   'sdk_fail',
   'tiles',
   'idle',
+  'helpers',
+  'compactions',
+  'deaths',
+  'first_action',
+  'first_score',
+  'flat_end',
+  'quit_early',
+  'source_reads',
+  'regions',
 ] as const;
 
 export type MetricId = (typeof METRIC_IDS)[number];
@@ -31,7 +40,7 @@ export interface Metric {
   id: MetricId;
   /** For the picker; outcome metrics name the eval's measure instead where it has one */
   label: string;
-  group: 'Outcome' | 'Cost and tokens' | 'Model' | 'In the game';
+  group: 'Outcome' | 'Cost and tokens' | 'Model' | 'In the game' | 'How it worked';
   /** Needs one eval */
   outcome?: boolean;
   /** For outcome metrics: the evals it applies to */
@@ -47,6 +56,16 @@ export interface Metric {
   /** The default scale, and whether log is offered (the values are positive and can span decades) */
   scale: 'log' | 'linear';
   log: boolean;
+}
+
+/** A count from a run's measured facts. */
+function count(id: MetricId, label: string, get: (run: Run) => number | null | undefined, better: Metric['better'] = null): Metric {
+  return { id, label, group: 'How it worked', whole: true, get: r => get(r) ?? null, format: formatInt, tick: formatTick, better, scale: 'linear', log: false };
+}
+
+/** Minutes of game time from a run's measured facts. */
+function minutes(id: MetricId, label: string, get: (run: Run) => number | null | undefined, better: Metric['better'] = null): Metric {
+  return { id, label, group: 'How it worked', get: r => get(r) ?? null, format: v => `${formatDecimal(v)} min`, tick: v => `${formatTick(v)} min`, better, scale: 'linear', log: false };
 }
 
 const share = (part: number | null | undefined, whole: number | null | undefined): number | null => (part != null && whole ? part / whole : null);
@@ -234,6 +253,16 @@ export const METRICS: Metric[] = [
     scale: 'linear',
     log: false,
   },
+  // How it worked, as site/summarize.py measured it from each run's logs
+  count('helpers', 'Helper agents', r => r.facts?.subagents),
+  count('compactions', 'Context compactions', r => r.facts?.compactions),
+  count('deaths', 'Deaths', r => r.facts?.deaths, 'lower'),
+  minutes('first_action', 'Minutes to the first game action', r => r.facts?.first_game_action_minutes, 'lower'),
+  minutes('first_score', 'Minutes until the score first moved', r => r.facts?.first_score_minutes, 'lower'),
+  minutes('flat_end', 'Minutes flat at the end', r => r.facts?.flat_end_minutes, 'lower'),
+  minutes('quit_early', 'Minutes left when it quit', r => r.facts?.quit_minutes_early, 'lower'),
+  count('source_reads', 'Reads of the server source', r => r.facts?.server_source_reads),
+  count('regions', 'Map regions visited', r => r.facts?.map_regions_visited),
 ];
 
 export const metricById = (id: MetricId): Metric => METRICS.find(m => m.id === id)!;

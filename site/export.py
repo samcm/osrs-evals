@@ -1228,6 +1228,29 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], items: dict, o
     return run, evl, detail, grid
 
 
+
+# What site/summarize.py measured of each run, as the site's Behaviour and Compare measures
+FACT_KEYS = (
+    "subagents", "compactions", "deaths", "first_game_action_minutes", "first_score_minutes", "flat_end_minutes",
+    "quit_minutes_early", "server_source_reads", "web_searches", "files_written", "map_regions_visited",
+    "most_accounts_at_once", "detached_processes", "longest_silence_minutes", "scripts_run",
+)
+
+
+def add_told(out: Path, runs: list[dict], evals: dict) -> None:
+    """Each run's sentence, traits and measured facts, and each eval's note, from site/summarize.py's
+    files beside the data (kept across exports): runs/<id>.summary.json and .facts.json,
+    evals/<id>.compare.json."""
+    for r in runs:
+        summary, facts = out / "runs" / f"{r['id']}.summary.json", out / "runs" / f"{r['id']}.facts.json"
+        told = json.loads(summary.read_text()) if summary.exists() else {}
+        r["summary"], r["traits"] = told.get("summary"), told.get("traits")
+        f = json.loads(facts.read_text()) if facts.exists() else None
+        r["facts"] = {k: f.get(k) for k in FACT_KEYS} if f else None
+    for eval_id, e in evals.items():
+        compare = out / "evals" / f"{eval_id}.compare.json"
+        e["note"] = json.loads(compare.read_text()).get("note") if compare.exists() else None
+
 def export(log_dirs: list[str], price_source: str, out: Path):
     """Writes index.json, runs/<id>.json, evals/<id>.json and each run's recording; leaves
     screenshots and character renders (runs/<id>.*, made by other scripts) in place."""
@@ -1265,10 +1288,7 @@ def export(log_dirs: list[str], price_source: str, out: Path):
     for f in (out / "runs").iterdir():  # this script's files of runs no longer in these logs
         if f.name.endswith((".json", ".world.jsonl.gz")) and f.name.split(".")[0] not in keep:
             f.unlink()
-    # Each run's one-sentence summary, from site/summarize.py's files (kept across exports)
-    for r in runs:
-        summary = out / "runs" / f"{r['id']}.summary.json"
-        r["summary"] = json.loads(summary.read_text()).get("summary") if summary.exists() else None
+    add_told(out, runs, evals)
     for eval_id, by_run in grids.items():
         e = evals[eval_id]
         (out / "evals" / f"{eval_id}.json").write_text(json.dumps({

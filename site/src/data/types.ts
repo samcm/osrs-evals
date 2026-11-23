@@ -22,6 +22,8 @@ export interface Eval {
   prompt?: string | null;
   /** The game server's settings for the eval (NODE_TICKRATE, GE_ENABLED, ...) */
   world?: Record<string, string> | null;
+  /** What happened across its runs, from site/summarize.py's cross-run pass */
+  note?: string | null;
   budget_ticks: number;
   tick_ms: number;
   attempts: number;
@@ -124,6 +126,10 @@ export interface Run {
   eval: string;
   /** The run in one sentence (site/summarize.py); absent until it has run */
   summary?: string | null;
+  /** What set the run apart from the eval's others, a few words each (site/summarize.py) */
+  traits?: string[] | null;
+  /** What site/summarize.py measured of the run from its logs */
+  facts?: RunFacts | null;
   agent: string;
   agent_name: string;
   agent_params: Record<string, string>;
@@ -402,9 +408,31 @@ export interface ItemInfo {
   stacks?: [number, number][];
 }
 
+/** A run's measured facts (site/summarize.py's <id>.facts.json, the keys export.py keeps). */
+export interface RunFacts {
+  subagents: number | null;
+  compactions: number | null;
+  deaths: number | null;
+  first_game_action_minutes: number | null;
+  first_score_minutes: number | null;
+  flat_end_minutes: number | null;
+  quit_minutes_early: number | null;
+  server_source_reads: number | null;
+  web_searches: number | null;
+  files_written: number | null;
+  map_regions_visited: number | null;
+  most_accounts_at_once: number | null;
+  detached_processes: number | null;
+  longest_silence_minutes: number | null;
+  scripts_run: number | null;
+}
+
 /** public/data/runs/<id>.summary.json, from site/summarize.py: the run told in chapters and one sentence. */
 export interface RunSummary {
   summary: string;
+  /** The run's own sentence, before the cross-run pass replaced `summary` with what set it apart */
+  run_summary?: string;
+  traits?: string[];
   chapters: { from_tick: number; to_tick: number; title: string; text: string }[];
   model?: string;
 }
