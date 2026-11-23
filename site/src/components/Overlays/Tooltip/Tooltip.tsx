@@ -59,17 +59,18 @@ export function TooltipGroup({ children }: TooltipGroupProps): JSX.Element {
  * </Tooltip>
  * ```
  */
-export function Tooltip({ content, children, side = 'top', className }: TooltipProps): JSX.Element {
+export function Tooltip({ content, children, side = 'top', className, open }: TooltipProps): JSX.Element {
   if (content == null || content === '' || content === false) return children;
   return (
-    <FloatingTooltip content={content} side={side} className={className}>
+    <FloatingTooltip content={content} side={side} className={className} open={open}>
       {children}
     </FloatingTooltip>
   );
 }
 
-function FloatingTooltip({ content, children, side, className }: TooltipProps): JSX.Element {
-  const [open, setOpen] = useState(false);
+function FloatingTooltip({ content, children, side, className, open: held }: TooltipProps): JSX.Element {
+  const [hovered, setHovered] = useState(false);
+  const open = held ?? hovered;
   const id = useId();
   const {
     refs: { setReference, setFloating },
@@ -78,7 +79,7 @@ function FloatingTooltip({ content, children, side, className }: TooltipProps): 
     isPositioned,
   } = useFloating({
     open,
-    onOpenChange: setOpen,
+    onOpenChange: setHovered,
     placement: side,
     whileElementsMounted: autoUpdate,
     middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })],

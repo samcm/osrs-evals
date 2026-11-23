@@ -24,18 +24,18 @@ import type { RangeInputProps } from './RangeInput.types';
 export function RangeInput({
   id,
   label,
+  hideLabel = false,
   value,
   min = 0,
   max = 100,
   step = 1,
   suffix,
   onChange,
-  hideLabel = false,
   className,
 }: RangeInputProps): React.JSX.Element {
   return (
     <div className={clsx(className)}>
-      <label htmlFor={id} className={hideLabel ? 'sr-only' : 'block text-xs text-muted'}>
+      <label htmlFor={id} className={clsx('text-xs text-muted', hideLabel ? 'sr-only' : 'block')}>
         {label}: {value}
         {suffix}
       </label>
