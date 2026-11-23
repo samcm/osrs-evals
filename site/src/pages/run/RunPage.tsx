@@ -204,6 +204,8 @@ function Header({ run, evalInfo, runs, measure, summary }: { run: RunDetail; eva
   return (
     <PageHero
       lead={summary}
+      // Said once, where it matters: the model, not the agent, ended this game
+      detail={run.model_timeouts ? `${run.model_timeouts === 1 ? 'One model call' : `${run.model_timeouts} model calls`} got no reply within 10 minutes and timed out${run.ended_by === 'model timed out' ? '; the game ended on the last one' : ''}.` : undefined}
       meta={[
         ...resultMeta(run, evalInfo),
         ...(of > 1 ? [{ term: 'Place', value: `#${formatInt(place)} of ${formatInt(of)} runs` }] : []),

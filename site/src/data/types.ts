@@ -126,6 +126,8 @@ export interface Run {
   eval: string;
   /** The run in one sentence (site/summarize.py); absent until it has run */
   summary?: string | null;
+  /** Model calls that got no reply in time; a run whose last call timed out ends by `model timed out` */
+  model_timeouts?: number;
   /** What site/summarize.py measured of the run from its logs */
   facts?: RunFacts | null;
   agent: string;

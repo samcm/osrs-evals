@@ -1028,6 +1028,7 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], items: dict, o
     starts = attempt_starts(timeline)
     time = RunTime(s)
     turns = turns_of(s, prices, clock, starts, time, end_tick)
+    model_events = [e for e in s.events if e.event == "model"]
     usage = s.model_usage or {}
     account = m["accounts"][0]["username"]
     run_id = f"{spec.run_id[:8]}-{spec.task_id[:6]}-{s.id}-{s.epoch}"
@@ -1159,7 +1160,9 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], items: dict, o
         "tick_ms": tick_ms,
         "attempts": attempts,
         "attempt_results": md.get("attempts"),
-        "ended_by": game.get("ended_by"),
+        # A game whose agent stopped because its last model call timed out says so, not that it chose to stop
+        "ended_by": "model timed out" if game.get("ended_by") == "agent finished" and model_events and "timed out" in (model_events[-1].error or "") else game.get("ended_by"),
+        "model_timeouts": sum("timed out" in (e.error or "") for e in model_events),
         "limit": s.limit.type if s.limit else None,
         "game_ticks": end_tick,
         "game_seconds": round(game["seconds"] - offset, 1) if game.get("seconds") is not None else None,
