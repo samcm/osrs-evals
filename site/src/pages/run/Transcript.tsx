@@ -11,7 +11,7 @@ import { memo, useEffect, useMemo, useRef, type ReactElement, type ReactNode } f
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock, linkClassName } from '@/components/bits';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardAction, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { RunDetail, RunSummary, ToolCategory } from '@/data/types';
 import { formatInt } from '@/lib/format';
 import { TOOL_CATEGORY } from '@/lib/tools';
@@ -121,6 +121,8 @@ export const Transcript = memo(function Transcript({
   chapters?: RunSummary['chapters'];
 }) {
   const settle = useSettle();
+  const chapterIndex = chapters ? chapters.findLastIndex(c => c.from_tick <= tick) : -1;
+  const now = chapterIndex >= 0 ? chapters![chapterIndex] : null;
   const list = useRef<HTMLOListElement>(null);
   const current = currentTurn(run.turns, clock, tick, search.turn);
   const rows = useMemo(() => feedRows(run), [run]);
@@ -147,10 +149,9 @@ export const Transcript = memo(function Transcript({
                 type="button"
                 onClick={() => settle(chapter.from_tick)}
                 title={chapter.text}
-                className="flex w-full min-w-0 flex-col items-start gap-0.5 rounded-md border-b pb-1.5 text-left outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="flex w-full min-w-0 items-start rounded-md border-b pb-1.5 text-left font-medium outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50"
               >
-                <span className="font-medium">{chapter.title}</span>
-                <span className="text-xs text-pretty text-muted-foreground">{chapter.text}</span>
+                {chapter.title}
               </button>
             </li>
           ),
@@ -192,10 +193,21 @@ export const Transcript = memo(function Transcript({
   return (
     // The feed runs to the card's bottom edge and scrolls inside it
     <Card className="h-full pb-0">
-      <CardHeader>
-        <CardTitle>Transcript</CardTitle>
-        <CardDescription>{formatInt(run.turns.length)} model calls</CardDescription>
-      </CardHeader>
+      {/* The chapter at the playhead (site/summarize.py) heads the feed, in its own words; the calls under it are the detail */}
+      {now ? (
+        <CardHeader>
+          <CardTitle>{now.title}</CardTitle>
+          <CardDescription className="text-pretty">{now.text}</CardDescription>
+          <CardAction className="text-muted-foreground tabular-nums">
+            {formatInt(chapterIndex + 1)} of {formatInt(chapters!.length)}
+          </CardAction>
+        </CardHeader>
+      ) : (
+        <CardHeader>
+          <CardTitle>Transcript</CardTitle>
+          <CardDescription>{formatInt(run.turns.length)} model calls</CardDescription>
+        </CardHeader>
+      )}
       <ol ref={list} aria-label="What the agent was doing" className="relative min-h-0 flex-1 overflow-y-auto pb-3">
         {body}
         {run.answer && (

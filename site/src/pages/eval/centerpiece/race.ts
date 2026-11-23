@@ -41,8 +41,8 @@ export interface RaceRow {
 
 /**
  * The race's rows in the eval's ranking (`ranked`, by its score: median result, or how many
- * finished and how fast), each pairing's runs best first. The order is the final one from the first
- * frame, so the answer never waits for the playback.
+ * finished and how fast), each pairing's runs best first. The centrepiece re-ranks them by where
+ * each run is at the playhead; this order breaks its ties and is where it ends.
  */
 export function raceRows(runners: RunCurve[], ranked: RankedVariant[]): RaceRow[] {
   const at = new Map(ranked.map((r, i) => [r.variant.key, i]));

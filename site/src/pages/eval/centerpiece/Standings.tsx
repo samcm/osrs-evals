@@ -1,6 +1,6 @@
 /**
- * The eval's one ranked list, raced: a row per pairing (or per run, for every run) in the order of
- * the eval's score, the same order from the first frame to the last. Each row names its pairing
+ * The eval's one ranked list, raced: a row per pairing (or per run, for every run) in the order
+ * its run is in at the playhead, so the order changes as the race plays and ends as the eval's score. Each row names its pairing
  * (opening the model's page on this eval at its level and harness), its track (opening the run)
  * runs to its pin as far as the run has got at the playhead, with the eval's quest stages as ticks,
  * the newest quest it finished as a sprite, and what the agent was doing at the playhead as the

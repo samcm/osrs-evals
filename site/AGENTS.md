@@ -85,7 +85,10 @@ are read (varps, save files) is the README's business, never the site's. Then ta
 (`Centerpiece`: the standings, the eval's one ranked list, beside every run together in the game
 on one playhead; then `Progress`, the eval's measure over time, starting on the first screen at
 1440), **Cost** (cost against result, finished within a budget, attempts), **Behaviour** (time and
-tool mix, where they went), **Runs** (the table). An eval about items or skills has a tab for what
+tool mix, where they went), **Runs** (the table: every run's sentence whole under its pairing, and
+under it its chapters as one thin bar in the model's colour on the eval's time scale, a segment per
+chapter naming it on hover and opening the run there, so the runs compare at a glance;
+`components/RunStory.tsx`, the same on `/runs` on each run's own scale; a phone keeps the sentences). An eval about items or skills has a tab for what
 the runs ended with, after Race (`eval/Held.tsx`): **Items** (collection, team wealth: the items most
 runs ended holding, then each run's items as the game's sprites) or **Skills** (total level: each
 run's level in every trained skill). The toolbar beside the tabs holds the open view's
@@ -100,7 +103,8 @@ chart on the first screen: the standings in five of twelve columns (four from 18
 their rows (scrolling past the card's height), and the map in seven (eight) at `fitHeight`, never
 shorter than the standings beside it; the standings first on a phone. The standings rank the pairings by the eval's score,
 the same as every leaderboard (median result; or how many finished, then the median time to finish
-in game time), in their final order from the first frame. Each row names its pairing (opening the
+in game time), re-ranked as the race plays by where each raced run is at the playhead (a finished
+run ahead of an unfinished one, the sooner first; then the further on), ending in the eval's order. Each row names its pairing (opening the
 model's page on this eval at its level and harness), races its run (the pairing's median run,
 the better of two middle runs, or its best, or every run, from `agg`) along a track with the
 eval's quest stages as ticks and its newest quest as a sprite, and holds its result and median
@@ -145,8 +149,10 @@ by itself. In data with the accounts' held items (`held`), the game card has the
 beside the game (`run/Held.tsx`): the followed account's inventory, worn items, bank and skills at
 the playhead, as the game's own sprites and stack counts, the tab in `?panel=` (skills on total
 level, else the inventory). A run told by `summarize.py` has its sentence as the header's
-description, its chapters as segments under the playback track and as headings in the transcript;
-clicking one seeks the playhead there. Then the timeline: a toolbar
+description, its chapters as segments under the playback track and as headings in the transcript,
+and the chapter at the playhead heads the transcript card (its title, its text, which of how many),
+so the run reads in the summary's words first and the calls under it are the detail; clicking a
+chapter seeks the playhead there. Then the timeline: a toolbar
 (the x measure, the lanes menu) over a card per lane, every lane shown unless `?lanes=` names some,
 each with its title, its unit as the description, its cut in the card's action, its key under the
 chart and the playhead in it; the map is a media card beside the lanes (first on a phone). Every

@@ -14,7 +14,6 @@ import { DataTable } from '@/components/DataTable';
 import { Empty } from '@/components/bits';
 import { EvalMark, VariantLabel } from '@/components/marks';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { PageSection } from '@/components/page';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -135,7 +134,10 @@ export function Leaderboard({
               title={row.original.complete ? undefined : `Over the ${row.original.evals.size} evals it ran, not all of them: it ranks below every pairing that ran them all`}
             >
               <span className="w-8 text-base font-semibold tabular-nums">{formatScore(getValue())}</span>
-              <Progress value={getValue() * 100} className={cn('h-2 w-12 md:w-64', !row.original.complete && 'opacity-50')} aria-hidden />
+              {/* A bar of its 100 in the model's colour, as on every chart */}
+              <span aria-hidden className={cn('h-2 w-12 overflow-hidden rounded-full bg-muted md:w-64', !row.original.complete && 'opacity-50')}>
+                <span className={cn('block h-full rounded-full', row.original.variant.color.swatchClassName)} style={{ width: `${getValue() * 100}%` }} />
+              </span>
             </span>
           ),
         }),

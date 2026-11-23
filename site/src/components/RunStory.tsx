@@ -1,45 +1,49 @@
 /**
- * What a run did, readable beside its neighbours in a table: its one sentence whole, then its
- * chapters in order (site/summarize.py), each opening the run at that chapter, its text on hover.
- * A phone keeps the sentences, so runs still compare in a column; the chapters are on the run's page.
+ * What a run did, readable beside its neighbours in a table: its one sentence whole, and under it its
+ * chapters (site/summarize.py) as one thin bar in its model's colour, a segment per chapter on a time
+ * scale shared by the rows (`span`, in ticks), so a quicker run's bar ends sooner. A segment names its
+ * chapter on hover and opens the run there.
  */
 
-import { ChevronRightIcon } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { runSummaryQuery } from '@/data/queries';
 import type { Run } from '@/data/types';
+import { variantOf } from '@/lib/series';
+import { cn } from '@/lib/utils';
 
-export function RunStory({ run }: { run: Run }) {
+export function RunStory({ run, span }: { run: Run; span?: number }) {
   const { data: told } = useQuery({ ...runSummaryQuery(run.id), enabled: Boolean(run.summary) });
   const summary = told?.summary ?? run.summary;
   if (!summary) return null;
+  const chapters = told?.chapters ?? [];
+  const end = Math.max(1, span ?? chapters.at(-1)?.to_tick ?? 1);
+  const color = variantOf(run).color.swatchClassName;
   return (
-    <span className="flex max-w-xl min-w-56 flex-col gap-1 whitespace-normal">
-      <span className="text-muted-foreground">{summary}</span>
-      {told && told.chapters.length > 0 && (
-        <ol className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs max-md:hidden" aria-label="Chapters">
-          {told.chapters.map((c, i) => (
-            <li key={c.from_tick} className="inline-flex items-center gap-1">
-              {i > 0 && <ChevronRightIcon aria-hidden className="size-3 text-muted-foreground" />}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    to="/runs/$runId"
-                    params={{ runId: run.id }}
-                    search={{ t: c.from_tick } as never}
-                    onClick={event => event.stopPropagation()}
-                    className="rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-                  >
-                    {c.title}
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-80">{c.text}</TooltipContent>
-              </Tooltip>
-            </li>
+    <span className="flex max-w-xl min-w-56 flex-col gap-1.5 whitespace-normal">
+      <span>{summary}</span>
+      {chapters.length > 0 && (
+        <span className="flex h-1.5 gap-0.5 max-md:hidden" aria-label="Chapters">
+          {chapters.map(c => (
+            <Tooltip key={c.from_tick}>
+              <TooltipTrigger asChild>
+                <Link
+                  to="/runs/$runId"
+                  params={{ runId: run.id }}
+                  search={{ t: c.from_tick } as never}
+                  onClick={event => event.stopPropagation()}
+                  aria-label={c.title}
+                  className={cn('h-full rounded-full opacity-70 outline-none hover:opacity-100 focus-visible:opacity-100', color)}
+                  style={{ width: `${(Math.max(0, c.to_tick - c.from_tick) / end) * 100}%` }}
+                />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-80">
+                <span className="font-medium">{c.title}.</span> {c.text}
+              </TooltipContent>
+            </Tooltip>
           ))}
-        </ol>
+        </span>
       )}
     </span>
   );
