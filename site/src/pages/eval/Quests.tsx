@@ -25,18 +25,34 @@ type Step = NonNullable<EvalRuns['runs'][string]['quests']>[number];
 
 /** One step's key across runs, its label and its icon. */
 function stepOf(s: Step): { key: string; label: string; quest: string; badge?: string } {
-  if (s.kind === 'qp') return { key: `qp-${s.qp}`, label: `${formatInt(s.qp ?? 0)} quest points`, quest: s.quest ?? 'dragon_slayer', badge: 'QP' };
-  if (s.kind === 'stage') return { key: `${s.quest}-${s.stage}`, label: s.name ?? `Stage ${s.stage}`, quest: s.quest ?? 'dragon_slayer', badge: String(s.stage) };
+  if (s.kind === 'qp')
+    return {
+      key: `qp-${s.qp}`,
+      label: `${formatInt(s.qp ?? 0)} quest points`,
+      quest: s.quest ?? 'dragon_slayer',
+      badge: 'QP',
+    };
+  if (s.kind === 'stage')
+    return {
+      key: `${s.quest}-${s.stage}`,
+      label: s.name ?? `Stage ${s.stage}`,
+      quest: s.quest ?? 'dragon_slayer',
+      badge: String(s.stage),
+    };
   return { key: s.quest ?? s.name ?? '', label: s.name ?? s.quest ?? '', quest: s.quest ?? '' };
 }
 
 function StepCell({ step, time }: { step: ReturnType<typeof stepOf>; time?: string }) {
   return (
     <Tip content={time ? `${step.label}, ${time}` : step.label}>
-    <li className="relative flex size-9 items-center justify-center rounded-sm bg-muted/60">
-      <Sprite src={questSrc(step.quest)} size={32} alt={step.label} />
-      {step.badge && <span className="absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums text-shadow-sm text-shadow-card">{step.badge}</span>}
-    </li>
+      <li className="relative flex size-9 items-center justify-center rounded-sm bg-muted/60">
+        <Sprite src={questSrc(step.quest)} size={32} alt={step.label} />
+        {step.badge && (
+          <span className="text-shadow-sm absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums text-shadow-card">
+            {step.badge}
+          </span>
+        )}
+      </li>
     </Tip>
   );
 }
@@ -62,7 +78,10 @@ export function QuestsView({ e, ranked, grid }: { e: Eval; ranked: RankedVariant
 
   return (
     <>
-      <PageSection title="The usual order" description={`Every quest and step some of the ${formatInt(told.length)} runs reached, by the median time they reached it`}>
+      <PageSection
+        title="The usual order"
+        description={`Every quest and step some of the ${formatInt(told.length)} runs reached, by the median time they reached it`}
+      >
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -109,9 +128,7 @@ export function QuestsView({ e, ranked, grid }: { e: Eval; ranked: RankedVariant
                   <VariantLabel run={r.run} variant={r.variant} compact />
                   <span className="text-muted-foreground tabular-nums">#{r.run.epoch}</span>
                 </Link>
-                <span className="text-sm tabular-nums">
-                  {resultText(r.run, e)}
-                </span>
+                <span className="text-sm tabular-nums">{resultText(r.run, e)}</span>
               </span>
               {r.steps!.length > 0 ? (
                 <ol className="flex min-w-0 flex-wrap gap-1">

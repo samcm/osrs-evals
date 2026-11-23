@@ -102,10 +102,7 @@ export function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[
 /** Keys on the Pareto frontier: no other point is cheaper or equal and higher or equal, with one strict. */
 export function paretoFrontier<T>(points: T[], x: (p: T) => number, y: (p: T) => number): T[] {
   return points
-    .filter(
-      p =>
-        !points.some(o => o !== p && x(o) <= x(p) && y(o) >= y(p) && (x(o) < x(p) || y(o) > y(p)))
-    )
+    .filter(p => !points.some(o => o !== p && x(o) <= x(p) && y(o) >= y(p) && (x(o) < x(p) || y(o) > y(p))))
     .sort((a, b) => x(a) - x(b));
 }
 

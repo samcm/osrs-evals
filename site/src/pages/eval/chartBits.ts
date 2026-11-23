@@ -60,7 +60,15 @@ export function roundMax(value: number, x: Measure = 'count'): number {
 /** A series for an end label or a dense legend: the vendor mark and short name, without the harness. */
 export const shortSeries = (s: SeriesSpec): SeriesSpec => ({ ...s, harness: undefined });
 
-export type LabelPosition = 'right' | 'left' | 'top' | 'bottom' | 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
+export type LabelPosition =
+  | 'right'
+  | 'left'
+  | 'top'
+  | 'bottom'
+  | 'top-right'
+  | 'top-left'
+  | 'bottom-right'
+  | 'bottom-left';
 
 /**
  * Place point labels so they stay in the box and clear each other and the points: each label takes
@@ -76,7 +84,14 @@ export function placePointLabels(
   const marks: Rect[] = points.map(p => [p.px - 6, p.py - 6, p.px + 6, p.py + 6]);
   const placed: Rect[] = [];
   const out: ([LabelPosition, [number, number]] | null)[] = points.map(() => ['right', [0, 0]]);
-  const order = points.map((_, i) => i).sort((a, b) => Number(!!points[a].optional) - Number(!!points[b].optional) || points[a].py - points[b].py || points[a].px - points[b].px);
+  const order = points
+    .map((_, i) => i)
+    .sort(
+      (a, b) =>
+        Number(!!points[a].optional) - Number(!!points[b].optional) ||
+        points[a].py - points[b].py ||
+        points[a].px - points[b].px
+    );
   for (const i of order) {
     const { px, py, width: w } = points[i];
     const h = 20;

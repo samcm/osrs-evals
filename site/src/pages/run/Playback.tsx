@@ -22,7 +22,18 @@ import { useSearchUpdate } from '@/lib/search';
 import { useWidth } from '@/lib/useWidth';
 import { cn } from '@/lib/utils';
 import { turnTick, type Clock, type XMeasure } from './model';
-import { commit, defaultSpeed, pause, REAL_TIME, seek, setSpeed, SPEEDS, toggle, useCommitted, usePlayhead } from './playhead';
+import {
+  commit,
+  defaultSpeed,
+  pause,
+  REAL_TIME,
+  seek,
+  setSpeed,
+  SPEEDS,
+  toggle,
+  useCommitted,
+  usePlayhead,
+} from './playhead';
 import { runSearch } from './search';
 
 const route = getRouteApi('/runs/$runId');
@@ -40,7 +51,10 @@ interface Mark {
 }
 
 function eventTitle(e: Marked): string {
-  if (e.kind === 'quest') return e.source === 'inferred' ? `≈ ${e.name ?? 'A quest'}: guessed from the quest-points jump` : (e.name ?? 'A quest');
+  if (e.kind === 'quest')
+    return e.source === 'inferred'
+      ? `≈ ${e.name ?? 'A quest'}: guessed from the quest-points jump`
+      : (e.name ?? 'A quest');
   if (e.kind === 'death') return 'Died';
   return `Attempt ${e.attempt}`;
 }
@@ -64,7 +78,15 @@ function EventMark({ mark }: { mark: Mark }) {
           )}
           style={{ left: mark.left }}
         >
-          {e.kind === 'attempt' ? e.attempt : <Sprite src={e.kind === 'death' ? skillSrc('hitpoints') : e.quest ? questSrc(e.quest) : uiSrc('quests')} size={MARK} alt="" />}
+          {e.kind === 'attempt' ? (
+            e.attempt
+          ) : (
+            <Sprite
+              src={e.kind === 'death' ? skillSrc('hitpoints') : e.quest ? questSrc(e.quest) : uiSrc('quests')}
+              size={MARK}
+              alt=""
+            />
+          )}
         </Button>
       </TooltipTrigger>
       <TooltipContent>
@@ -76,7 +98,17 @@ function EventMark({ mark }: { mark: Mark }) {
   );
 }
 
-export function Playback({ run, clock, measure, chapters }: { run: RunDetail; clock: Clock; measure: XMeasure; chapters?: RunSummary['chapters'] }) {
+export function Playback({
+  run,
+  clock,
+  measure,
+  chapters,
+}: {
+  run: RunDetail;
+  clock: Clock;
+  measure: XMeasure;
+  chapters?: RunSummary['chapters'];
+}) {
   const [committed, write] = useCommitted(run, clock);
   const head = usePlayhead(clock, committed, write);
   const auto = String(defaultSpeed(clock.maxTicks));
@@ -98,9 +130,16 @@ export function Playback({ run, clock, measure, chapters }: { run: RunDetail; cl
       if (event.key === ' ' && !event.shiftKey && !target?.closest('button, a, [role=slider]')) {
         event.preventDefault();
         toggle();
-      } else if (event.shiftKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !target?.closest('[role=slider]')) {
+      } else if (
+        event.shiftKey &&
+        (event.key === 'ArrowLeft' || event.key === 'ArrowRight') &&
+        !target?.closest('[role=slider]')
+      ) {
         event.preventDefault();
-        const to = event.key === 'ArrowRight' ? (turnTicks.find(t => t > tick + 0.5) ?? max) : (turnTicks.findLast(t => t < tick - 0.5) ?? 0);
+        const to =
+          event.key === 'ArrowRight'
+            ? (turnTicks.find(t => t > tick + 0.5) ?? max)
+            : (turnTicks.findLast(t => t < tick - 0.5) ?? 0);
         pause();
         commit(to);
       }
@@ -131,7 +170,13 @@ export function Playback({ run, clock, measure, chapters }: { run: RunDetail; cl
     <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-2">
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="outline" size="icon-sm" onClick={toggle} aria-label={head.playing ? 'Pause' : 'Play'} aria-keyshortcuts="Space">
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={toggle}
+            aria-label={head.playing ? 'Pause' : 'Play'}
+            aria-keyshortcuts="Space"
+          >
             {head.playing ? <PauseIcon className="fill-current" /> : <PlayIcon className="fill-current" />}
           </Button>
         </TooltipTrigger>
@@ -139,7 +184,7 @@ export function Playback({ run, clock, measure, chapters }: { run: RunDetail; cl
           {head.playing ? 'Pause' : 'Play'} <Kbd>Space</Kbd>
         </TooltipContent>
       </Tooltip>
-      <div className="order-first flex min-w-0 basis-full flex-col gap-1 sm:order-none sm:basis-0 sm:flex-1">
+      <div className="order-first flex min-w-0 basis-full flex-col gap-1 sm:order-none sm:flex-1 sm:basis-0">
         {marks.length > 0 && (
           <div className="relative h-4">
             {marks.map(m => (
@@ -166,7 +211,11 @@ export function Playback({ run, clock, measure, chapters }: { run: RunDetail; cl
               {chapters.map((c, i) => {
                 const current = tick >= c.from_tick && (tick < c.to_tick || i === chapters.length - 1);
                 return (
-                  <li key={c.from_tick} className="flex min-w-0" style={{ width: `${(Math.min(max, c.to_tick) - Math.min(max, c.from_tick)) / max * 100}%` }}>
+                  <li
+                    key={c.from_tick}
+                    className="flex min-w-0"
+                    style={{ width: `${((Math.min(max, c.to_tick) - Math.min(max, c.from_tick)) / max) * 100}%` }}
+                  >
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -176,7 +225,10 @@ export function Playback({ run, clock, measure, chapters }: { run: RunDetail; cl
                             pause();
                             commit(c.from_tick);
                           }}
-                          className={cn('h-full w-full rounded-full border-0 p-0 hover:bg-foreground/40 active:not-aria-[haspopup]:translate-y-0', current ? 'bg-primary' : 'bg-muted-foreground/25')}
+                          className={cn(
+                            'h-full w-full rounded-full border-0 p-0 hover:bg-foreground/40 active:not-aria-[haspopup]:translate-y-0',
+                            current ? 'bg-primary' : 'bg-muted-foreground/25'
+                          )}
                         />
                       </TooltipTrigger>
                       <TooltipContent>{c.title}</TooltipContent>

@@ -30,7 +30,8 @@ function trailTo(points: readonly PathPoint[], tick: number): PathPoint[] {
 function questMarker(e: Quest, points: readonly PathPoint[]): MapMarker | null {
   const at = positionAt(points, e.tick);
   if (!at) return null;
-  const title = e.source === 'inferred' ? `≈ ${e.name ?? 'A quest'}: guessed from the quest-points jump` : (e.name ?? 'A quest');
+  const title =
+    e.source === 'inferred' ? `≈ ${e.name ?? 'A quest'}: guessed from the quest-points jump` : (e.name ?? 'A quest');
   return { id: `quest-${e.tick}`, x: at.x, z: at.z, src: e.quest ? questSrc(e.quest) : uiSrc('quests'), title };
 }
 
@@ -57,7 +58,13 @@ function useGlide(target: number, glide: boolean): number {
 }
 
 /** A dot with no line: the playhead (primary, like every other playhead on the page) or the hover. */
-const dot = (id: string, points: readonly PathPoint[], at: number, color: string): MapPath => ({ id, color, points, opacity: 0, at });
+const dot = (id: string, points: readonly PathPoint[], at: number, color: string): MapPath => ({
+  id,
+  color,
+  points,
+  opacity: 0,
+  at,
+});
 
 export function RunMap({
   run,
@@ -97,12 +104,35 @@ export function RunMap({
     return [
       // The other accounts' paths, fainter, with a dot where each is
       ...others.flatMap(([name, other]): MapPath[] => [
-        { id: `${run.id}-${name}`, color: TIME_RAMP[TIME_RAMP.length - 1], ramp: TIME_RAMP, rampSpan: [0, clock.maxTicks], points: trailTo(other, time), width: 1.5, opacity: 0.45 },
+        {
+          id: `${run.id}-${name}`,
+          color: TIME_RAMP[TIME_RAMP.length - 1],
+          ramp: TIME_RAMP,
+          rampSpan: [0, clock.maxTicks],
+          points: trailTo(other, time),
+          width: 1.5,
+          opacity: 0.45,
+        },
         dot(`${run.id}-${name}-at`, other, time, '--muted-foreground'),
       ]),
       // The whole path in its time colours, faint after the playhead, bright up to it
-      { id: `${run.id}-all`, color: TIME_RAMP[TIME_RAMP.length - 1], ramp: TIME_RAMP, rampSpan: [0, clock.maxTicks], points, width: 2, opacity: 0.6 },
-      { id: `${run.id}-trail`, color: TIME_RAMP[TIME_RAMP.length - 1], ramp: TIME_RAMP, rampSpan: [0, clock.maxTicks], points: trail, width: 3 },
+      {
+        id: `${run.id}-all`,
+        color: TIME_RAMP[TIME_RAMP.length - 1],
+        ramp: TIME_RAMP,
+        rampSpan: [0, clock.maxTicks],
+        points,
+        width: 2,
+        opacity: 0.6,
+      },
+      {
+        id: `${run.id}-trail`,
+        color: TIME_RAMP[TIME_RAMP.length - 1],
+        ramp: TIME_RAMP,
+        rampSpan: [0, clock.maxTicks],
+        points: trail,
+        width: 3,
+      },
       ...(hover != null ? [dot(`${run.id}-hover`, trailTo(points, hover), hover, '--muted-foreground')] : []),
       dot(`${run.id}-at`, trail, time, '--primary'),
     ];
@@ -122,11 +152,18 @@ export function RunMap({
   /** The other account under the pointer names itself, as the canvas's tooltip. */
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>): void => {
     const rect = event.currentTarget.getBoundingClientRect();
-    const hit = placed.current.find(p => Math.hypot(p.x - (event.clientX - rect.left), p.y - (event.clientY - rect.top)) <= 8);
+    const hit = placed.current.find(
+      p => Math.hypot(p.x - (event.clientX - rect.left), p.y - (event.clientY - rect.top)) <= 8
+    );
     event.currentTarget.title = hit ? hit.name : '';
   };
 
-  if (points.length === 0) return <p className="flex items-center justify-center text-sm text-muted-foreground" style={{ height }}>No path was recorded.</p>;
+  if (points.length === 0)
+    return (
+      <p className="flex items-center justify-center text-sm text-muted-foreground" style={{ height }}>
+        No path was recorded.
+      </p>
+    );
   return (
     <div className="relative" onPointerMove={others.length ? onPointerMove : undefined}>
       <WorldMap

@@ -15,7 +15,15 @@
  */
 
 import { Fragment, type ReactNode } from 'react';
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronsUpDown } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ChevronsUpDown,
+} from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
@@ -210,7 +218,11 @@ export function DataTable<T>({
                   onClick={click}
                   // A clickable row is reachable by keyboard too: Tab to it, Enter to open
                   tabIndex={click ? 0 : undefined}
-                  onKeyDown={click ? event => event.key === 'Enter' && event.target === event.currentTarget && click() : undefined}
+                  onKeyDown={
+                    click
+                      ? event => event.key === 'Enter' && event.target === event.currentTarget && click()
+                      : undefined
+                  }
                   aria-expanded={expands ? open : undefined}
                   data-state={open ? 'selected' : undefined}
                   className={cn('transition-opacity', click && 'cursor-pointer outline-none focus-visible:bg-muted')}
@@ -220,7 +232,13 @@ export function DataTable<T>({
                     return (
                       <TableCell
                         key={cell.id}
-                        className={cn('tabular-nums', meta?.wrap && 'min-w-56 whitespace-normal', meta?.numeric && 'text-right', EDGE, meta?.className)}
+                        className={cn(
+                          'tabular-nums',
+                          meta?.wrap && 'min-w-56 whitespace-normal',
+                          meta?.numeric && 'text-right',
+                          EDGE,
+                          meta?.className
+                        )}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
@@ -247,13 +265,32 @@ export function DataTable<T>({
               <span className="whitespace-nowrap">
                 Page {pageIndex + 1} of {pageCount}
               </span>
-              <Button variant="outline" size="icon" className="max-sm:hidden" aria-label="First page" disabled={pageIndex === 0} onClick={() => onPageChange(1)}>
+              <Button
+                variant="outline"
+                size="icon"
+                className="max-sm:hidden"
+                aria-label="First page"
+                disabled={pageIndex === 0}
+                onClick={() => onPageChange(1)}
+              >
                 <ChevronsLeft />
               </Button>
-              <Button variant="outline" size="icon" aria-label="Previous page" disabled={pageIndex === 0} onClick={() => onPageChange(pageIndex)}>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Previous page"
+                disabled={pageIndex === 0}
+                onClick={() => onPageChange(pageIndex)}
+              >
                 <ChevronLeft />
               </Button>
-              <Button variant="outline" size="icon" aria-label="Next page" disabled={pageIndex >= pageCount - 1} onClick={() => onPageChange(pageIndex + 2)}>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Next page"
+                disabled={pageIndex >= pageCount - 1}
+                onClick={() => onPageChange(pageIndex + 2)}
+              >
                 <ChevronRight />
               </Button>
               <Button

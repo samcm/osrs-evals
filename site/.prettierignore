@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+src/routeTree.gen.ts
+public/
+game/
+capture.ts
+dist/

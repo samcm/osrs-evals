@@ -4,7 +4,18 @@ import { Tip } from '@/components/bits';
 import { useMemo, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
-import { CartesianGrid, ComposedChart, Line, LineChart, Scatter, XAxis, YAxis, usePlotArea, useXAxisScale, useYAxisScale } from 'recharts';
+import {
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  LineChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  usePlotArea,
+  useXAxisScale,
+  useYAxisScale,
+} from 'recharts';
 import { cn } from '@/lib/utils';
 import { ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { DataTable } from '@/components/DataTable';
@@ -21,7 +32,7 @@ import {
   logAxisProps,
   xAxisProps,
   yAxisProps,
-} from '@/components/charts';
+} from '@/components/Charts';
 import type { Eval, Run } from '@/data/types';
 import { extraLabelWidth, scatterShape, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
 import { variantKey } from '@/lib/series';
@@ -92,7 +103,13 @@ function PointLabels({ points }: { points: Point[] }) {
   if (!plot || !x || !y) return null;
   const width = (p: Point) => labelWidth(p.spec.label) + extraLabelWidth(p.spec);
   // The frontier's labels first; any other point's only where it fits
-  const placed = points.map(p => ({ p, px: Number(x(p.x)), py: Number(y(p.y)), width: width(p), optional: !p.frontier }));
+  const placed = points.map(p => ({
+    p,
+    px: Number(x(p.x)),
+    py: Number(y(p.y)),
+    width: width(p),
+    optional: !p.frontier,
+  }));
   // Labels may run into the chart's margins, not past its edges
   const positions = placePointLabels(placed, { x: 0, y: plot.y, width: plot.x + plot.width + 16, height: plot.height });
   return (
@@ -102,7 +119,13 @@ function PointLabels({ points }: { points: Point[] }) {
         if (!at) return null;
         const [pos, [left, top]] = at;
         return (
-          <foreignObject key={q.p.spec.key} x={pos.endsWith('left') ? left - 8 : left} y={top} width={q.width + 8} height={20}>
+          <foreignObject
+            key={q.p.spec.key}
+            x={pos.endsWith('left') ? left - 8 : left}
+            y={top}
+            width={q.width + 8}
+            height={20}
+          >
             <div
               className={cn(
                 'flex h-full items-center text-xs',
@@ -120,7 +143,17 @@ function PointLabels({ points }: { points: Point[] }) {
 }
 
 /** Each variant's median spend per run against its finish rate (or median result), with the frontier under the points. */
-export function ParetoChart({ e, ranked, px, legend }: { e: Eval; ranked: RankedVariant[]; px: ParetoX; legend: LegendState }) {
+export function ParetoChart({
+  e,
+  ranked,
+  px,
+  legend,
+}: {
+  e: Eval;
+  ranked: RankedVariant[];
+  px: ParetoX;
+  legend: LegendState;
+}) {
   const lit = useLit(legend.focus);
   const target = e.target != null;
   const log = px === 'cost';
@@ -141,7 +174,10 @@ export function ParetoChart({ e, ranked, px, legend }: { e: Eval; ranked: Ranked
         p => p.y
       )
     );
-    return { points: drawable.map(p => ({ ...p, frontier: frontier.has(p) })), left: all.filter(p => !drawable.includes(p as Point)) };
+    return {
+      points: drawable.map(p => ({ ...p, frontier: frontier.has(p) })),
+      left: all.filter(p => !drawable.includes(p as Point)),
+    };
   }, [log, px, ranked, target]);
 
   const yMax = target ? 1 : roundMax(Math.max(1, ...points.map(p => p.y)));
@@ -166,76 +202,80 @@ export function ParetoChart({ e, ranked, px, legend }: { e: Eval; ranked: Ranked
 
   return (
     <div ref={ref} className="flex flex-1 flex-col">
-          <ChartFrame
-            config={config}
-            height="lead"
-            empty={points.length && xAxis ? undefined : `No pairing here has a ${px === 'cost' ? 'cost' : 'value'} to place.`}
-            // Wide, the points' labels are the key; narrow, a legend is, and the points go unlabelled
-            legend={narrow ? <SeriesLegend series={ranked.map(r => variantSeries(r.variant))} legend={legend} /> : undefined}
-          >
-            <ComposedChart margin={chartMargin()}>
-              <CartesianGrid {...gridProps} />
-              <XAxis {...xAxis!} dataKey="x" type="number" />
-              <YAxis
-                {...yAxisProps({
-                  domain: [0, yMax],
-                  ticks: target ? [0, 0.25, 0.5, 0.75, 1] : roundTicks(yMax),
-                  format: target ? v => `${Math.round(v * 100)}%` : formatInt,
-                })}
-                dataKey="y"
+      <ChartFrame
+        config={config}
+        height="lead"
+        empty={
+          points.length && xAxis ? undefined : `No pairing here has a ${px === 'cost' ? 'cost' : 'value'} to place.`
+        }
+        // Wide, the points' labels are the key; narrow, a legend is, and the points go unlabelled
+        legend={
+          narrow ? <SeriesLegend series={ranked.map(r => variantSeries(r.variant))} legend={legend} /> : undefined
+        }
+      >
+        <ComposedChart margin={chartMargin()}>
+          <CartesianGrid {...gridProps} />
+          <XAxis {...xAxis!} dataKey="x" type="number" />
+          <YAxis
+            {...yAxisProps({
+              domain: [0, yMax],
+              ticks: target ? [0, 0.25, 0.5, 0.75, 1] : roundTicks(yMax),
+              format: target ? v => `${Math.round(v * 100)}%` : formatInt,
+            })}
+            dataKey="y"
+          />
+          <ChartTooltip
+            cursor={false}
+            content={
+              <PointTooltip
+                rows={d => {
+                  const p = points.find(q => q === d || (q.x === (d as Point)?.x && q.y === (d as Point)?.y));
+                  if (!p) return null;
+                  return {
+                    title: <SeriesLabel series={p.spec} />,
+                    values: [
+                      [PX_NAME[px], formatX(p.x, px)],
+                      target
+                        ? ['Finished', `${p.r.finished} of ${p.r.runs.length}`]
+                        : [`Median ${e.measure.toLowerCase()}`, formatInt(p.y)],
+                    ],
+                  };
+                }}
               />
-              <ChartTooltip
-                cursor={false}
-                content={
-                  <PointTooltip
-                    rows={d => {
-                      const p = points.find(q => q === d || (q.x === (d as Point)?.x && q.y === (d as Point)?.y));
-                      if (!p) return null;
-                      return {
-                        title: <SeriesLabel series={p.spec} />,
-                        values: [
-                          [PX_NAME[px], formatX(p.x, px)],
-                          target
-                            ? ['Finished', `${p.r.finished} of ${p.r.runs.length}`]
-                            : [`Median ${e.measure.toLowerCase()}`, formatInt(p.y)],
-                        ],
-                      };
-                    }}
-                  />
-                }
-              />
-              <Line
-                data={frontier}
-                dataKey="y"
-                type="linear"
-                stroke="var(--muted-foreground)"
-                strokeOpacity={0.6}
-                strokeWidth={1.25}
-                strokeDasharray="3 4"
-                dot={false}
-                activeDot={false}
-                isAnimationActive={false}
-                legendType="none"
-              />
-              {points.map(p => (
-                <Scatter
-                  key={p.spec.key}
-                  data={[p]}
-                  dataKey="y"
-                  fill={p.spec.color}
-                  fillOpacity={legend.visible(p.spec.id) && !faded(lit, p.spec.id) ? 1 : FADED_OPACITY}
-                  onMouseEnter={() => setHovered(p.spec.id)}
-                  onMouseLeave={() => setHovered(undefined)}
-                  shape={scatterShape(p.spec.symbol)}
-                  isAnimationActive={false}
-                  className="cursor-pointer"
-                  onClick={() => legend.isolate(p.spec.id)}
-                />
-              ))}
-              {/* The frontier always, every other point where its label fits; any point names itself on hover */}
-              {!narrow && <PointLabels points={points} />}
-            </ComposedChart>
-          </ChartFrame>
+            }
+          />
+          <Line
+            data={frontier}
+            dataKey="y"
+            type="linear"
+            stroke="var(--muted-foreground)"
+            strokeOpacity={0.6}
+            strokeWidth={1.25}
+            strokeDasharray="3 4"
+            dot={false}
+            activeDot={false}
+            isAnimationActive={false}
+            legendType="none"
+          />
+          {points.map(p => (
+            <Scatter
+              key={p.spec.key}
+              data={[p]}
+              dataKey="y"
+              fill={p.spec.color}
+              fillOpacity={legend.visible(p.spec.id) && !faded(lit, p.spec.id) ? 1 : FADED_OPACITY}
+              onMouseEnter={() => setHovered(p.spec.id)}
+              onMouseLeave={() => setHovered(undefined)}
+              shape={scatterShape(p.spec.symbol)}
+              isAnimationActive={false}
+              className="cursor-pointer"
+              onClick={() => legend.isolate(p.spec.id)}
+            />
+          ))}
+          {/* The frontier always, every other point where its label fits; any point names itself on hover */}
+          {!narrow && <PointLabels points={points} />}
+        </ComposedChart>
+      </ChartFrame>
       {left.length > 0 && points.length > 0 && (
         <p className="text-xs text-muted-foreground">
           {px === 'cost' ? 'No cost for' : 'Nothing to place for'} {left.map(p => p.r.variant.name).join(', ')}.
@@ -245,10 +285,21 @@ export function ParetoChart({ e, ranked, px, legend }: { e: Eval; ranked: Ranked
   );
 }
 
-const finishOf = (run: Run, cx: CdfX): number | null => (cx === 'ticks' ? run.ticks : cx === 'seconds' ? run.seconds : run.cost);
+const finishOf = (run: Run, cx: CdfX): number | null =>
+  cx === 'ticks' ? run.ticks : cx === 'seconds' ? run.seconds : run.cost;
 
 /** Share of each variant's runs finished within a budget of ticks, time or cost. Unfinished runs never count. */
-export function CdfChart({ e, ranked, cx, legend }: { e: Eval; ranked: RankedVariant[]; cx: CdfX; legend: LegendState }) {
+export function CdfChart({
+  e,
+  ranked,
+  cx,
+  legend,
+}: {
+  e: Eval;
+  ranked: RankedVariant[];
+  cx: CdfX;
+  legend: LegendState;
+}) {
   const lit = useLit(legend.focus);
   const navigate = useNavigate();
   const specs = useMemo(() => ranked.map(r => ({ r, spec: variantSeries(r.variant) })), [ranked]);
@@ -290,51 +341,53 @@ export function CdfChart({ e, ranked, cx, legend }: { e: Eval; ranked: RankedVar
 
   return (
     <div className="flex flex-1 flex-col">
-          <ChartFrame
-            config={Object.fromEntries(specs.map(s => [s.spec.key, { label: s.spec.label, color: s.spec.color }]))}
-            height="lead"
-            empty={chart ? undefined : 'No run here has a cost.'}
-          >
-            <LineChart data={chart?.rows} margin={chartMargin()}>
-              <CartesianGrid {...gridProps} />
-              {chart && <XAxis {...chart.xAxis} />}
-              <YAxis {...yAxisProps({ domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1], format: v => `${Math.round(v * 100)}%` })} />
-              <ChartTooltip
-                cursor={crosshairCursor}
-                content={
-                  <SeriesTooltip
-                    series={chart?.lines.map(l => l.spec) ?? []}
-                    format={v => formatX(v, 'share')}
-                    labelFormat={v => formatX(Number(v), cx)}
-                  />
-                }
+      <ChartFrame
+        config={Object.fromEntries(specs.map(s => [s.spec.key, { label: s.spec.label, color: s.spec.color }]))}
+        height="lead"
+        empty={chart ? undefined : 'No run here has a cost.'}
+      >
+        <LineChart data={chart?.rows} margin={chartMargin()}>
+          <CartesianGrid {...gridProps} />
+          {chart && <XAxis {...chart.xAxis} />}
+          <YAxis
+            {...yAxisProps({ domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1], format: v => `${Math.round(v * 100)}%` })}
+          />
+          <ChartTooltip
+            cursor={crosshairCursor}
+            content={
+              <SeriesTooltip
+                series={chart?.lines.map(l => l.spec) ?? []}
+                format={v => formatX(v, 'share')}
+                labelFormat={v => formatX(Number(v), cx)}
               />
-              {chart?.lines.map(l => (
-                <Line
-                  key={l.spec.key}
-                  {...lineProps(l.spec, { faded: faded(lit, l.spec.id) })}
-                  stroke={l.spec.color}
-                  onMouseEnter={() => setHovered(l.spec.id)}
-                  onMouseLeave={() => setHovered(undefined)}
-                  dot={(props: { index: number; cx?: number; cy?: number; payload?: Record<string, unknown> }) => {
-                    const runId = props.payload?.[`${l.spec.key}_run`] as string | undefined;
-                    if (!runId || props.cx == null || props.cy == null) return <g key={props.index} />;
-                    return (
-                      <circle
-                        key={props.index}
-                        cx={props.cx}
-                        cy={props.cy}
-                        r={3}
-                        fill={l.spec.color}
-                        className="cursor-pointer"
-                        onClick={() => navigate({ to: '/runs/$runId', params: { runId }, search: {} as never })}
-                      />
-                    );
-                  }}
-                />
-              ))}
-            </LineChart>
-          </ChartFrame>
+            }
+          />
+          {chart?.lines.map(l => (
+            <Line
+              key={l.spec.key}
+              {...lineProps(l.spec, { faded: faded(lit, l.spec.id) })}
+              stroke={l.spec.color}
+              onMouseEnter={() => setHovered(l.spec.id)}
+              onMouseLeave={() => setHovered(undefined)}
+              dot={(props: { index: number; cx?: number; cy?: number; payload?: Record<string, unknown> }) => {
+                const runId = props.payload?.[`${l.spec.key}_run`] as string | undefined;
+                if (!runId || props.cx == null || props.cy == null) return <g key={props.index} />;
+                return (
+                  <circle
+                    key={props.index}
+                    cx={props.cx}
+                    cy={props.cy}
+                    r={3}
+                    fill={l.spec.color}
+                    className="cursor-pointer"
+                    onClick={() => navigate({ to: '/runs/$runId', params: { runId }, search: {} as never })}
+                  />
+                );
+              }}
+            />
+          ))}
+        </LineChart>
+      </ChartFrame>
     </div>
   );
 }
@@ -352,7 +405,11 @@ export function AttemptsTable({ e, ranked, legend }: { e: Eval; ranked: RankedVa
   const columns = useMemo(() => {
     const reached = capitalize(e.measure.replace(/^Quest /, ''));
     return [
-      col.display({ id: 'variant', header: 'Pairing', cell: ({ row }) => <VariantLabel run={row.original.run} compact /> }),
+      col.display({
+        id: 'variant',
+        header: 'Pairing',
+        cell: ({ row }) => <VariantLabel run={row.original.run} compact />,
+      }),
       col.accessor(r => r.run.epoch, { id: 'epoch', header: 'Epoch', meta: { numeric: true } }),
       ...Array.from({ length: e.attempts }, (_, i) =>
         col.display({
@@ -388,13 +445,13 @@ export function AttemptsTable({ e, ranked, legend }: { e: Eval; ranked: RankedVa
 
   return (
     <>
-        <DataTable
-          data={rows}
-          columns={columns}
-          getRowId={r => r.run.id}
-          onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.run.id }, search: {} as never })}
-          hoverId={r => variantKey(r.run)}
-        />
+      <DataTable
+        data={rows}
+        columns={columns}
+        getRowId={r => r.run.id}
+        onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.run.id }, search: {} as never })}
+        hoverId={r => variantKey(r.run)}
+      />
     </>
   );
 }

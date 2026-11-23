@@ -84,7 +84,13 @@ export function makeClock(run: RunDetail): Clock {
   const lastTick = run.timeline[run.timeline.length - 1]?.tick ?? 0;
   const maxTicks = Math.min(run.budget_ticks * run.attempts, Math.max(run.game_ticks ?? lastTick, 1));
   const maxSeconds = run.game_seconds ?? toSeconds(maxTicks);
-  return { toSeconds, toTick, maxTicks, maxSeconds, x: (tick, measure) => (measure === 'ticks' ? tick : toSeconds(tick)) };
+  return {
+    toSeconds,
+    toTick,
+    maxTicks,
+    maxSeconds,
+    x: (tick, measure) => (measure === 'ticks' ? tick : toSeconds(tick)),
+  };
 }
 
 /** A turn's tick: its own, or from its seconds. */

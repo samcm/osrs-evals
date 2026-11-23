@@ -68,7 +68,11 @@ export interface EvalPlayhead {
  * Runs playback over 0…span in PLAY_SECONDS, starting from the tick shown (from 0 at the end).
  * `commit` writes `?t=`; undefined means the end.
  */
-export function useEvalPlayhead(committed: number | undefined, span: number, commit: (tick: number | undefined) => void): EvalPlayhead {
+export function useEvalPlayhead(
+  committed: number | undefined,
+  span: number,
+  commit: (tick: number | undefined) => void
+): EvalPlayhead {
   const { scrub, playing } = useStore();
   const tick = Math.min(span, scrub ?? committed ?? span);
 

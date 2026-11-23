@@ -8,7 +8,17 @@ import { useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { CartesianGrid, Cell, ComposedChart, Line, Scatter, XAxis, YAxis } from 'recharts';
 import { ChartTooltip, type ChartConfig } from '@/components/ui/chart';
-import { ChartFrame, chartMargin, gridProps, logAxisProps, SeriesLabel, SeriesLegend, xAxisProps, Y_AXIS_WIDTH, yAxisProps } from '@/components/charts';
+import {
+  ChartFrame,
+  chartMargin,
+  gridProps,
+  logAxisProps,
+  SeriesLabel,
+  SeriesLegend,
+  xAxisProps,
+  Y_AXIS_WIDTH,
+  yAxisProps,
+} from '@/components/Charts';
 import type { Eval, Run } from '@/data/types';
 import { agentSeries, cssColor, dashArray, scatterShape, type SeriesSpec } from '@/lib/chartSeries';
 import { formatCost, formatInt } from '@/lib/format';
@@ -39,8 +49,20 @@ export interface ThinkingMeasure {
 export function evalMeasure(e: Eval, y: 'result' | 'ticks' | 'cost'): ThinkingMeasure {
   if (y === 'cost') return costMeasure;
   if (y === 'ticks')
-    return { label: 'Ticks to finish', value: r => (r.success ? r.ticks : null), format: v => `${formatInt(v)} ticks`, ticks: true, empty: 'No run here finished.' };
-  return { label: e.measure, value: resultValue, format: formatInt, max: e.target ?? undefined, empty: 'No run here has a result.' };
+    return {
+      label: 'Ticks to finish',
+      value: r => (r.success ? r.ticks : null),
+      format: v => `${formatInt(v)} ticks`,
+      ticks: true,
+      empty: 'No run here finished.',
+    };
+  return {
+    label: e.measure,
+    value: resultValue,
+    format: formatInt,
+    max: e.target ?? undefined,
+    empty: 'No run here has a result.',
+  };
 }
 
 export const costMeasure: ThinkingMeasure = {
@@ -68,7 +90,6 @@ function levelLabels(levels: string[], width: number): { names: string[]; slant:
   const short = levels.map(l => SHORT[l] ?? l);
   return { names: short, slant: !fits(short) };
 }
-
 
 interface Point {
   x: number;
@@ -115,12 +136,14 @@ export function ThinkingChart({
       const own = runs.filter(r => r.agent === spec.id);
       const line: { x: number; y: number }[] = [];
       levels.forEach((level, i) => {
-        const values = own.filter(r => r.thinking === level).flatMap(run => {
-          const v = measure.value(run);
-          if (v == null) return [];
-          points.push({ x: i + offset, y: v, run, spec });
-          return [v];
-        });
+        const values = own
+          .filter(r => r.thinking === level)
+          .flatMap(run => {
+            const v = measure.value(run);
+            if (v == null) return [];
+            points.push({ x: i + offset, y: v, run, spec });
+            return [v];
+          });
         const m = median(values);
         if (m != null) line.push({ x: i + offset, y: m });
       });
@@ -129,89 +152,105 @@ export function ThinkingChart({
     return { points, medians };
   }, [runs, measure, levels, series]);
 
-  const config = useMemo<ChartConfig>(() => Object.fromEntries(series.map(s => [s.key, { label: s.label, color: s.color }])), [series]);
+  const config = useMemo<ChartConfig>(
+    () => Object.fromEntries(series.map(s => [s.key, { label: s.label, color: s.color }])),
+    [series]
+  );
   const max = measure.max ?? roundMax(Math.max(1, ...points.map(p => p.y)), measure.ticks ? 'ticks' : 'count');
   const yAxis = measure.log
     ? { ...logAxisProps(points.map(p => p.y)), width: Y_AXIS_WIDTH }
-    : yAxisProps({ domain: [0, max], ticks: roundTicks(max, measure.ticks ? 'ticks' : 'count'), format: v => (measure.ticks ? formatTick(v, 'ticks') : formatInt(v)) });
+    : yAxisProps({
+        domain: [0, max],
+        ticks: roundTicks(max, measure.ticks ? 'ticks' : 'count'),
+        format: v => (measure.ticks ? formatTick(v, 'ticks') : formatInt(v)),
+      });
   const empty = points.length === 0 ? measure.empty : undefined;
 
   return (
     <div ref={ref} className="min-w-0">
-    <ChartFrame config={config} height="compact" empty={empty} legend={<SeriesLegend series={series} kind="symbol" />}>
-      <ComposedChart margin={chartMargin()}>
-        <CartesianGrid {...gridProps} />
-        <XAxis
-          {...xAxisProps({ domain: [-0.5, levels.length - 0.5], ticks: levels.map((_, i) => i), format: i => labels.names[i] ?? '' })}
-          dataKey="x"
-          type="number"
-          // Every level named, however many: they are the chart's categories, shortened and then
-          // slanted when the width each one has can't hold its name
-          interval={0}
-          {...(labels.slant ? { angle: -40, textAnchor: 'end', height: 44 } : {})}
-        />
-        <YAxis {...yAxis} dataKey="y" />
-        <ChartTooltip
-          cursor={false}
-          content={
-            <PointTooltip
-              rows={d => {
-                const p = d as Point;
-                if (!p?.run) return null;
-                return {
-                  title: <SeriesLabel series={{ ...p.spec, thinking: p.run.thinking }} />,
-                  values: [
-                    ...(evalOf ? [['Eval', evalOf(p.run)] as [string, string]] : []),
-                    ['Epoch', formatInt(p.run.epoch)],
-                    [measure.label, measure.format(p.y)],
-                  ],
-                };
-              }}
-            />
-          }
-        />
-        {series.map(s => (
-          <Line
-            key={`${s.key}-median`}
-            data={medians.get(s.id)}
-            dataKey="y"
-            type="linear"
-            stroke={s.color}
-            strokeWidth={1.5}
-            strokeDasharray={dashArray(s.line)}
-            strokeOpacity={hover.faded(s.id) ? FADED_OPACITY : 0.8}
-            dot={false}
-            activeDot={false}
-            isAnimationActive={false}
-            legendType="none"
+      <ChartFrame
+        config={config}
+        height="compact"
+        empty={empty}
+        legend={<SeriesLegend series={series} kind="symbol" />}
+      >
+        <ComposedChart margin={chartMargin()}>
+          <CartesianGrid {...gridProps} />
+          <XAxis
+            {...xAxisProps({
+              domain: [-0.5, levels.length - 0.5],
+              ticks: levels.map((_, i) => i),
+              format: i => labels.names[i] ?? '',
+            })}
+            dataKey="x"
+            type="number"
+            // Every level named, however many: they are the chart's categories, shortened and then
+            // slanted when the width each one has can't hold its name
+            interval={0}
+            {...(labels.slant ? { angle: -40, textAnchor: 'end', height: 44 } : {})}
           />
-        ))}
-        {series.map(s => (
-          <Scatter
-            key={s.key}
-            data={points.filter(p => p.spec.id === s.id)}
-            dataKey="y"
-            fill={s.color}
-            fillOpacity={hover.faded(s.id) ? FADED_OPACITY : 1}
-            shape={scatterShape(s.symbol)}
-            isAnimationActive={false}
-            className="cursor-pointer"
-            onMouseEnter={() => setHovered(s.id)}
-            onMouseLeave={() => setHovered(undefined)}
-            onClick={(p: unknown) => {
-              const run = (p as { payload?: Point })?.payload?.run;
-              if (run) navigate({ to: '/runs/$runId', params: { runId: run.id }, search: {} as never });
-            }}
-          >
-            {points
-              .filter(p => p.spec.id === s.id)
-              .map(p => (
-                <Cell key={p.run.id} fill={cssColor(levelColor(modelInfo(p.run.model).color, p.run.thinking))} />
-              ))}
-          </Scatter>
-        ))}
-      </ComposedChart>
-    </ChartFrame>
+          <YAxis {...yAxis} dataKey="y" />
+          <ChartTooltip
+            cursor={false}
+            content={
+              <PointTooltip
+                rows={d => {
+                  const p = d as Point;
+                  if (!p?.run) return null;
+                  return {
+                    title: <SeriesLabel series={{ ...p.spec, thinking: p.run.thinking }} />,
+                    values: [
+                      ...(evalOf ? [['Eval', evalOf(p.run)] as [string, string]] : []),
+                      ['Epoch', formatInt(p.run.epoch)],
+                      [measure.label, measure.format(p.y)],
+                    ],
+                  };
+                }}
+              />
+            }
+          />
+          {series.map(s => (
+            <Line
+              key={`${s.key}-median`}
+              data={medians.get(s.id)}
+              dataKey="y"
+              type="linear"
+              stroke={s.color}
+              strokeWidth={1.5}
+              strokeDasharray={dashArray(s.line)}
+              strokeOpacity={hover.faded(s.id) ? FADED_OPACITY : 0.8}
+              dot={false}
+              activeDot={false}
+              isAnimationActive={false}
+              legendType="none"
+            />
+          ))}
+          {series.map(s => (
+            <Scatter
+              key={s.key}
+              data={points.filter(p => p.spec.id === s.id)}
+              dataKey="y"
+              fill={s.color}
+              fillOpacity={hover.faded(s.id) ? FADED_OPACITY : 1}
+              shape={scatterShape(s.symbol)}
+              isAnimationActive={false}
+              className="cursor-pointer"
+              onMouseEnter={() => setHovered(s.id)}
+              onMouseLeave={() => setHovered(undefined)}
+              onClick={(p: unknown) => {
+                const run = (p as { payload?: Point })?.payload?.run;
+                if (run) navigate({ to: '/runs/$runId', params: { runId: run.id }, search: {} as never });
+              }}
+            >
+              {points
+                .filter(p => p.spec.id === s.id)
+                .map(p => (
+                  <Cell key={p.run.id} fill={cssColor(levelColor(modelInfo(p.run.model).color, p.run.thinking))} />
+                ))}
+            </Scatter>
+          ))}
+        </ComposedChart>
+      </ChartFrame>
     </div>
   );
 }

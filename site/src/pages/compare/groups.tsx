@@ -43,7 +43,17 @@ export function groupName(sample: Run, by: GroupBy): string {
  * The group's marks and short name: vendor mark and model, the harness as a badge. `stacked` puts a
  * variant's badge under its model, for narrow chart labels.
  */
-export function GroupLabel({ sample, by, size = 16, stacked }: { sample: Run; by: GroupBy; size?: 14 | 16 | 20; stacked?: boolean }) {
+export function GroupLabel({
+  sample,
+  by,
+  size = 16,
+  stacked,
+}: {
+  sample: Run;
+  by: GroupBy;
+  size?: 14 | 16 | 20;
+  stacked?: boolean;
+}) {
   if (by === 'model') return <ModelLabel model={sample.model} compact size={size} />;
   if (by === 'agent') return <AgentLabel agent={sample.agent} fallback={sample.agent_name} size={size} />;
   if (by === 'variant' && stacked && agentInfo(sample.agent, sample.agent_name).slug !== 'program') {
@@ -65,7 +75,10 @@ export function GroupLabel({ sample, by, size = 16, stacked }: { sample: Run; by
 }
 
 /** Scope params that narrow every page to one group. */
-export function groupScope(sample: Run, by: GroupBy): { model?: string[]; agent?: string[]; vendor?: string[]; thinking?: string[] } {
+export function groupScope(
+  sample: Run,
+  by: GroupBy
+): { model?: string[]; agent?: string[]; vendor?: string[]; thinking?: string[] } {
   if (by === 'model') return { model: [sample.model] };
   if (by === 'vendor') return { vendor: [vendorOf(sample.model).id] };
   if (by === 'agent') return { agent: [sample.agent] };

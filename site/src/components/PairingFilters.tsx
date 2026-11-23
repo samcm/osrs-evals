@@ -75,11 +75,20 @@ export function PairingFilters({
   const level = (r: Run): string => r.thinking;
   // One model's page lists the levels it advertises (a level not run yet counts none); else the levels run
   const levels = [...new Set([...(advertised ?? []), ...counted(runs, level).keys()])].sort(compareThinking);
-  const agents = [...new Map(runs.map(r => [r.agent, r])).values()].sort((a, b) => agentInfo(a.agent, a.agent_name).name.localeCompare(agentInfo(b.agent, b.agent_name).name));
+  const agents = [...new Map(runs.map(r => [r.agent, r])).values()].sort((a, b) =>
+    agentInfo(a.agent, a.agent_name).name.localeCompare(agentInfo(b.agent, b.agent_name).name)
+  );
   return (
     <FiltersFold active={thinking.length + agent.length + (cut === 'all' ? 0 : 1)}>
       {children}
-      {effort && <Segmented label="Thinking levels shown" value={cut} options={EFFORT_OPTIONS} onChange={v => update({ effort: v === 'all' ? undefined : v } as never)} />}
+      {effort && (
+        <Segmented
+          label="Thinking levels shown"
+          value={cut}
+          options={EFFORT_OPTIONS}
+          onChange={v => update({ effort: v === 'all' ? undefined : v } as never)}
+        />
+      )}
       <FacetFilter
         title="Thinking"
         options={levels.map(level => ({ value: level, label: levelName(level) }))}
@@ -89,7 +98,11 @@ export function PairingFilters({
       />
       <FacetFilter
         title="Harness"
-        options={agents.map(r => ({ value: r.agent, label: agentInfo(r.agent, r.agent_name).name, mark: <BrandMark slug={agentInfo(r.agent, r.agent_name).slug} size={16} /> }))}
+        options={agents.map(r => ({
+          value: r.agent,
+          label: agentInfo(r.agent, r.agent_name).name,
+          mark: <BrandMark slug={agentInfo(r.agent, r.agent_name).slug} size={16} />,
+        }))}
         selected={agent}
         counts={counted(runs, r => r.agent)}
         onChange={values => onChange({ agent: values })}

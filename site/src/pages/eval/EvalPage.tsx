@@ -41,7 +41,12 @@ function Hint({ children, hint }: { children: React.ReactNode; hint: React.React
 
 /** "lumbridge.sav" → "Lumbridge": the start saves are named for where they put the character. */
 const placeOf = (save: string | null | undefined): string | null =>
-  save ? save.replace(/\.sav$/, '').replace(/[_-]+/g, ' ').replace(/^./, c => c.toUpperCase()) : null;
+  save
+    ? save
+        .replace(/\.sav$/, '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/^./, c => c.toUpperCase())
+    : null;
 
 /**
  * What a visitor needs beside the goal (which already says what wins): the budget as game time (its
@@ -54,10 +59,23 @@ function facts(e: Eval, runs: Run[]): MetaItem[] {
   return [
     {
       term: e.attempts > 1 ? 'Budget per attempt' : 'Budget',
-      value: <Hint hint={`${formatInt(e.budget_ticks)} game ticks`}>{formatDuration((e.budget_ticks * e.tick_ms) / 1000)}</Hint>,
+      value: (
+        <Hint hint={`${formatInt(e.budget_ticks)} game ticks`}>
+          {formatDuration((e.budget_ticks * e.tick_ms) / 1000)}
+        </Hint>
+      ),
     },
     ...(e.attempts > 1 ? [{ term: 'Attempts', value: formatInt(e.attempts) }] : []),
-    ...(team ? [{ term: 'Team', value: place ? `${formatInt(e.accounts.length)} characters in ${place}` : `${formatInt(e.accounts.length)} characters` }] : []),
+    ...(team
+      ? [
+          {
+            term: 'Team',
+            value: place
+              ? `${formatInt(e.accounts.length)} characters in ${place}`
+              : `${formatInt(e.accounts.length)} characters`,
+          },
+        ]
+      : []),
     { term: 'Runs', value: <Hint hint={`${formatInt(pairings)} pairings`}>{formatInt(runs.length)}</Hint> },
   ];
 }
@@ -131,7 +149,11 @@ export function EvalPage() {
   // The runs the overview shows, the same in every part of it: every run, or each pairing's median
   // or best run. A focus keeps the other pairings, faded, so the focused one reads against them
   const shownCurves = useMemo(
-    () => pickRunners(curves.filter(cv => !legend.hidden.includes(cv.variant.key) || legend.focus === cv.variant.key), search.agg),
+    () =>
+      pickRunners(
+        curves.filter(cv => !legend.hidden.includes(cv.variant.key) || legend.focus === cv.variant.key),
+        search.agg
+      ),
     [curves, legend, search.agg]
   );
 
@@ -140,7 +162,12 @@ export function EvalPage() {
     const art = evalArt(evalIdOf(slug));
     return (
       <div className={SECTIONS}>
-        {art.score && <PageHeader mark={<EvalMark evalId={evalIdOf(slug)} size={40} />} meta={[{ term: 'Score', value: art.score }]} />}
+        {art.score && (
+          <PageHeader
+            mark={<EvalMark evalId={evalIdOf(slug)} size={40} />}
+            meta={[{ term: 'Score', value: art.score }]}
+          />
+        )}
         <Empty>{art.title ? 'No runs yet.' : 'No eval with this id.'}</Empty>
       </div>
     );
@@ -163,10 +190,23 @@ export function EvalPage() {
 
   return (
     <div className={SECTIONS}>
-      <EvalHero e={e} runs={all} meta={facts(e, all)} setup={search.setup === '1'} onSetup={open => update({ setup: open ? '1' : undefined })} />
+      <EvalHero
+        e={e}
+        runs={all}
+        meta={facts(e, all)}
+        setup={search.setup === '1'}
+        onSetup={open => update({ setup: open ? '1' : undefined })}
+      />
       {/* The views and the controls that drive the open one share a row, as shadcn's dashboards do */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PageTabs value={search.tab} tabs={heldTab(e) ? [...TABS.slice(0, 2), { value: 'held' as const, label: heldTab(e)! }, ...TABS.slice(2)] : [...TABS]} />
+        <PageTabs
+          value={search.tab}
+          tabs={
+            heldTab(e)
+              ? [...TABS.slice(0, 2), { value: 'held' as const, label: heldTab(e)! }, ...TABS.slice(2)]
+              : [...TABS]
+          }
+        />
         <PageToolbar label="View controls">
           {runs.length > 0 && controls}
           <PairingFilters runs={all} thinking={scope.thinking} agent={scope.agent} onChange={setScope} />
@@ -179,8 +219,21 @@ export function EvalPage() {
         <FinishChart e={e} curves={curves} ranked={ranked} agg={search.agg} legend={legend} />
       ) : search.tab === 'race' ? (
         <>
-          <Centerpiece e={e} runs={runs} curves={shownCurves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} agg={search.agg} />
-          <PageSection title={e.measure} actions={<ParamSegmented param="x" value={search.x} label="Along" options={X_OPTIONS} />}>
+          <Centerpiece
+            e={e}
+            runs={runs}
+            curves={shownCurves}
+            grid={grid}
+            legend={legend}
+            view={search.map}
+            t={search.t}
+            maxTick={maxTick}
+            agg={search.agg}
+          />
+          <PageSection
+            title={e.measure}
+            actions={<ParamSegmented param="x" value={search.x} label="Along" options={X_OPTIONS} />}
+          >
             <ProgressChart
               e={e}
               curves={shownCurves}
@@ -215,7 +268,14 @@ export function EvalPage() {
       ) : search.tab === 'behaviour' ? (
         <>
           <PageSection title="Effort per run">
-            <EffortStrips runs={visibleRuns} by={search.by} ranked={ranked} focus={legend.focus} measure={search.measure} onMeasure={m => update({ measure: m === 'calls' ? undefined : m })} />
+            <EffortStrips
+              runs={visibleRuns}
+              by={search.by}
+              ranked={ranked}
+              focus={legend.focus}
+              measure={search.measure}
+              onMeasure={m => update({ measure: m === 'calls' ? undefined : m })}
+            />
           </PageSection>
           <PageSection title="Tool calls">
             <ToolMix runs={visibleRuns} by={search.by} ranked={ranked} />

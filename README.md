@@ -274,7 +274,7 @@ vendor or agent. Every view is a link. It is built from the logs:
 python site/export.py logs/<dir> [logs/<dir> ...]       # the logs -> site/public/data
 site/game/build.sh avatars                                # each run's character, from its recording
 bun site/capture.ts && python site/export.py logs/<dir>   # screenshots of each run's last moment
-cd site && npm ci && npm run build && cd ..
+cd site && pnpm install && pnpm build && cd ..
 bun viewer/serve.ts                                       # http://localhost:7576
 ```
 

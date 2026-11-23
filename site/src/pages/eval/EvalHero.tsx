@@ -17,7 +17,19 @@ import { compareThinking, levelName } from '@/lib/series';
 /** Where the eval's definition lives, to read every detail the page leaves out. */
 const SOURCE = 'https://github.com/samcm/osrs-evals/blob/main/evals';
 
-export function EvalHero({ e, runs, meta, setup, onSetup }: { e: Eval; runs: Run[]; meta: MetaItem[]; setup: boolean; onSetup: (open: boolean) => void }) {
+export function EvalHero({
+  e,
+  runs,
+  meta,
+  setup,
+  onSetup,
+}: {
+  e: Eval;
+  runs: Run[];
+  meta: MetaItem[];
+  setup: boolean;
+  onSetup: (open: boolean) => void;
+}) {
   const art = evalArt(e.id);
   return (
     <PageHero mark={<EvalMark evalId={e.id} size={40} />} lead={e.goal} detail={art.why} meta={meta}>
@@ -32,7 +44,9 @@ export function EvalHero({ e, runs, meta, setup, onSetup }: { e: Eval; runs: Run
         <CollapsibleTrigger className="group flex w-full items-center gap-2 border-t px-6 py-3 text-left text-sm font-medium transition-colors hover:bg-muted/50">
           <ChevronRight className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
           Setup
-          <span className="hidden font-normal text-muted-foreground sm:inline">The prompt and settings every run got</span>
+          <span className="hidden font-normal text-muted-foreground sm:inline">
+            The prompt and settings every run got
+          </span>
         </CollapsibleTrigger>
         <CollapsibleContent className="border-t">
           <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -67,14 +81,36 @@ function settings(e: Eval, runs: Run[]): [string, React.ReactNode][] {
   const ge = e.world?.GE_ENABLED;
   const mono = (s: string) => <span className="font-mono text-xs">{s}</span>;
   return [
-    ['Start', <>New {e.accounts.length > 1 ? 'characters' : 'character'} from {mono(e.start?.save ?? 'a fresh save')}{e.start?.tile ? `, at tile ${e.start.tile.join(', ')}` : ''}</>],
+    [
+      'Start',
+      <>
+        New {e.accounts.length > 1 ? 'characters' : 'character'} from {mono(e.start?.save ?? 'a fresh save')}
+        {e.start?.tile ? `, at tile ${e.start.tile.join(', ')}` : ''}
+      </>,
+    ],
     ['Accounts', mono(e.accounts.join(', '))],
-    ['Budget', `${formatDuration(seconds)} of game time${e.attempts > 1 ? ' per attempt' : ''}: ${formatInt(e.budget_ticks)} ticks of ${formatInt(e.tick_ms)} ms`],
+    [
+      'Budget',
+      `${formatDuration(seconds)} of game time${e.attempts > 1 ? ' per attempt' : ''}: ${formatInt(e.budget_ticks)} ticks of ${formatInt(e.tick_ms)} ms`,
+    ],
     ['Attempts', formatInt(e.attempts)],
-    ['Score', e.target != null ? `${art.score ?? 'Fastest to the target'}: done when the ${e.measure.toLowerCase()} reaches ${formatInt(e.target)}` : `${art.score ?? e.measure}, at the end of the budget`],
-    ['Game', `2004scape on rs-sdk: faster XP, unlimited run energy, no random events${ge === 'false' ? ', no Grand Exchange' : ''}`],
+    [
+      'Score',
+      e.target != null
+        ? `${art.score ?? 'Fastest to the target'}: done when the ${e.measure.toLowerCase()} reaches ${formatInt(e.target)}`
+        : `${art.score ?? e.measure}, at the end of the budget`,
+    ],
+    [
+      'Game',
+      `2004scape on rs-sdk: faster XP, unlimited run energy, no random events${ge === 'false' ? ', no Grand Exchange' : ''}`,
+    ],
     ['Agent', `${versions.join(', ')}, in print mode, the run’s model doing everything, its helpers too`],
     ['Thinking', levels.map(levelName).join(', ')],
-    ['Definition', <a className={linkClassName} href={`${SOURCE}/${e.base}.py`} target="_blank" rel="noreferrer">{mono(`evals/${e.base}.py`)}</a>],
+    [
+      'Definition',
+      <a className={linkClassName} href={`${SOURCE}/${e.base}.py`} target="_blank" rel="noreferrer">
+        {mono(`evals/${e.base}.py`)}
+      </a>,
+    ],
   ];
 }

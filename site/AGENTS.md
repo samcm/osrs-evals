@@ -13,15 +13,15 @@ RuneScape: the game is the hero, the data is honest, the design is quiet.
 Each page answers one question, first, with a chart or a table. Everything else on the page is a
 way to dig into that answer.
 
-| Page | Question it answers first |
-| --- | --- |
-| `/` (Home) | Which model at which thinking level in which harness is best, across every eval and at each? (one blended leaderboard that scales to many evals, then a featured eval) |
-| `/evals/$evalId` | Who won, did anyone finish, and how did each run progress through the game, and what did it cost? |
-| `/evals/$evalId/$model` | How did one model do on one eval, across thinking levels and harnesses? |
-| `/models/$model` | How does one model do across every eval, at each thinking level and in each harness? |
-| `/runs/$runId` | What did this agent do, minute by minute, in the game and in its head? |
-| `/compare` | How do models and agents differ on any one measure, cut any way? |
-| `/runs` | Every run, filterable and sortable. |
+| Page                    | Question it answers first                                                                                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/` (Home)              | Which model at which thinking level in which harness is best, across every eval and at each? (one blended leaderboard that scales to many evals, then a featured eval) |
+| `/evals/$evalId`        | Who won, did anyone finish, and how did each run progress through the game, and what did it cost?                                                                      |
+| `/evals/$evalId/$model` | How did one model do on one eval, across thinking levels and harnesses?                                                                                                |
+| `/models/$model`        | How does one model do across every eval, at each thinking level and in each harness?                                                                                   |
+| `/runs/$runId`          | What did this agent do, minute by minute, in the game and in its head?                                                                                                 |
+| `/compare`              | How do models and agents differ on any one measure, cut any way?                                                                                                       |
+| `/runs`                 | Every run, filterable and sortable.                                                                                                                                    |
 
 ## Structure and hierarchy
 

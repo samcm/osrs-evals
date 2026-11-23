@@ -52,7 +52,8 @@ export function pathBounds(paths: readonly (readonly PathPoint[])[]): Bounds | n
   if (xs.length === 0) return null;
   xs.sort((a, b) => a - b);
   zs.sort((a, b) => a - b);
-  const at = (values: number[], q: number): number => values[Math.min(values.length - 1, Math.floor(q * values.length))];
+  const at = (values: number[], q: number): number =>
+    values[Math.min(values.length - 1, Math.floor(q * values.length))];
   return { x0: at(xs, 0.005), z0: at(zs, 0.005), x1: at(xs, 0.995), z1: at(zs, 0.995) };
 }
 
@@ -162,7 +163,9 @@ export function RaceMap({
   const colors = useThemeColors();
   const [images, setImages] = useState<Map<string, HTMLImageElement | TrimmedSprite>>(new Map());
 
-  const srcKey = [...new Set(tracks.flatMap(t => [`brand:${t.curve.variant.vendorSlug}`, ...t.marks.map(m => m.src)]))].sort().join('|');
+  const srcKey = [...new Set(tracks.flatMap(t => [`brand:${t.curve.variant.vendorSlug}`, ...t.marks.map(m => m.src)]))]
+    .sort()
+    .join('|');
   useEffect(() => {
     let live = true;
     const keys = srcKey ? srcKey.split('|') : [];
@@ -181,7 +184,20 @@ export function RaceMap({
 
   // The bounds as an undrawn path from corner to corner: the one thing the map fits to
   const fitPaths = useMemo<MapPath[]>(
-    () => (bounds ? [{ id: 'bounds', color: '', opacity: 0, points: [[0, bounds.x0, bounds.z0, 0], [1, bounds.x1, bounds.z1, 0]] }] : []),
+    () =>
+      bounds
+        ? [
+            {
+              id: 'bounds',
+              color: '',
+              opacity: 0,
+              points: [
+                [0, bounds.x0, bounds.z0, 0],
+                [1, bounds.x1, bounds.z1, 0],
+              ],
+            },
+          ]
+        : [],
     [bounds]
   );
 
@@ -193,7 +209,9 @@ export function RaceMap({
 
       const dim = (t: Track): number => (lit != null && t.curve.variant.key !== lit ? 0.2 : 1);
       // Lit tracks draw last, over the faded ones
-      const layered = lit ? [...tracks.filter(t => t.curve.variant.key !== lit), ...tracks.filter(t => t.curve.variant.key === lit)] : tracks;
+      const layered = lit
+        ? [...tracks.filter(t => t.curve.variant.key !== lit), ...tracks.filter(t => t.curve.variant.key === lit)]
+        : tracks;
 
       // Trails: faint up to the last stretch, then bold to the pin
       for (const t of layered) {
@@ -266,7 +284,9 @@ export function RaceMap({
         PIN * 2 + 2
       );
       const isLit = (t: Track): number => (lit != null && t.curve.variant.key === lit ? 1 : 0);
-      const order = drawn.map((a, i) => ({ ...a, s: spot[i] })).sort((a, b) => isLit(a.t) - isLit(b.t) || b.t.rank - a.t.rank);
+      const order = drawn
+        .map((a, i) => ({ ...a, s: spot[i] }))
+        .sort((a, b) => isLit(a.t) - isLit(b.t) || b.t.rank - a.t.rank);
       placed.current = order.map(({ t, s, account }) => ({ x: s[0], y: s[1], key: t.curve.variant.key, account }));
       for (const { t, xy, s } of order) {
         const color = colors.resolve(t.curve.variant.color.token);
@@ -354,6 +374,14 @@ export function marksOf(
     if (e.kind !== 'quest') return [];
     const p = positionAt(points, e.tick, step);
     if (!p) return [];
-    return [{ tick: e.tick, x: p.x, z: p.z, src: e.quest ? questSrc(e.quest) : uiSrc('quests'), inferred: e.source === 'inferred' }];
+    return [
+      {
+        tick: e.tick,
+        x: p.x,
+        z: p.z,
+        src: e.quest ? questSrc(e.quest) : uiSrc('quests'),
+        inferred: e.source === 'inferred',
+      },
+    ];
   });
 }

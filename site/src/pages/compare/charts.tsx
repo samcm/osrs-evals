@@ -3,7 +3,17 @@
 import { useMemo, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Bar, BarChart, CartesianGrid, Scatter, ScatterChart, XAxis, YAxis } from 'recharts';
-import { ChartFrame, KeyLegend, SeriesLabel, SeriesTooltip, seriesConfig, seriesColor, xAxisProps, logAxisProps, type LegendItem } from '@/components/charts';
+import {
+  ChartFrame,
+  KeyLegend,
+  SeriesLabel,
+  SeriesTooltip,
+  seriesConfig,
+  seriesColor,
+  xAxisProps,
+  logAxisProps,
+  type LegendItem,
+} from '@/components/Charts';
 import { ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { Eval, Run, ToolCategory } from '@/data/types';
 import { agentSeries, modelSeries, scatterShape, toolSeries, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
@@ -37,7 +47,8 @@ function jitter(id: string): number {
 
 /** Room for group labels left of the plot: a pairing's model and badge, or one name. */
 const LABEL_WIDTH = { pairing: 232, wide: 148, narrow: 112 };
-const labelWidthFor = (by: GroupBy, narrow: boolean) => (narrow ? LABEL_WIDTH.narrow : by === 'variant' ? LABEL_WIDTH.pairing : LABEL_WIDTH.wide);
+const labelWidthFor = (by: GroupBy, narrow: boolean) =>
+  narrow ? LABEL_WIDTH.narrow : by === 'variant' ? LABEL_WIDTH.pairing : LABEL_WIDTH.wide;
 
 /** Harness keys are shapes in the text colour: colour belongs to models. */
 const SHAPE_KEY_COLOR: SeriesColor = {
@@ -48,12 +59,26 @@ const SHAPE_KEY_COLOR: SeriesColor = {
 };
 
 /** Unique by `key`, in first-seen order. */
-const uniqueBy = <T,>(items: T[], key: (item: T) => string): T[] => [...new Map(items.map(item => [key(item), item])).values()];
+const uniqueBy = <T,>(items: T[], key: (item: T) => string): T[] => [
+  ...new Map(items.map(item => [key(item), item])).values(),
+];
 /** Room for each row's median right of the plot. */
 const MEDIAN_WIDTH = 64;
 
 /** A y-axis tick drawn as the group's label with its marks, right-aligned against the plot. */
-function GroupTick({ x, y, width, height = 24, children }: { x: number; y: number; width: number; height?: number; children: ReactNode }) {
+function GroupTick({
+  x,
+  y,
+  width,
+  height = 24,
+  children,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height?: number;
+  children: ReactNode;
+}) {
   return (
     <foreignObject x={x - width} y={y - height / 2} width={width - 4} height={height}>
       {/* A label wider than its room truncates its name, never its marks or its start */}
@@ -129,8 +154,25 @@ export function StripChart({
     // harnesses when each row is a harness
     return [
       { label: 'Median', swatchClassName: 'bg-foreground' },
-      ...(by === 'model' || by === 'variant' ? [] : models.map(s => ({ id: s.id, name: s.name, label: null, mark: <SeriesLabel series={s} size={14} />, color: s.swatch }))),
-      ...(by === 'agent' ? [] : agents.map(s => ({ id: s.id, name: s.name, label: null, mark: <SeriesLabel series={s} size={14} />, color: SHAPE_KEY_COLOR, symbol: s.symbol }))),
+      ...(by === 'model' || by === 'variant'
+        ? []
+        : models.map(s => ({
+            id: s.id,
+            name: s.name,
+            label: null,
+            mark: <SeriesLabel series={s} size={14} />,
+            color: s.swatch,
+          }))),
+      ...(by === 'agent'
+        ? []
+        : agents.map(s => ({
+            id: s.id,
+            name: s.name,
+            label: null,
+            mark: <SeriesLabel series={s} size={14} />,
+            color: SHAPE_KEY_COLOR,
+            symbol: s.symbol,
+          }))),
     ];
   }, [keyed, by]);
 
@@ -200,7 +242,13 @@ export function StripChart({
               const { x, y, payload } = props as { x: number; y: number; payload: { value: number } };
               const g = groups[payload.value];
               return g ? (
-                <text x={x + 8} y={y} dy="0.35em" textAnchor="start" className="fill-foreground text-xs font-medium tabular-nums">
+                <text
+                  x={x + 8}
+                  y={y}
+                  dy="0.35em"
+                  textAnchor="start"
+                  className="fill-foreground text-xs font-medium tabular-nums"
+                >
                   {metric.format(g.median)}
                 </text>
               ) : (
@@ -214,7 +262,10 @@ export function StripChart({
               const point = (props.payload?.[0]?.payload ?? null) as Point | null;
               if (!point) return null;
               const rows = point.run
-                ? [...(evals ? [['Eval', titles.get(point.run.eval) ?? point.run.eval]] : []), [metric.label, metric.format(point.x)]]
+                ? [
+                    ...(evals ? [['Eval', titles.get(point.run.eval) ?? point.run.eval]] : []),
+                    [metric.label, metric.format(point.x)],
+                  ]
                 : [
                     ['Median', metric.format(point.x)],
                     ['Runs', String(point.group!.points.length)],
@@ -226,7 +277,11 @@ export function StripChart({
                   hideLabel
                   formatter={() => (
                     <div className="grid w-full gap-1.5">
-                      {point.run ? <SeriesLabel series={variantSeries(point.run)} /> : <span className="font-medium">{groupName(point.group!.sample, by)}</span>}
+                      {point.run ? (
+                        <SeriesLabel series={variantSeries(point.run)} />
+                      ) : (
+                        <span className="font-medium">{groupName(point.group!.sample, by)}</span>
+                      )}
                       {rows.map(([k, v]) => (
                         <div key={k} className="flex justify-between gap-4">
                           <span className="text-muted-foreground">{k}</span>
@@ -247,10 +302,14 @@ export function StripChart({
               shape={scatterShape(series.symbol)}
               fill={seriesColor(series)}
               // A hovered legend key names a model or a harness
-              fillOpacity={hover.id != null && hover.id !== model && hover.id !== agent && hover.id !== series.id ? 0.15 : 0.75}
+              fillOpacity={
+                hover.id != null && hover.id !== model && hover.id !== agent && hover.id !== series.id ? 0.15 : 0.75
+              }
               isAnimationActive={false}
               className="cursor-pointer"
-              onClick={(d: { payload?: Point }) => d.payload?.run && navigate({ to: '/runs/$runId', params: { runId: d.payload.run.id } })}
+              onClick={(d: { payload?: Point }) =>
+                d.payload?.run && navigate({ to: '/runs/$runId', params: { runId: d.payload.run.id } })
+              }
             />
           ))}
           <Scatter
@@ -259,7 +318,14 @@ export function StripChart({
             data={medians}
             isAnimationActive={false}
             shape={(props: { cx?: number; cy?: number }) => (
-              <rect x={(props.cx ?? 0) - 1} y={(props.cy ?? 0) - 12} width={2} height={24} rx={1} className="fill-foreground" />
+              <rect
+                x={(props.cx ?? 0) - 1}
+                y={(props.cy ?? 0) - 12}
+                width={2}
+                height={24}
+                rx={1}
+                className="fill-foreground"
+              />
             )}
           />
         </ScatterChart>
@@ -290,7 +356,11 @@ export function ToolMixChart({ groups, by }: { groups: MixGroup[]; by: GroupBy }
 
   return (
     <div ref={ref}>
-      <ChartFrame config={seriesConfig(series)} rows={groups.length} legend={<KeyLegend items={series.map(s => ({ label: s.label, color: s.swatch }))} />}>
+      <ChartFrame
+        config={seriesConfig(series)}
+        rows={groups.length}
+        legend={<KeyLegend items={series.map(s => ({ label: s.label, color: s.swatch }))} />}
+      >
         <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 0 }}>
           <CartesianGrid horizontal={false} />
           <XAxis {...xAxisProps({ domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1], format: v => formatPercent(v) })} />
@@ -328,7 +398,14 @@ export function ToolMixChart({ groups, by }: { groups: MixGroup[]; by: GroupBy }
             }
           />
           {series.map(s => (
-            <Bar key={s.key} dataKey={s.key} stackId="mix" fill={seriesColor(s)} barSize={18} isAnimationActive={false} />
+            <Bar
+              key={s.key}
+              dataKey={s.key}
+              stackId="mix"
+              fill={seriesColor(s)}
+              barSize={18}
+              isAnimationActive={false}
+            />
           ))}
         </BarChart>
       </ChartFrame>

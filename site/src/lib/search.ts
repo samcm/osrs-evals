@@ -9,7 +9,13 @@
  */
 
 import { useCallback, useEffect } from 'react';
-import { getRouteApi, stripSearchParams, useNavigate, type SearchMiddleware, type SearchSchemaInput } from '@tanstack/react-router';
+import {
+  getRouteApi,
+  stripSearchParams,
+  useNavigate,
+  type SearchMiddleware,
+  type SearchSchemaInput,
+} from '@tanstack/react-router';
 import type { Run } from '@/data/types';
 import { vendorOf } from './series';
 
@@ -73,7 +79,10 @@ export function num(fallback: number | undefined): Param<number | undefined> {
 }
 
 /** One of a fixed set of words. */
-export function oneOf<const V extends string, const D extends V | undefined>(values: readonly V[], fallback: D): Param<V | D> {
+export function oneOf<const V extends string, const D extends V | undefined>(
+  values: readonly V[],
+  fallback: D
+): Param<V | D> {
   return { parse: value => values.find(v => v === raw(value)), fallback };
 }
 
@@ -221,7 +230,9 @@ export function stringifySearch(search: Record<string, unknown>): string {
   for (const [key, value] of Object.entries(search)) {
     if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) continue;
     const text = Array.isArray(value) ? value.map(String).join(',') : String(value);
-    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(text).replace(/%2C/g, ',').replace(/%2F/g, '/').replace(/%3A/g, ':').replace(/%7C/g, '|')}`);
+    parts.push(
+      `${encodeURIComponent(key)}=${encodeURIComponent(text).replace(/%2C/g, ',').replace(/%2F/g, '/').replace(/%3A/g, ':').replace(/%7C/g, '|')}`
+    );
   }
   return parts.length ? `?${parts.join('&')}` : '';
 }

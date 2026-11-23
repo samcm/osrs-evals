@@ -28,7 +28,14 @@ function Spark({ curve, maxTick, top }: { curve: RunCurve | undefined; maxTick: 
     <LineChart width={96} height={24} data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }} aria-hidden>
       <XAxis dataKey="t" type="number" domain={[0, maxTick]} hide />
       <YAxis domain={[0, top]} hide />
-      <Line dataKey="v" type="stepAfter" stroke={cssColor(curve.variant.color)} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+      <Line
+        dataKey="v"
+        type="stepAfter"
+        stroke={cssColor(curve.variant.color)}
+        strokeWidth={1.5}
+        dot={false}
+        isAnimationActive={false}
+      />
     </LineChart>
   );
 }
@@ -60,7 +67,10 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
         return (
           <Tip content={run.success ? 'Finished' : 'Not finished'}>
             <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden className={cn('size-2 rounded-full', run.success ? 'bg-success' : 'border-2 border-destructive')} />
+              <span
+                aria-hidden
+                className={cn('size-2 rounded-full', run.success ? 'bg-success' : 'border-2 border-destructive')}
+              />
               {value}
             </span>
           </Tip>
@@ -100,24 +110,36 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
   ] as ColumnDef<Run, unknown>[];
 }
 
-export function RunsTable({ e, runs, curves, sort, page }: { e: Eval; runs: Run[]; curves: RunCurve[]; sort: string[]; page: number }) {
+export function RunsTable({
+  e,
+  runs,
+  curves,
+  sort,
+  page,
+}: {
+  e: Eval;
+  runs: Run[];
+  curves: RunCurve[];
+  sort: string[];
+  page: number;
+}) {
   const navigate = useNavigate();
   const update = useSearchUpdate();
   const cols = useMemo(() => columns(e, new Map(curves.map(cv => [cv.run.id, cv]))), [e, curves]);
   return (
-        <DataTable
-          data={runs}
-          columns={cols}
-          getRowId={r => r.id}
-          sort={sort}
-          onSortChange={s => update({ sort: s }, { resetPage: true })}
-          page={page}
-          pageSize={PAGE_SIZE}
-          onPageChange={p => update({ page: p === 1 ? undefined : p })}
-          // Scope rides along by itself (the root retains it); nothing else is carried
-          onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.id }, search: {} as never })}
-          empty={<Empty>No runs in this scope.</Empty>}
-          hoverId={r => variantKey(r)}
-        />
+    <DataTable
+      data={runs}
+      columns={cols}
+      getRowId={r => r.id}
+      sort={sort}
+      onSortChange={s => update({ sort: s }, { resetPage: true })}
+      page={page}
+      pageSize={PAGE_SIZE}
+      onPageChange={p => update({ page: p === 1 ? undefined : p })}
+      // Scope rides along by itself (the root retains it); nothing else is carried
+      onRowClick={r => navigate({ to: '/runs/$runId', params: { runId: r.id }, search: {} as never })}
+      empty={<Empty>No runs in this scope.</Empty>}
+      hoverId={r => variantKey(r)}
+    />
   );
 }

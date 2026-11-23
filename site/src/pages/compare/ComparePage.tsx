@@ -71,7 +71,8 @@ export function ComparePage() {
   const chosen = choices.find(e => e.id === search.eval);
   // Without a choice, the eval with the most runs: the one with the most to compare
   const runsOf = (id: string) => scoped.filter(r => r.eval === id).length;
-  const evalShown: Eval | undefined = chosen ?? (oneEval ? [...choices].sort((a, b) => runsOf(b.id) - runsOf(a.id))[0] : undefined);
+  const evalShown: Eval | undefined =
+    chosen ?? (oneEval ? [...choices].sort((a, b) => runsOf(b.id) - runsOf(a.id))[0] : undefined);
   const runs = useMemo(() => scoped.filter(r => !evalShown || r.eval === evalShown.id), [scoped, evalShown]);
 
   const log = metric.log && (search.scale ?? metric.scale) === 'log';
@@ -82,14 +83,17 @@ export function ComparePage() {
     () =>
       runs
         .map(run => ({ run, value: metric.get(run) }))
-        .filter((p): p is { run: Run; value: number } => p.value != null && Number.isFinite(p.value) && (!log || p.value > 0)),
+        .filter(
+          (p): p is { run: Run; value: number } => p.value != null && Number.isFinite(p.value) && (!log || p.value > 0)
+        ),
     [runs, metric, log]
   );
 
   const { hidden, focus } = legend;
   const ranked = useMemo<RankedGroup[]>(() => {
     // A run is shown unless its model or harness is hidden, or, with one isolated, when it is that one
-    const shown = (run: Run) => (focus ? focus === run.model || focus === run.agent : !hidden.includes(run.model) && !hidden.includes(run.agent));
+    const shown = (run: Run) =>
+      focus ? focus === run.model || focus === run.agent : !hidden.includes(run.model) && !hidden.includes(run.agent);
     const values = new Map(valued.map(p => [p.run, p.value]));
     const groups = groupRuns(valued.map(p => p.run).filter(shown), search.by).map(g => {
       const points = g.runs.map(run => ({ run, value: values.get(run)! }));
@@ -105,7 +109,8 @@ export function ComparePage() {
       groupRuns(runs, search.by)
         .map(g => {
           const counts = new Map<string, number>();
-          for (const r of g.runs) for (const [k, n] of Object.entries(r.metrics.tool_mix)) counts.set(k, (counts.get(k) ?? 0) + (n ?? 0));
+          for (const r of g.runs)
+            for (const [k, n] of Object.entries(r.metrics.tool_mix)) counts.set(k, (counts.get(k) ?? 0) + (n ?? 0));
           return { key: g.key, sample: g.sample, counts, total: [...counts.values()].reduce((a, b) => a + b, 0) };
         })
         .filter(g => g.total > 0)
@@ -118,7 +123,8 @@ export function ComparePage() {
       Object.entries(data.prices)
         .filter(
           ([model]) =>
-            (scope.model.length === 0 || scope.model.includes(model)) && (scope.vendor.length === 0 || scope.vendor.includes(vendorOf(model).id))
+            (scope.model.length === 0 || scope.model.includes(model)) &&
+            (scope.vendor.length === 0 || scope.vendor.includes(vendorOf(model).id))
         )
         .sort(([a], [b]) => modelInfo(a).name.localeCompare(modelInfo(b).name))
         .map(([model, price]) => ({ model, ...price })),
@@ -126,7 +132,11 @@ export function ComparePage() {
   );
 
   const name = metricLabel(metric, evalShown);
-  const evalOptions = choices.map(e => ({ value: e.id, label: e.title, mark: <EvalMark evalId={e.id} size={16} title="" /> }));
+  const evalOptions = choices.map(e => ({
+    value: e.id,
+    label: e.title,
+    mark: <EvalMark evalId={e.id} size={16} title="" />,
+  }));
 
   return (
     <>
@@ -154,7 +164,13 @@ export function ComparePage() {
             onChange={id => update({ eval: id })}
           />
           <PairingFilters runs={data.runs} thinking={scope.thinking} agent={scope.agent} onChange={setScope}>
-            <Segmented size="default" label="Group by" value={search.by} options={BY_OPTIONS} onChange={by => update({ by })} />
+            <Segmented
+              size="default"
+              label="Group by"
+              value={search.by}
+              options={BY_OPTIONS}
+              onChange={by => update({ by })}
+            />
             {search.tab === 'measure' && metric.log && (
               <Segmented
                 size="default"
@@ -181,7 +197,15 @@ export function ComparePage() {
           {valued.length === 0 ? (
             <Empty>No runs have this measure.</Empty>
           ) : (
-            <StripChart groups={ranked} keyed={valued.map(p => p.run)} metric={metric} by={search.by} log={log} evals={evalShown ? undefined : data.evals} legend={legend} />
+            <StripChart
+              groups={ranked}
+              keyed={valued.map(p => p.run)}
+              metric={metric}
+              by={search.by}
+              log={log}
+              evals={evalShown ? undefined : data.evals}
+              legend={legend}
+            />
           )}
         </PageSection>
       ) : search.tab === 'tools' ? (
@@ -193,11 +217,20 @@ export function ComparePage() {
             </>
           }
         >
-          {mix.length === 0 ? <Empty>No tool calls in this scope.</Empty> : <ToolMixChart groups={mix} by={search.by} />}
+          {mix.length === 0 ? (
+            <Empty>No tool calls in this scope.</Empty>
+          ) : (
+            <ToolMixChart groups={mix} by={search.by} />
+          )}
         </PageSection>
       ) : (
         <PageSection title="List prices" description="USD per million tokens">
-          <DataTable data={prices} columns={PRICE_COLUMNS} getRowId={p => p.model} empty={<Empty>No priced models in this scope.</Empty>} />
+          <DataTable
+            data={prices}
+            columns={PRICE_COLUMNS}
+            getRowId={p => p.model}
+            empty={<Empty>No priced models in this scope.</Empty>}
+          />
         </PageSection>
       )}
     </>
@@ -213,7 +246,11 @@ const usd = (v: number) => `$${v < 1 ? v.toFixed(3).replace(/0$/, '') : v.toFixe
 const priceCol = createColumnHelper<Price & { model: string }>();
 
 const PRICE_COLUMNS = [
-  priceCol.accessor('model', { header: 'Model', enableSorting: false, cell: ({ getValue }) => <ModelLabel model={getValue()} /> }),
+  priceCol.accessor('model', {
+    header: 'Model',
+    enableSorting: false,
+    cell: ({ getValue }) => <ModelLabel model={getValue()} />,
+  }),
   ...(
     [
       ['input', 'Input'],
@@ -222,6 +259,11 @@ const PRICE_COLUMNS = [
       ['input_cache_write', 'Cache write'],
     ] as const
   ).map(([key, header]) =>
-    priceCol.accessor(key, { header, enableSorting: false, meta: { numeric: true }, cell: ({ getValue }) => usd(getValue()) })
+    priceCol.accessor(key, {
+      header,
+      enableSorting: false,
+      meta: { numeric: true },
+      cell: ({ getValue }) => usd(getValue()),
+    })
   ),
 ] as ColumnDef<Price & { model: string }, unknown>[];

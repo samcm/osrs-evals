@@ -31,7 +31,14 @@ import { modelInfo, modelSlug } from '@/lib/series';
 import { BrandMark, VariantLabel } from '@/components/marks';
 import { setTheme, useTheme, type Theme } from '@/lib/theme';
 import { Button } from '@/components/ui/button';
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -60,11 +67,25 @@ function useIsActive(path: string): boolean {
   if (path === '/') return pathname === '/';
   if (path === '/runs') return pathname === '/runs';
   if (pathname === path || pathname.startsWith(`${path}/`)) return true;
-  const run = pathname.startsWith('/runs/') ? data?.runs.find(r => r.id === decodeURIComponent(pathname.slice(6))) : undefined;
+  const run = pathname.startsWith('/runs/')
+    ? data?.runs.find(r => r.id === decodeURIComponent(pathname.slice(6)))
+    : undefined;
   return run != null && path === `/evals/${evalSlug(run.eval)}`;
 }
 
-function NavItem({ to, path, params, icon, children }: { to: string; path: string; params?: Record<string, string>; icon: ReactNode; children: string }) {
+function NavItem({
+  to,
+  path,
+  params,
+  icon,
+  children,
+}: {
+  to: string;
+  path: string;
+  params?: Record<string, string>;
+  icon: ReactNode;
+  children: string;
+}) {
   const active = useIsActive(path);
   return (
     <SidebarMenuItem>
@@ -171,7 +192,13 @@ function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {evals.map(e => (
-                <NavItem key={e.id} to="/evals/$evalId" path={`/evals/${evalSlug(e.id)}`} params={{ evalId: evalSlug(e.id) }} icon={EVAL_ICONS[e.id] ?? <FlaskConicalIcon />}>
+                <NavItem
+                  key={e.id}
+                  to="/evals/$evalId"
+                  path={`/evals/${evalSlug(e.id)}`}
+                  params={{ evalId: evalSlug(e.id) }}
+                  icon={EVAL_ICONS[e.id] ?? <FlaskConicalIcon />}
+                >
                   {e.title}
                 </NavItem>
               ))}
@@ -243,7 +270,10 @@ function useCrumbs(): Crumb[] {
     if (!parts[2]) return [title];
     const run = data?.runs.find(r => modelSlug(r.model) === modelSlug(parts[2]));
     // A model under an eval keeps its eval on a phone: the model alone doesn't say which page this is
-    return [{ ...title, to: '/evals/$evalId', params: { evalId: evalSlug(parts[1]) }, keep: true }, { label: run ? modelInfo(run.model).short : parts[2] }];
+    return [
+      { ...title, to: '/evals/$evalId', params: { evalId: evalSlug(parts[1]) }, keep: true },
+      { label: run ? modelInfo(run.model).short : parts[2] },
+    ];
   }
   if (parts[0] === 'runs' && parts[1]) {
     const run = data?.runs.find(r => r.id === parts[1]);
@@ -271,7 +301,11 @@ function AppBreadcrumb() {
           return [
             <BreadcrumbItem key={`c${i}`} className={last || crumb.keep ? 'min-w-0' : 'min-w-0 max-sm:hidden'}>
               {last || !crumb.to ? (
-                <BreadcrumbPage className={typeof crumb.label === 'string' ? 'truncate font-medium' : 'flex min-w-0 font-medium'}>{crumb.label}</BreadcrumbPage>
+                <BreadcrumbPage
+                  className={typeof crumb.label === 'string' ? 'truncate font-medium' : 'flex min-w-0 font-medium'}
+                >
+                  {crumb.label}
+                </BreadcrumbPage>
               ) : (
                 <BreadcrumbLink asChild className="truncate">
                   <Link to={crumb.to as '/'} params={crumb.params as never}>
@@ -307,7 +341,15 @@ function CloseOnNavigate() {
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
-    <SidebarProvider defaultOpen={sidebarOpen()} style={{ '--sidebar-width': 'calc(var(--spacing) * 52)', '--header-height': 'calc(var(--spacing) * 12)' } as CSSProperties}>
+    <SidebarProvider
+      defaultOpen={sidebarOpen()}
+      style={
+        {
+          '--sidebar-width': 'calc(var(--spacing) * 52)',
+          '--header-height': 'calc(var(--spacing) * 12)',
+        } as CSSProperties
+      }
+    >
       <CloseOnNavigate />
       <AppSidebar />
       <SidebarInset className="min-w-0">

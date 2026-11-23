@@ -37,10 +37,14 @@ export function heldTab(e: Eval): string | null {
 function ItemCell({ id, count, note }: { id: string; count: number; note?: string }) {
   return (
     <Tip content={`${itemName(id)}${count > 1 ? `, ${formatInt(count)}` : ''}${note ? `: ${note}` : ''}`}>
-    <li className="relative flex size-9 items-center justify-center rounded-sm bg-muted/60">
-      <Sprite src={itemSprite(id, count)} size={32} alt={itemName(id)} />
-      {count > 1 && <span className="absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums text-shadow-sm text-shadow-card">{stackCount(count)}</span>}
-    </li>
+      <li className="relative flex size-9 items-center justify-center rounded-sm bg-muted/60">
+        <Sprite src={itemSprite(id, count)} size={32} alt={itemName(id)} />
+        {count > 1 && (
+          <span className="text-shadow-sm absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums text-shadow-card">
+            {stackCount(count)}
+          </span>
+        )}
+      </li>
     </Tip>
   );
 }
@@ -70,8 +74,11 @@ export function HeldView({ e, ranked, grid }: { e: Eval; ranked: RankedVariant[]
   if (skills) {
     // Every skill some run trained, the most trained first
     const total = new Map<string, number>();
-    for (const r of ended) for (const [s, l] of Object.entries(r.end?.levels ?? {})) total.set(s, (total.get(s) ?? 0) + l);
-    const trained = [...total.keys()].filter(s => ended.some(r => (r.end?.levels?.[s] ?? 1) > 1)).sort((a, b) => total.get(b)! - total.get(a)!);
+    for (const r of ended)
+      for (const [s, l] of Object.entries(r.end?.levels ?? {})) total.set(s, (total.get(s) ?? 0) + l);
+    const trained = [...total.keys()]
+      .filter(s => ended.some(r => (r.end?.levels?.[s] ?? 1) > 1))
+      .sort((a, b) => total.get(b)! - total.get(a)!);
     return (
       <PageSection title="Levels at the end">
         <Table>
@@ -94,14 +101,25 @@ export function HeldView({ e, ranked, grid }: { e: Eval; ranked: RankedVariant[]
           </TableHeader>
           <TableBody>
             {ended.map(r => (
-              <TableRow key={r.run.id} onMouseEnter={() => setHovered(variantKey(r.run))} onMouseLeave={() => setHovered(undefined)}>
+              <TableRow
+                key={r.run.id}
+                onMouseEnter={() => setHovered(variantKey(r.run))}
+                onMouseLeave={() => setHovered(undefined)}
+              >
                 <TableCell>{label(r)}</TableCell>
                 <TableCell className="text-right tabular-nums">{resultText(r.run, e)}</TableCell>
                 {trained.map(s => {
                   const level = r.end?.levels?.[s] ?? 1;
                   return (
                     <TableCell key={s} className="text-center">
-                      <span className={cn('inline-flex h-6 w-9 items-center justify-center rounded-sm tabular-nums', level > 1 ? tint(level / 99) : 'text-muted-foreground')}>{level}</span>
+                      <span
+                        className={cn(
+                          'inline-flex h-6 w-9 items-center justify-center rounded-sm tabular-nums',
+                          level > 1 ? tint(level / 99) : 'text-muted-foreground'
+                        )}
+                      >
+                        {level}
+                      </span>
                     </TableCell>
                   );
                 })}
@@ -119,7 +137,11 @@ export function HeldView({ e, ranked, grid }: { e: Eval; ranked: RankedVariant[]
   const common = [...held.entries()].sort((a, b) => b[1] - a[1] || Number(a[0]) - Number(b[0]));
   const value = (id: string, n: number) => n * (itemInfo(id)?.cost ?? 0);
   const order = (items: Record<string, number>) =>
-    Object.entries(items).sort(wealth ? (a, b) => value(b[0], b[1]) - value(a[0], a[1]) : (a, b) => (held.get(b[0]) ?? 0) - (held.get(a[0]) ?? 0) || Number(a[0]) - Number(b[0]));
+    Object.entries(items).sort(
+      wealth
+        ? (a, b) => value(b[0], b[1]) - value(a[0], a[1])
+        : (a, b) => (held.get(b[0]) ?? 0) - (held.get(a[0]) ?? 0) || Number(a[0]) - Number(b[0])
+    );
 
   return (
     <>
@@ -127,17 +149,20 @@ export function HeldView({ e, ranked, grid }: { e: Eval; ranked: RankedVariant[]
         <ol className="flex flex-wrap gap-x-3 gap-y-2">
           {common.slice(0, 48).map(([id, n]) => (
             <Tip key={id} content={`${itemName(id)}: ${formatInt(n)} of ${formatInt(ended.length)} runs`}>
-            <li className="flex flex-col items-center gap-0.5">
-              <span className="flex size-9 items-center justify-center rounded-sm bg-muted/60">
-                <Sprite src={itemSprite(id)} size={32} alt={itemName(id)} />
-              </span>
-              <span className="text-xs text-muted-foreground tabular-nums">{n}</span>
-            </li>
+              <li className="flex flex-col items-center gap-0.5">
+                <span className="flex size-9 items-center justify-center rounded-sm bg-muted/60">
+                  <Sprite src={itemSprite(id)} size={32} alt={itemName(id)} />
+                </span>
+                <span className="text-xs text-muted-foreground tabular-nums">{n}</span>
+              </li>
             </Tip>
           ))}
         </ol>
       </PageSection>
-      <PageSection title="What each run ended with" description={wealth ? 'The most valuable first' : 'The commonest first, so rare finds come last'}>
+      <PageSection
+        title="What each run ended with"
+        description={wealth ? 'The most valuable first' : 'The commonest first, so rare finds come last'}
+      >
         <ol className="flex flex-col divide-y">
           {ended.map(r => (
             <li
@@ -148,9 +173,7 @@ export function HeldView({ e, ranked, grid }: { e: Eval; ranked: RankedVariant[]
             >
               <span className="flex min-w-0 items-center justify-between gap-3 md:w-72 md:shrink-0">
                 {label(r)}
-                <span className="text-sm tabular-nums">
-                  {resultText(r.run, e)}
-                </span>
+                <span className="text-sm tabular-nums">{resultText(r.run, e)}</span>
               </span>
               <ol className="flex min-w-0 flex-wrap gap-1">
                 {order(r.end?.items ?? {}).map(([id, n]) => (

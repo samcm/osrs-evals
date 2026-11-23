@@ -28,7 +28,14 @@ export function laneMarks(events: RunEvent[] | undefined): LaneMark[] {
   return (events ?? []).flatMap((e): LaneMark[] => {
     if (e.kind === 'quest') {
       const name = e.name ?? 'A quest';
-      return [{ tick: e.tick, src: e.quest ? questSrc(e.quest) : uiSrc('quests'), name: e.source === 'inferred' ? `≈ ${name}` : name, inferred: e.source === 'inferred' }];
+      return [
+        {
+          tick: e.tick,
+          src: e.quest ? questSrc(e.quest) : uiSrc('quests'),
+          name: e.source === 'inferred' ? `≈ ${name}` : name,
+          inferred: e.source === 'inferred',
+        },
+      ];
     }
     if (e.kind === 'qp') return [{ tick: e.tick, src: uiSrc('quests'), name: `${e.qp} quest points`, inferred: false }];
     return [];
@@ -46,7 +53,12 @@ export function laneStages(details: (RunDetail | undefined)[]): LaneStage[] {
 function proseLine(text: string): string | null {
   const line = text
     .split('\n')
-    .map(l => l.replace(/^[#>*\-\s]+/, '').replace(/[*_`]+/g, '').trim())
+    .map(l =>
+      l
+        .replace(/^[#>*\-\s]+/, '')
+        .replace(/[*_`]+/g, '')
+        .trim()
+    )
     .find(l => l.length > 0);
   return line ? line.replace(/[:.]$/, '') : null;
 }

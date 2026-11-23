@@ -7,14 +7,24 @@
     <link rel="icon" type="image/png" href="/assets/items/995-10000.png" />
     <title>2004scape evals</title>
     <script>
-      // Set the theme before React mounts so the page never flashes the other one
+      // Initialize theme before React mounts to prevent FOUC: a shared link's ?theme=, else the
+      // stored choice, else the system's.
       (function () {
-        var colors = { light: '#efeee5', dark: '#11100e' };
-        var stored = localStorage.getItem('theme');
-        var dark = stored === 'dark' || (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        if (dark) document.documentElement.classList.add('dark');
+        var themeColors = { light: '#efeee5', dark: '#0f0f0e', star: '#000a1a' };
+        var linked = new URLSearchParams(window.location.search).get('theme');
+        var theme = themeColors[linked] ? linked : localStorage.getItem('theme');
+        var resolved = 'light';
+
+        if (theme === 'dark' || theme === 'star') {
+          resolved = theme;
+        } else if (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          resolved = 'dark';
+        }
+        if (resolved !== 'light') document.documentElement.classList.add(resolved);
+
+        // Set theme-color meta tag to match resolved theme
         var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', dark ? colors.dark : colors.light);
+        if (meta) meta.setAttribute('content', themeColors[resolved]);
       })();
     </script>
   </head>

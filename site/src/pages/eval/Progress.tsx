@@ -8,7 +8,18 @@ import { useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
 import { ChartTooltip, type ChartConfig } from '@/components/ui/chart';
-import { ChartFrame, chartMargin, SeriesTooltip, Y_AXIS_WIDTH, crosshairCursor, gridProps, lineProps, logAxisProps, xAxisProps, yAxisProps } from '@/components/charts';
+import {
+  ChartFrame,
+  chartMargin,
+  SeriesTooltip,
+  Y_AXIS_WIDTH,
+  crosshairCursor,
+  gridProps,
+  lineProps,
+  logAxisProps,
+  xAxisProps,
+  yAxisProps,
+} from '@/components/Charts';
 import type { Eval, Run } from '@/data/types';
 import { variantSeries, type SeriesSpec } from '@/lib/chartSeries';
 import { formatInt } from '@/lib/format';
@@ -18,7 +29,17 @@ import type { LegendState } from '@/lib/legend';
 import { median } from '@/lib/stats';
 import { useWidth } from '@/lib/useWidth';
 import { formatTick, formatX, roundMax, roundTicks } from './chartBits';
-import { aggregate, hasX, valueAt, xOf, type Agg, type RankedVariant, type RunCurve, type XMeasure, type XRange } from './model';
+import {
+  aggregate,
+  hasX,
+  valueAt,
+  xOf,
+  type Agg,
+  type RankedVariant,
+  type RunCurve,
+  type XMeasure,
+  type XRange,
+} from './model';
 import { usePlayheadMark } from './playhead';
 
 const MARGIN = chartMargin();
@@ -91,7 +112,13 @@ function PlayheadMark({ t, range, width }: { t: number | undefined; range: XRang
   const f = (Math.min(range.max, Math.max(range.min, tick)) - range.min) / (range.max - range.min);
   const left = Y_AXIS_WIDTH + f * plot;
   // Over the plot, leaving the x axis' labels clear
-  return <div aria-hidden className="pointer-events-none absolute w-px bg-primary" style={{ left, top: TOP, height: CHART_HEIGHT - X_AXIS_HEIGHT - TOP }} />;
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute w-px bg-primary"
+      style={{ left, top: TOP, height: CHART_HEIGHT - X_AXIS_HEIGHT - TOP }}
+    />
+  );
 }
 
 export function ProgressChart({
@@ -127,7 +154,9 @@ export function ProgressChart({
   // A focused pairing keeps the others on the chart, faded, so it reads against them
   const shown = (key: string): boolean => !legend.hidden.includes(key) || legend.focus === key;
   const drawn = useMemo(() => curves.filter(cv => shown(cv.variant.key) && hasX(cv, x)), [curves, legend, x]);
-  const missing = ranked.filter(r => legend.visible(r.variant.key) && !curves.some(cv => cv.variant.key === r.variant.key && hasX(cv, x)));
+  const missing = ranked.filter(
+    r => legend.visible(r.variant.key) && !curves.some(cv => cv.variant.key === r.variant.key && hasX(cv, x))
+  );
   const lit = useLit(legend.focus);
 
   // The axis tops out at the target when no run passes it
@@ -163,7 +192,10 @@ export function ProgressChart({
     return [...byX.values()].sort((a, b) => a.x - b.x);
   }, [lines, fieldLine]);
 
-  const config = useMemo<ChartConfig>(() => Object.fromEntries([...specs.values()].map(s => [s.key, { label: s.label, color: s.color }])), [specs]);
+  const config = useMemo<ChartConfig>(
+    () => Object.fromEntries([...specs.values()].map(s => [s.key, { label: s.label, color: s.color }])),
+    [specs]
+  );
 
   const yTicks = target != null && yMax === target ? roundTicks(target).filter(v => v <= target) : roundTicks(yMax);
   if (yTicks[yTicks.length - 1] !== yMax) yTicks.push(yMax);
@@ -182,23 +214,37 @@ export function ProgressChart({
     <div className="flex min-w-0 flex-col">
       <div ref={ref} className="relative">
         <ChartFrame config={config} height="lead" loading={pending}>
-          <LineChart
-            data={rows}
-            margin={MARGIN}
-            onMouseLeave={() => setHovered(undefined)}
-          >
+          <LineChart data={rows} margin={MARGIN} onMouseLeave={() => setHovered(undefined)}>
             <CartesianGrid {...gridProps} />
             <XAxis {...xAxis} />
             <YAxis {...yAxisProps({ domain: [0, yMax], ticks: yTicks })} />
-            <ChartTooltip cursor={crosshairCursor} content={<ProgressTooltip rows={tooltipRows} x={x} agg={agg} target={target} />} />
+            <ChartTooltip
+              cursor={crosshairCursor}
+              content={<ProgressTooltip rows={tooltipRows} x={x} agg={agg} target={target} />}
+            />
             {fieldLine.length > 0 && (
-              <Line dataKey="field" name="Every model's median" type="stepAfter" stroke="var(--muted-foreground)" strokeOpacity={0.6} strokeWidth={1.5} dot={false} activeDot={false} connectNulls isAnimationActive={false} legendType="none" />
+              <Line
+                dataKey="field"
+                name="Every model's median"
+                type="stepAfter"
+                stroke="var(--muted-foreground)"
+                strokeOpacity={0.6}
+                strokeWidth={1.5}
+                dot={false}
+                activeDot={false}
+                connectNulls
+                isAnimationActive={false}
+                legendType="none"
+              />
             )}
             {ordered.map(line => {
               return (
                 <Line
                   key={line.key}
-                  {...lineProps(line.spec, { faded: faded(lit, line.spec.id), width: lit === line.spec.id ? 2.25 : 1.75 })}
+                  {...lineProps(line.spec, {
+                    faded: faded(lit, line.spec.id),
+                    width: lit === line.spec.id ? 2.25 : 1.75,
+                  })}
                   dataKey={line.key}
                   name={line.key}
                   stroke={line.spec.color}
@@ -207,7 +253,9 @@ export function ProgressChart({
                   className="cursor-pointer"
                   onMouseEnter={() => setHovered(line.spec.id)}
                   onMouseLeave={() => setHovered(undefined)}
-                  onClick={() => line.run && navigate({ to: '/runs/$runId', params: { runId: line.run.id }, search: {} as never })}
+                  onClick={() =>
+                    line.run && navigate({ to: '/runs/$runId', params: { runId: line.run.id }, search: {} as never })
+                  }
                 />
               );
             })}

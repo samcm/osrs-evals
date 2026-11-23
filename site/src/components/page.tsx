@@ -44,21 +44,21 @@ export function PageHeader({
   return (
     <header className={cn('flex flex-col gap-3 md:flex-row md:items-center md:justify-between', className)}>
       <div className="flex min-w-0 items-center gap-3">
-      {mark}
-      {/* One line where it fits: the description, then each fact */}
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
-        {description && <p className="max-w-prose text-pretty text-muted-foreground">{description}</p>}
-        {meta && meta.length > 0 && (
-          <dl className="contents">
-            {meta.map(m => (
-              <div key={m.term} className="flex min-w-0 items-baseline gap-2">
-                <dt className="whitespace-nowrap text-muted-foreground">{m.term}</dt>
-                <dd className="min-w-0 tabular-nums **:font-normal">{m.value}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-      </div>
+        {mark}
+        {/* One line where it fits: the description, then each fact */}
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
+          {description && <p className="max-w-prose text-pretty text-muted-foreground">{description}</p>}
+          {meta && meta.length > 0 && (
+            <dl className="contents">
+              {meta.map(m => (
+                <div key={m.term} className="flex min-w-0 items-baseline gap-2">
+                  <dt className="whitespace-nowrap text-muted-foreground">{m.term}</dt>
+                  <dd className="min-w-0 tabular-nums **:font-normal">{m.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </header>
@@ -70,7 +70,21 @@ export function PageHeader({
  * strength with any detail under it (what the eval counts and what makes it hard), then the facts
  * as terms over values, with actions on the right. `children` go under it, inside the card (the eval's Setup).
  */
-export function PageHero({ mark, lead, detail, meta, actions, children }: { mark?: ReactNode; lead?: ReactNode; detail?: ReactNode; meta: MetaItem[]; actions?: ReactNode; children?: ReactNode }) {
+export function PageHero({
+  mark,
+  lead,
+  detail,
+  meta,
+  actions,
+  children,
+}: {
+  mark?: ReactNode;
+  lead?: ReactNode;
+  detail?: ReactNode;
+  meta: MetaItem[];
+  actions?: ReactNode;
+  children?: ReactNode;
+}) {
   return (
     <Card className="gap-0 py-0">
       <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-start">
@@ -99,7 +113,15 @@ export function PageHero({ mark, lead, detail, meta, actions, children }: { mark
 }
 
 /** A row of controls that drive the cards below it. */
-export function PageToolbar({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
+export function PageToolbar({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <div role="toolbar" aria-label={label} className={cn('flex flex-wrap items-center gap-2', className)}>
       {children}

@@ -29,7 +29,13 @@ type Outcome = 'finished' | 'not_finished' | 'scored';
 const OUTCOME_VALUE = { Finished: 'finished', 'Not finished': 'not_finished', Scored: 'scored' } as const;
 const outcomeValue = (r: Run): Outcome => OUTCOME_VALUE[outcomeWord(r)];
 
-const startedFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+const startedFormat = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'UTC',
+});
 
 export interface Row extends Run {
   e: Eval | undefined;
@@ -58,12 +64,19 @@ function ResultCell({ run, e }: { run: Run; e: Eval | undefined }) {
   const word = outcomeWord(run);
   return (
     <Tip content={[e && `${value} ${e.measure.toLowerCase()}`, word !== 'Scored' && word].filter(Boolean).join(', ')}>
-    <span className="inline-flex items-center gap-1.5">
-      {word !== 'Scored' && (
-        <span aria-label={word} role="img" className={cn('size-2 shrink-0 rounded-full', word === 'Finished' ? 'bg-success' : 'border-2 border-destructive')} />
-      )}
-      {text}
-    </span>
+      <span className="inline-flex items-center gap-1.5">
+        {word !== 'Scored' && (
+          <span
+            aria-label={word}
+            role="img"
+            className={cn(
+              'size-2 shrink-0 rounded-full',
+              word === 'Finished' ? 'bg-success' : 'border-2 border-destructive'
+            )}
+          />
+        )}
+        {text}
+      </span>
     </Tip>
   );
 }
@@ -95,7 +108,14 @@ export function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[]
       cell: ({ row }) => (
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="inline-flex min-w-0 items-center gap-2">
-            {!oneEval && <EvalMark evalId={row.original.eval} size={16} title={row.original.e?.title ?? row.original.eval} className="md:hidden" />}
+            {!oneEval && (
+              <EvalMark
+                evalId={row.original.eval}
+                size={16}
+                title={row.original.e?.title ?? row.original.eval}
+                className="md:hidden"
+              />
+            )}
             <VariantLabel run={row.original} compact />
           </span>
           <RunStory run={row.original} />
@@ -131,7 +151,8 @@ export function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[]
       header: 'Wall time',
       meta: { numeric: true, minWidth: 560 },
       sortDescFirst: true,
-      cell: ({ row }) => (row.original.metrics.wall_seconds == null ? MISSING : formatClock(row.original.metrics.wall_seconds)),
+      cell: ({ row }) =>
+        row.original.metrics.wall_seconds == null ? MISSING : formatClock(row.original.metrics.wall_seconds),
     }),
     col.accessor(r => r.game_ticks ?? -1, {
       id: 'ticks',
@@ -181,9 +202,13 @@ export function RunsPage() {
       r =>
         FACETS.every(f => f === skip || picks[f].length === 0 || picks[f].includes(facetValue[f](r))) &&
         (!query ||
-          [r.id, r.batch, evalById.get(r.eval)?.title ?? r.eval, modelInfo(r.model).name, agentInfo(r.agent, r.agent_name).name].some(s =>
-            s.toLowerCase().includes(query)
-          ))
+          [
+            r.id,
+            r.batch,
+            evalById.get(r.eval)?.title ?? r.eval,
+            modelInfo(r.model).name,
+            agentInfo(r.agent, r.agent_name).name,
+          ].some(s => s.toLowerCase().includes(query)))
     );
   const counts = (f: Facet) => {
     const out = new Map<string, number>();
@@ -196,16 +221,39 @@ export function RunsPage() {
     [...new Map(data.runs.map(r => [make(r).value, make(r)])).values()].sort((a, b) => a.label.localeCompare(b.label));
   const options: Record<Facet, Option[]> = {
     eval: data.evals.map(e => ({ value: e.id, label: e.title, mark: <EvalMark evalId={e.id} size={16} title="" /> })),
-    model: uniq(r => ({ value: r.model, label: modelInfo(r.model).name, mark: <BrandMark slug={modelInfo(r.model).vendor.slug} size={16} /> })),
+    model: uniq(r => ({
+      value: r.model,
+      label: modelInfo(r.model).name,
+      mark: <BrandMark slug={modelInfo(r.model).vendor.slug} size={16} />,
+    })),
     thinking: uniq(r => ({ value: r.thinking, label: levelName(r.thinking) }))
       .filter(o => o.value)
       .sort((a, b) => compareThinking(a.value, b.value)),
-    agent: uniq(r => ({ value: r.agent, label: agentInfo(r.agent, r.agent_name).name, mark: <BrandMark slug={agentInfo(r.agent, r.agent_name).slug} size={16} /> })),
-    vendor: uniq(r => ({ value: vendorOf(r.model).id, label: vendorOf(r.model).name, mark: <BrandMark slug={vendorOf(r.model).slug} size={16} /> })),
-    outcome: (['finished', 'not_finished', 'scored'] as const).map(v => ({ value: v, label: capitalize(v.replace('_', ' ')) })),
+    agent: uniq(r => ({
+      value: r.agent,
+      label: agentInfo(r.agent, r.agent_name).name,
+      mark: <BrandMark slug={agentInfo(r.agent, r.agent_name).slug} size={16} />,
+    })),
+    vendor: uniq(r => ({
+      value: vendorOf(r.model).id,
+      label: vendorOf(r.model).name,
+      mark: <BrandMark slug={vendorOf(r.model).slug} size={16} />,
+    })),
+    outcome: (['finished', 'not_finished', 'scored'] as const).map(v => ({
+      value: v,
+      label: capitalize(v.replace('_', ' ')),
+    })),
     batch: uniq(r => ({ value: r.batch, label: r.batch })),
   };
-  const titles: Record<Facet, string> = { eval: 'Eval', model: 'Model', thinking: 'Thinking', agent: 'Harness', vendor: 'Vendor', outcome: 'Outcome', batch: 'Batch' };
+  const titles: Record<Facet, string> = {
+    eval: 'Eval',
+    model: 'Model',
+    thinking: 'Thinking',
+    agent: 'Harness',
+    vendor: 'Vendor',
+    outcome: 'Outcome',
+    batch: 'Batch',
+  };
   // Vendor narrows the same way Model does, so it shows only when a link brought it in
   const shown = FACETS.filter(f => f !== 'vendor' || picks.vendor.length > 0);
 
@@ -264,8 +312,8 @@ export function RunsPage() {
               rows.length === 0
                 ? undefined
                 : filtered
-                ? `${formatInt(rows.length)} of ${formatInt(data.runs.length)} ${noun(data.runs.length)}`
-                : `${formatInt(rows.length)} ${noun(rows.length)}`
+                  ? `${formatInt(rows.length)} of ${formatInt(data.runs.length)} ${noun(data.runs.length)}`
+                  : `${formatInt(rows.length)} ${noun(rows.length)}`
             }
             empty={
               data.runs.length === 0 ? (

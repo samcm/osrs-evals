@@ -19,7 +19,9 @@ export function useHeight(): [(node: HTMLElement | null) => void, number] {
   const ref = useCallback((node: HTMLElement | null) => {
     if (!node) return;
     setHeight(node.getBoundingClientRect().height);
-    const observer = new ResizeObserver(entries => setHeight(entries[0].borderBoxSize?.[0]?.blockSize ?? entries[0].contentRect.height));
+    const observer = new ResizeObserver(entries =>
+      setHeight(entries[0].borderBoxSize?.[0]?.blockSize ?? entries[0].contentRect.height)
+    );
     observer.observe(node);
     return () => observer.disconnect();
   }, []);

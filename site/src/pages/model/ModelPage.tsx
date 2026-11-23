@@ -23,7 +23,16 @@ import { setHovered } from '@/lib/hover';
 import { resultValue } from '@/lib/runResult';
 import { bestLevelKeys, blendedScores, modelRank, runScore } from '@/lib/score';
 import { inScope, useDocumentTitle, useEffort, useScope, useSearchUpdate } from '@/lib/search';
-import { compareThinking, levelName, modelFacts, modelInfo, modelSlug, providerInfo, providerLogo, variantKey } from '@/lib/series';
+import {
+  compareThinking,
+  levelName,
+  modelFacts,
+  modelInfo,
+  modelSlug,
+  providerInfo,
+  providerLogo,
+  variantKey,
+} from '@/lib/series';
 import { median } from '@/lib/stats';
 import { cn } from '@/lib/utils';
 import { runColumns, type Row } from '../RunsPage';
@@ -39,7 +48,9 @@ const place = (rank: number, of: number): string => `#${formatInt(rank)} of ${fo
 
 /** Each eval's best value, for scoring evals that count how much (lib/score.ts). */
 function bests(evals: Eval[], runs: Run[]): Map<string, number> {
-  return new Map(evals.map(e => [e.id, Math.max(0, ...runs.filter(r => r.eval === e.id).map(r => resultValue(r) ?? 0))]));
+  return new Map(
+    evals.map(e => [e.id, Math.max(0, ...runs.filter(r => r.eval === e.id).map(r => resultValue(r) ?? 0))])
+  );
 }
 
 /** A set of runs' result on an eval (how many finished, or the median), median time and cost, and count; a phone keeps the result. */
@@ -67,8 +78,12 @@ function ResultCells({ e, own }: { e: Eval; own: Run[] }) {
           </>
         )}
       </TableCell>
-      <TableCell className="text-right tabular-nums max-md:hidden">{formatDuration(target ? median(finished.map(r => r.seconds)) : median(own.map(r => r.game_seconds)))}</TableCell>
-      <TableCell className="text-right tabular-nums max-md:hidden">{formatCost(median(own.map(r => r.cost)))}</TableCell>
+      <TableCell className="text-right tabular-nums max-md:hidden">
+        {formatDuration(target ? median(finished.map(r => r.seconds)) : median(own.map(r => r.game_seconds)))}
+      </TableCell>
+      <TableCell className="text-right tabular-nums max-md:hidden">
+        {formatCost(median(own.map(r => r.cost)))}
+      </TableCell>
       <TableCell className="text-right tabular-nums max-md:hidden">{formatInt(own.length)}</TableCell>
     </>
   );
@@ -85,7 +100,10 @@ export function ModelPage() {
 
   // Every pairing's scores over all runs, as on Home; this model's are the rows
   const all = useMemo(() => blendedScores(data.evals, data.runs), [data]);
-  const everyRun = useMemo(() => data.runs.filter(r => modelSlug(r.model) === modelSlug(slug) && inScope(r, scope)), [data, slug, scope]);
+  const everyRun = useMemo(
+    () => data.runs.filter(r => modelSlug(r.model) === modelSlug(slug) && inScope(r, scope)),
+    [data, slug, scope]
+  );
   const model = everyRun[0]?.model;
   const info = modelInfo(model ?? slug);
   useDocumentTitle(info.name);
@@ -149,7 +167,9 @@ export function ModelPage() {
     ...(facts?.open_weights != null ? [{ term: 'Weights', value: facts.open_weights ? 'Open' : 'Closed' }] : []),
     ...(facts?.limit.context ? [{ term: 'Context', value: `${formatTokens(facts.limit.context)} tokens` }] : []),
     ...(facts?.knowledge ? [{ term: 'Knowledge', value: formatDay(facts.knowledge) }] : []),
-    ...(facts && facts.provider !== facts.maker ? [{ term: 'Served by', value: named(facts.provider, providerLogo(facts.provider) != null) }] : []),
+    ...(facts && facts.provider !== facts.maker
+      ? [{ term: 'Served by', value: named(facts.provider, providerLogo(facts.provider) != null) }]
+      : []),
     {
       term: 'Harnesses',
       value: (
@@ -166,18 +186,30 @@ export function ModelPage() {
     },
   ];
 
-  const evalLink = (e: Eval) => ({ to: '/evals/$evalId/$model' as const, params: { evalId: evalSlug(e.id), model: modelSlug(model) } });
+  const evalLink = (e: Eval) => ({
+    to: '/evals/$evalId/$model' as const,
+    params: { evalId: evalSlug(e.id), model: modelSlug(model) },
+  });
 
   return (
     <div className={SECTIONS}>
-      <PageHeader mark={<BrandMark slug={info.vendor.slug} size={40} title={info.vendor.name} />} description={facts?.description} meta={meta} />
+      <PageHeader
+        mark={<BrandMark slug={info.vendor.slug} size={40} title={info.vendor.name} />}
+        description={facts?.description}
+        meta={meta}
+      />
       <PageToolbar label="Filters">
         <PairingFilters
           runs={everyRun}
           levels={facts?.levels}
           thinking={search.level}
           agent={search.harness}
-          onChange={patch => update({ ...(patch.thinking && { level: patch.thinking }), ...(patch.agent && { harness: patch.agent }) }, { resetPage: true })}
+          onChange={patch =>
+            update(
+              { ...(patch.thinking && { level: patch.thinking }), ...(patch.agent && { harness: patch.agent }) },
+              { resetPage: true }
+            )
+          }
         />
       </PageToolbar>
 
@@ -222,13 +254,18 @@ export function ModelPage() {
                     <Fragment key={e.id}>
                       <TableRow className="cursor-pointer" onClick={() => navigate(evalLink(e))}>
                         <TableCell>
-                          <Link {...evalLink(e)} className="inline-flex max-w-full items-center gap-2 whitespace-nowrap hover:underline hover:underline-offset-4">
+                          <Link
+                            {...evalLink(e)}
+                            className="inline-flex max-w-full items-center gap-2 whitespace-nowrap hover:underline hover:underline-offset-4"
+                          >
                             <EvalMark evalId={e.id} size={20} title="" />
                             {/* A phone keeps the name short, so the place and result stay in view */}
                             <span className="truncate max-md:max-w-28">{e.title}</span>
                           </Link>
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">{rank ? place(rank.rank, rank.of) : '–'}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {rank ? place(rank.rank, rank.of) : '–'}
+                        </TableCell>
                         <ResultCells e={e} own={own} />
                       </TableRow>
                       {mine.length > 1 &&
@@ -238,11 +275,23 @@ export function ModelPage() {
                             className="cursor-pointer"
                             onMouseEnter={() => setHovered(p.variant.key)}
                             onMouseLeave={() => setHovered(undefined)}
-                            onClick={() => navigate({ ...evalLink(e), search: { level: [p.variant.thinking], harness: [p.variant.agent] } as never })}
+                            onClick={() =>
+                              navigate({
+                                ...evalLink(e),
+                                search: { level: [p.variant.thinking], harness: [p.variant.agent] } as never,
+                              })
+                            }
                           >
                             <TableCell>
                               <span className="flex min-w-0 items-center gap-2 pl-7 max-md:pl-2">
-                                <span aria-hidden className={cn('w-4 shrink-0 border-t-2 max-md:hidden', p.variant.color.borderClassName, LINE[p.variant.line])} />
+                                <span
+                                  aria-hidden
+                                  className={cn(
+                                    'w-4 shrink-0 border-t-2 max-md:hidden',
+                                    p.variant.color.borderClassName,
+                                    LINE[p.variant.line]
+                                  )}
+                                />
                                 <VariantLabel variant={p.variant} run={p.sample} compact />
                               </span>
                             </TableCell>
@@ -268,7 +317,6 @@ export function ModelPage() {
               </PageSection>
             </div>
           )}
-
 
           <PageSection title="Runs">
             <div className="@container/runs">

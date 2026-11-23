@@ -22,7 +22,8 @@ const router = createRouter({
 
 // A shared link's ?theme= before the first paint, so it never flashes the stored theme
 const linkTheme = new URLSearchParams(window.location.search).get('theme');
-if (linkTheme === 'dark' || linkTheme === 'light') document.documentElement.classList.toggle('dark', linkTheme === 'dark');
+if (linkTheme === 'dark' || linkTheme === 'light')
+  document.documentElement.classList.toggle('dark', linkTheme === 'dark');
 
 declare module '@tanstack/react-router' {
   interface Register {

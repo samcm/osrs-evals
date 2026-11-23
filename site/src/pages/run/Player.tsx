@@ -20,7 +20,8 @@ import { Badge } from '@/components/ui/badge';
 import { play, REAL_TIME, TRANSITION_MS, type Playhead } from './playhead';
 
 /** rs-world's own panels (minimap, live list, render settings, joysticks): the site has its own controls */
-const HIDE_RS_WORLD_UI = '.hud, .live-hud, .joystick-container, .map-viewer > [class*="leva-c-"] { display: none !important; }';
+const HIDE_RS_WORLD_UI =
+  '.hud, .live-hud, .joystick-container, .map-viewer > [class*="leva-c-"] { display: none !important; }';
 
 /** How often the playhead is sent while it moves */
 const SEND_MS = 50;
@@ -29,7 +30,17 @@ const STREAM_AHEAD = 200;
 
 type Status = 'loading' | 'ready' | 'unavailable';
 
-export function Player({ run, head, autoplay, account }: { run: RunDetail; head: Playhead; autoplay: boolean; account: string }) {
+export function Player({
+  run,
+  head,
+  autoplay,
+  account,
+}: {
+  run: RunDetail;
+  head: Playhead;
+  autoplay: boolean;
+  account: string;
+}) {
   const [status, setStatus] = useState<Status>(run.has_replay ? 'loading' : 'unavailable');
   const session = useMemo(() => `${run.id}-${Math.random().toString(36).slice(2)}`, [run.id]);
   const send = useControl(run, session, setStatus);
@@ -44,7 +55,12 @@ export function Player({ run, head, autoplay, account }: { run: RunDetail; head:
     const from = shown.current;
     shown.current = k;
     // A jump (a click, not a drag or playing) rebuilds the world: dip to black over it
-    const jump = status === 'ready' && from != null && !head.playing && head.scrub == null && (k < from || k - from > STREAM_AHEAD);
+    const jump =
+      status === 'ready' &&
+      from != null &&
+      !head.playing &&
+      head.scrub == null &&
+      (k < from || k - from > STREAM_AHEAD);
     if (!jump) {
       send(k, ms);
       setDipped(false);
@@ -82,10 +98,11 @@ export function Player({ run, head, autoplay, account }: { run: RunDetail; head:
   }, [autoplay, status, drawn]);
 
   const shot = run.screenshot ? `/data/${run.screenshot}` : null;
-  const still = (alt: string) => shot && <img src={shot} alt={alt} className="absolute inset-0 size-full object-cover" />;
+  const still = (alt: string) =>
+    shot && <img src={shot} alt={alt} className="absolute inset-0 size-full object-cover" />;
   if (status === 'unavailable')
     return (
-      <div className="relative aspect-video w-full overflow-hidden bg-muted">
+      <div className="aspect-video relative w-full overflow-hidden bg-muted">
         {still('The game at the end of the run')}
         {/* A still, not the game at the playhead: it says which moment it is */}
         {shot && (
@@ -96,7 +113,7 @@ export function Player({ run, head, autoplay, account }: { run: RunDetail; head:
       </div>
     );
   return (
-    <div className="relative aspect-video w-full overflow-hidden bg-muted">
+    <div className="aspect-video relative w-full overflow-hidden bg-muted">
       {/* Until rs-world has drawn the character: the closest frame we have, dimmed and breathing */}
       <Skeleton className={cn('absolute inset-0 rounded-none bg-transparent transition-opacity', drawn && 'opacity-0')}>
         <div className="size-full opacity-40">{still('')}</div>
@@ -108,10 +125,18 @@ export function Player({ run, head, autoplay, account }: { run: RunDetail; head:
         title="The game"
         tabIndex={-1}
         onLoad={e => hideRsWorldUi(e.currentTarget)}
-        className={cn('pointer-events-none relative size-full border-0 opacity-0 transition-[opacity,filter]', drawn && 'opacity-100', dipped && 'brightness-0')}
+        className={cn(
+          'pointer-events-none relative size-full border-0 opacity-0 transition-[opacity,filter]',
+          drawn && 'opacity-100',
+          dipped && 'brightness-0'
+        )}
       />
       {/* While playing, the last frame that showed the character, over the game while it loads the next place */}
-      <canvas ref={hold} aria-hidden className={cn('pointer-events-none absolute inset-0 size-full', !holding && 'invisible')} />
+      <canvas
+        ref={hold}
+        aria-hidden
+        className={cn('pointer-events-none absolute inset-0 size-full', !holding && 'invisible')}
+      />
     </div>
   );
 }
@@ -176,7 +201,11 @@ const MIN_LIGHT = 3;
  * frame, in the same callback. rs-world is same-origin, so its requestAnimationFrame and the
  * overlay's clearRect are wrapped from here, and unwrapped after.
  */
-function useHeldFrame(frame: React.RefObject<HTMLIFrameElement | null>, hold: React.RefObject<HTMLCanvasElement | null>, active: boolean): boolean {
+function useHeldFrame(
+  frame: React.RefObject<HTMLIFrameElement | null>,
+  hold: React.RefObject<HTMLCanvasElement | null>,
+  active: boolean
+): boolean {
   const [holding, setHolding] = useState(false);
   useEffect(() => {
     setHolding(false);
@@ -206,7 +235,9 @@ function useHeldFrame(frame: React.RefObject<HTMLIFrameElement | null>, hold: Re
       if (now - checked < HOLD_EVERY_MS) return;
       checked = now;
       const overlay = doc.querySelector<HTMLCanvasElement>('canvas.live-overlay');
-      const gl = [...doc.querySelectorAll<HTMLCanvasElement>('canvas:not(.live-overlay)')].sort((a, b) => b.width * b.height - a.width * a.height)[0];
+      const gl = [...doc.querySelectorAll<HTMLCanvasElement>('canvas:not(.live-overlay)')].sort(
+        (a, b) => b.width * b.height - a.width * a.height
+      )[0];
       const out = hold.current;
       if (!overlay || !gl || !out || overlay.width === 0 || gl.width === 0) return;
       // The frame shows the character when its name is on the overlay and the ground has loaded
@@ -223,7 +254,8 @@ function useHeldFrame(frame: React.RefObject<HTMLIFrameElement | null>, hold: Re
         const names = overlay.getContext('2d')!.getImageData(0, 0, overlay.width, overlay.height).data;
         let orange = 0;
         for (let i = 0; i < names.length && orange < 4; i += 4)
-          if (names[i + 3] > 128 && names[i] > 200 && names[i + 1] > 110 && names[i + 1] < 190 && names[i + 2] < 90) orange++;
+          if (names[i + 3] > 128 && names[i] > 200 && names[i + 1] > 110 && names[i + 1] < 190 && names[i + 2] < 90)
+            orange++;
         seen = orange >= 4;
       }
       if (seen) {
@@ -269,7 +301,11 @@ function hideRsWorldUi(frame: HTMLIFrameElement): void {
  * every SEND_MS. Reports 'ready' once rs-world's feed is connected, and 'unavailable' when there is no
  * serve.ts to talk to.
  */
-function useControl(run: RunDetail, session: string, setStatus: (status: Status) => void): (k: number, ms: number) => void {
+function useControl(
+  run: RunDetail,
+  session: string,
+  setStatus: (status: Status) => void
+): (k: number, ms: number) => void {
   const latest = useRef<{ k: number; ms: number } | null>(null);
   const socket = useRef<WebSocket | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -294,7 +330,9 @@ function useControl(run: RunDetail, session: string, setStatus: (status: Status)
     let opened = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
     const open = (): void => {
-      const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/feed/${encodeURIComponent(run.id)}?control=${session}`);
+      const ws = new WebSocket(
+        `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/feed/${encodeURIComponent(run.id)}?control=${session}`
+      );
       socket.current = ws;
       ws.onopen = () => {
         opened = true;

@@ -454,7 +454,15 @@ export interface EvalRuns {
       end?: { items?: Record<string, number>; levels?: Record<string, number> };
       /** Its quests as it finished them, with (on an eval with a target) the quest's stages and the
        * quest points it needed; absent in older data */
-      quests?: { tick: number; kind: 'quest' | 'stage' | 'qp'; quest?: string; name?: string; qp?: number; stage?: number; source?: string }[];
+      quests?: {
+        tick: number;
+        kind: 'quest' | 'stage' | 'qp';
+        quest?: string;
+        name?: string;
+        qp?: number;
+        stage?: number;
+        source?: string;
+      }[];
     }
   >;
 }

@@ -19,7 +19,15 @@ import { Tip } from './bits';
 import type { Run } from '@/data/types';
 import { brandSrc, itemSrc, loadTrimmedSprite } from '@/lib/assets';
 import { evalArt } from '@/lib/evals';
-import { agentInfo, levelName, modelInfo, thinkingTitle, variantOf, type SeriesColor, type Variant } from '@/lib/series';
+import {
+  agentInfo,
+  levelName,
+  modelInfo,
+  thinkingTitle,
+  variantOf,
+  type SeriesColor,
+  type Variant,
+} from '@/lib/series';
 
 const SPRITE_SIZES = {
   14: 'size-3.5',
@@ -112,10 +120,21 @@ export type BrandSize = keyof typeof BRAND_SIZES;
  * A harness's mark is the site's; a maker's or provider's is the logo the data saved from models.dev.
  * `program` is the scripted baseline's game sprite. One without a logo gets a muted letter tile.
  */
-export function BrandMark({ slug, size = 16, title, className }: { slug: string; size?: BrandSize; title?: string; className?: string }) {
+export function BrandMark({
+  slug,
+  size = 16,
+  title,
+  className,
+}: {
+  slug: string;
+  size?: BrandSize;
+  title?: string;
+  className?: string;
+}) {
   // Its name for screen readers; a hover name is the caller's Tip where the mark stands alone
   const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': true };
-  if (slug === 'program') return <Sprite src={brandSrc('program')!} size={size} alt={title ?? ''} className={className} />;
+  if (slug === 'program')
+    return <Sprite src={brandSrc('program')!} size={size} alt={title ?? ''} className={className} />;
   const src = brandSrc(slug);
   if (!src) {
     return (
@@ -153,7 +172,12 @@ export function BrandMark({ slug, size = 16, title, className }: { slug: string;
 
 /** A series colour as a small square: only where the colour is the key for a chart. */
 export function Swatch({ color, className }: { color: SeriesColor; className?: string }) {
-  return <span aria-hidden className={cn('inline-block size-2.5 shrink-0 rounded-[2px]', color.swatchClassName, className)} />;
+  return (
+    <span
+      aria-hidden
+      className={cn('inline-block size-2.5 shrink-0 rounded-[2px]', color.swatchClassName, className)}
+    />
+  );
 }
 
 interface LabelProps {
@@ -169,7 +193,17 @@ interface LabelProps {
 const isProgram = (agent: string, fallback?: string): boolean => agentInfo(agent, fallback).slug === 'program';
 
 /** The scripted baseline: its game sprite and "Program". */
-function ProgramLabel({ size, swatch, color, className }: { size: BrandSize; swatch?: boolean; color?: SeriesColor; className?: string }) {
+function ProgramLabel({
+  size,
+  swatch,
+  color,
+  className,
+}: {
+  size: BrandSize;
+  swatch?: boolean;
+  color?: SeriesColor;
+  className?: string;
+}) {
   return (
     <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap', className)}>
       {swatch && color && <Swatch color={color} />}
@@ -180,7 +214,17 @@ function ProgramLabel({ size, swatch, color, className }: { size: BrandSize; swa
 }
 
 /** An agent harness as its mark, in the muted colour so the model's vendor mark leads; its name on hover. */
-export function HarnessMark({ agent, fallback, size = 14, className }: { agent: string; fallback?: string; size?: BrandSize; className?: string }) {
+export function HarnessMark({
+  agent,
+  fallback,
+  size = 14,
+  className,
+}: {
+  agent: string;
+  fallback?: string;
+  size?: BrandSize;
+  className?: string;
+}) {
   const info = agentInfo(agent, fallback);
   return (
     <Tip content={info.name}>
@@ -201,7 +245,8 @@ export function ThinkingLevel({ level, className }: { level: string; className?:
 /** A model: its vendor's mark and its name (compact: the short name). */
 export function ModelLabel({ model, compact, swatch, size = 16, className }: LabelProps & { model: string }) {
   const info = modelInfo(model);
-  if (info.vendor.slug === 'program') return <ProgramLabel size={size} swatch={swatch} color={info.color} className={className} />;
+  if (info.vendor.slug === 'program')
+    return <ProgramLabel size={size} swatch={swatch} color={info.color} className={className} />;
   return (
     <Tip content={compact ? info.name : undefined}>
       <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
@@ -214,7 +259,12 @@ export function ModelLabel({ model, compact, swatch, size = 16, className }: Lab
 }
 
 /** An agent harness on its own: its mark and its name; the scripted baseline shows its sprite and "Program". */
-export function AgentLabel({ agent, fallback, size = 16, className }: Omit<LabelProps, 'swatch' | 'compact'> & { agent: string; fallback?: string; compact?: boolean }) {
+export function AgentLabel({
+  agent,
+  fallback,
+  size = 16,
+  className,
+}: Omit<LabelProps, 'swatch' | 'compact'> & { agent: string; fallback?: string; compact?: boolean }) {
   if (isProgram(agent, fallback)) return <ProgramLabel size={size} className={className} />;
   return (
     <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
@@ -240,7 +290,8 @@ export function VariantLabel({
 }: LabelProps & { run?: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thinking'>; variant?: Variant }) {
   const v = variant ?? variantOf(run!);
   const model = modelInfo(v.model);
-  if (isProgram(v.agent, run?.agent_name)) return <ProgramLabel size={size} swatch={swatch} color={v.color} className={className} />;
+  if (isProgram(v.agent, run?.agent_name))
+    return <ProgramLabel size={size} swatch={swatch} color={v.color} className={className} />;
   return (
     <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
       {swatch && <Swatch color={v.color} />}
@@ -252,8 +303,19 @@ export function VariantLabel({
 }
 
 /** The eval's sprite. */
-export function EvalMark({ evalId, size = 24, title, className }: { evalId: string; size?: SpriteSize; title?: string; className?: string }) {
+export function EvalMark({
+  evalId,
+  size = 24,
+  title,
+  className,
+}: {
+  evalId: string;
+  size?: SpriteSize;
+  title?: string;
+  className?: string;
+}) {
   const { mark } = evalArt(evalId);
-  if (!mark) return <span aria-hidden className={cn('inline-block shrink-0 align-middle', SPRITE_SIZES[size], className)} />;
+  if (!mark)
+    return <span aria-hidden className={cn('inline-block shrink-0 align-middle', SPRITE_SIZES[size], className)} />;
   return <Sprite src={mark.src} size={size} alt={title ?? mark.name} className={className} />;
 }

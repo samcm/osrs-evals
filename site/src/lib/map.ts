@@ -108,4 +108,8 @@ export function mapViewParam(): Param<MapView | undefined> {
 }
 
 /** A view rounded for the URL. */
-export const roundView = ([x, z, zoom]: MapView): MapView => [Math.round(x * 10) / 10, Math.round(z * 10) / 10, Math.round(zoom * 100) / 100];
+export const roundView = ([x, z, zoom]: MapView): MapView => [
+  Math.round(x * 10) / 10,
+  Math.round(z * 10) / 10,
+  Math.round(zoom * 100) / 100,
+];

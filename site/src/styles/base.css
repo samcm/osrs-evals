@@ -1,30 +1,147 @@
-/* Base styles the theme doesn't cover: the wordmark's font and pixel-art sprites. */
-
-/* The game's bold font (RuneStar/fonts), for the wordmark only. */
-@font-face {
-  font-family: 'RuneScape Bold 12';
-  src: url('/assets/fonts/RuneScape-Bold-12.ttf') format('truetype');
-  font-display: swap;
-}
+/* Base styles and keyframes only; every value comes from tokens.css. */
 
 @layer base {
+  html {
+    /* Set html background for overscroll */
+    background-color: var(--color-background);
+  }
+
   body {
+    font-family: var(--font-sans);
     font-feature-settings: 'ss01';
+    color: var(--color-foreground);
+    background-color: var(--color-background);
   }
 
-  /* Sprites from the game cache are pixel art: scale them without smoothing (img, canvas or SVG image). */
-  [data-sprite] {
-    image-rendering: pixelated;
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: var(--font-mono);
   }
-}
 
-@layer base {
-  /* No persistent scrollbars: Windows draws them as solid gutters. Scrolling still works. */
+  /* Global focus styles - use primary color */
+  /* Only apply to keyboard navigation (focus-visible) and exclude interactive elements that have custom focus styles */
+  *:focus-visible:not(button):not(a):not([role='button']):not(input):not(textarea):not(select) {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Remove default focus outline from buttons, links, and role=button elements */
+  button:focus-visible,
+  a:focus-visible,
+  [role='button']:focus-visible {
+    outline: none;
+  }
+
+  /* No persistent scrollbars anywhere: Windows draws them as solid gutters. Scrolling still works. */
   * {
     scrollbar-width: none;
   }
 
   *::-webkit-scrollbar {
     display: none;
+  }
+
+  /* osrs-evals: sprites from the game cache are pixel art, scaled without smoothing (img, canvas or SVG image). */
+  [data-sprite] {
+    image-rendering: pixelated;
+  }
+
+  /* osrs-evals: motion is 150 ms of opacity or position, and none under reduced motion. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      transition-duration: 0ms !important;
+      animation-duration: 0ms !important;
+    }
+  }
+}
+
+/* Keyframes sit outside @theme so they are always emitted; the --animate-* tokens that use
+ * them are in tokens.css. */
+/* Tailwind's spin, ping and pulse. */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ping {
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes scroll-travel {
+  0%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.3;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Gentle fade-in animation for new items */
+@keyframes highlight-new {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Live mode row animation - fast fade in */
+@keyframes row-new {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* CardChain slide animations for conveyor belt effect. */
+@keyframes chain-slide-left {
+  from {
+    opacity: 0;
+    transform: translateX(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes chain-slide-right {
+  from {
+    opacity: 0;
+    transform: translateX(-60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }

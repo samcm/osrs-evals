@@ -8,7 +8,15 @@
 
 import { useId, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export interface SelectOption {
   value: string;
@@ -54,7 +62,10 @@ export function SelectField({
       <label htmlFor={id} className={cn('text-xs font-medium text-muted-foreground', hideLabel && 'sr-only')}>
         {label}
       </label>
-      <Select value={value ?? (allLabel != null ? ALL : undefined)} onValueChange={v => onChange(v === ALL ? undefined : v)}>
+      <Select
+        value={value ?? (allLabel != null ? ALL : undefined)}
+        onValueChange={v => onChange(v === ALL ? undefined : v)}
+      >
         <SelectTrigger id={id} className="w-full min-w-0">
           <SelectValue placeholder={allLabel ?? label} />
         </SelectTrigger>

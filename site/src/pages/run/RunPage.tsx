@@ -39,8 +39,18 @@ function QuestIcons({ quests }: { quests: RunDetail['metrics']['quests'] }) {
           <li key={`${q.quest}-${q.tick}`} className="flex">
             <Tooltip>
               <TooltipTrigger asChild>
-                <span tabIndex={0} className={cn('inline-flex rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50', inferred && 'border-b border-dashed border-muted-foreground')}>
-                  <Sprite src={q.quest ? questSrc(q.quest) : uiSrc('quests')} size={20} alt={inferred ? `≈ ${name}` : name} />
+                <span
+                  tabIndex={0}
+                  className={cn(
+                    'inline-flex rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                    inferred && 'border-b border-dashed border-muted-foreground'
+                  )}
+                >
+                  <Sprite
+                    src={q.quest ? questSrc(q.quest) : uiSrc('quests')}
+                    size={20}
+                    alt={inferred ? `≈ ${name}` : name}
+                  />
                 </span>
               </TooltipTrigger>
               <TooltipContent>{inferred ? `≈ ${name}: guessed from the quest-points jump` : name}</TooltipContent>
@@ -81,7 +91,9 @@ function resultMeta(run: RunDetail, evalInfo: Eval | undefined): MetaItem[] {
       term: 'Time',
       value: (
         <Tooltip>
-          <TooltipTrigger className="cursor-help underline decoration-dotted underline-offset-4">{formatDuration(run.seconds)}</TooltipTrigger>
+          <TooltipTrigger className="cursor-help underline decoration-dotted underline-offset-4">
+            {formatDuration(run.seconds)}
+          </TooltipTrigger>
           <TooltipContent>{formatInt(run.ticks)} game ticks</TooltipContent>
         </Tooltip>
       ),
@@ -130,7 +142,10 @@ function RunFacts({ run }: { run: RunDetail }) {
 function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure: XMeasure }) {
   const navigate = useNavigate();
   const siblings = useMemo(
-    () => runs.filter(r => r.eval === run.eval && variantKey(r) === variantKey(run)).sort((a, b) => a.epoch - b.epoch || a.id.localeCompare(b.id)),
+    () =>
+      runs
+        .filter(r => r.eval === run.eval && variantKey(r) === variantKey(run))
+        .sort((a, b) => a.epoch - b.epoch || a.id.localeCompare(b.id)),
     [runs, run]
   );
   const at = siblings.findIndex(r => r.id === run.id);
@@ -140,7 +155,8 @@ function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-      if ((event.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable], [role=slider]')) return;
+      if ((event.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable], [role=slider]'))
+        return;
       const to = event.key === 'ArrowLeft' ? prev : event.key === 'ArrowRight' ? next : undefined;
       if (!to) return;
       event.preventDefault();
@@ -156,7 +172,12 @@ function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="outline" size="icon" asChild>
-            <Link to="/runs/$runId" params={{ runId: to.id }} search={{ x: measure } as never} aria-label={`${label}: epoch ${to.epoch}`}>
+            <Link
+              to="/runs/$runId"
+              params={{ runId: to.id }}
+              search={{ x: measure } as never}
+              aria-label={`${label}: epoch ${to.epoch}`}
+            >
               {text}
             </Link>
           </Button>
@@ -185,7 +206,10 @@ function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure
  */
 function placeAmong(run: Run, runs: Run[]): { place: number; of: number } {
   const own = runs.filter(r => r.eval === run.eval);
-  const key = (r: Run): [number, number] => [r.success ? 0 : 1, r.success ? (r.ticks ?? Infinity) : -(resultValue(r) ?? 0)];
+  const key = (r: Run): [number, number] => [
+    r.success ? 0 : 1,
+    r.success ? (r.ticks ?? Infinity) : -(resultValue(r) ?? 0),
+  ];
   const [a, b] = key(run);
   const ahead = own.filter(r => {
     const [x, y] = key(r);
@@ -199,7 +223,19 @@ function placeAmong(run: Run, runs: Run[]): { place: number; of: number } {
  * place among the eval's runs and its cost; the run id (its facts behind it) and the epochs on the
  * right. The header bar already names the eval and the pairing, with its marks.
  */
-function Header({ run, evalInfo, runs, measure, summary }: { run: RunDetail; evalInfo: Eval | undefined; runs: Run[]; measure: XMeasure; summary?: string }) {
+function Header({
+  run,
+  evalInfo,
+  runs,
+  measure,
+  summary,
+}: {
+  run: RunDetail;
+  evalInfo: Eval | undefined;
+  runs: Run[];
+  measure: XMeasure;
+  summary?: string;
+}) {
   const { place, of } = placeAmong(run, runs);
   return (
     <PageHero
@@ -227,10 +263,17 @@ export function RunPage() {
   // The index summary may carry fields the detail file lacks, such as a screenshot added later
   const run = useMemo<RunDetail>(() => {
     const summary = index.runs.find(r => r.id === runId);
-    return { ...summary, ...detail, screenshot: detail.screenshot ?? summary?.screenshot, replay_url: detail.replay_url ?? summary?.replay_url };
+    return {
+      ...summary,
+      ...detail,
+      screenshot: detail.screenshot ?? summary?.screenshot,
+      replay_url: detail.replay_url ?? summary?.replay_url,
+    };
   }, [detail, index.runs, runId]);
   const evalInfo = index.evals.find(e => e.id === run.eval);
-  useDocumentTitle(`${modelInfo(run.model).name} ${levelName(run.thinking)}, ${evalInfo?.title ?? run.eval}, epoch ${run.epoch}`);
+  useDocumentTitle(
+    `${modelInfo(run.model).name} ${levelName(run.thinking)}, ${evalInfo?.title ?? run.eval}, epoch ${run.epoch}`
+  );
 
   const clock = useMemo(() => makeClock(run), [run]);
   const selectedTurn = search.turn != null ? run.turns[search.turn - 1] : undefined;
@@ -258,7 +301,13 @@ export function RunPage() {
    */
   return (
     <>
-      <Header run={run} evalInfo={evalInfo} runs={index.runs} measure={search.x} summary={told?.summary ?? run.summary ?? undefined} />
+      <Header
+        run={run}
+        evalInfo={evalInfo}
+        runs={index.runs}
+        measure={search.x}
+        summary={told?.summary ?? run.summary ?? undefined}
+      />
       <div className={cn('grid gap-gutter', held ? 'xl:grid-cols-12' : 'xl:grid-cols-5')}>
         <Card className={cn('min-w-0 gap-0 pt-0', held ? 'xl:col-span-8' : 'xl:col-span-3')}>
           {/* The game, and beside it what the followed account held, as the client's side panel */}

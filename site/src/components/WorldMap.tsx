@@ -3,7 +3,19 @@ import { Tip } from '@/components/bits';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { loadTrimmedSprite, type TrimmedSprite } from '@/lib/assets';
-import { imageToTile, MAP_IMAGE, MAP_IMAGE_2X, mapMetaQuery, positionAt, roundView, surfaceZ, tileToImage, type MapMeta, type MapView, type PathPoint } from '@/lib/map';
+import {
+  imageToTile,
+  MAP_IMAGE,
+  MAP_IMAGE_2X,
+  mapMetaQuery,
+  positionAt,
+  roundView,
+  surfaceZ,
+  tileToImage,
+  type MapMeta,
+  type MapView,
+  type PathPoint,
+} from '@/lib/map';
 import { Button } from '@/components/ui/button';
 import { useThemeColors } from '@/lib/theme';
 
@@ -36,7 +48,11 @@ export interface MapMarker {
 }
 
 /** Draws over the map in CSS pixels (the context is scaled for the device). */
-export type MapOverlay = (ctx: CanvasRenderingContext2D, toScreen: (x: number, z: number) => [number, number], zoom: number) => void;
+export type MapOverlay = (
+  ctx: CanvasRenderingContext2D,
+  toScreen: (x: number, z: number) => [number, number],
+  zoom: number
+) => void;
 
 interface Camera {
   /** Centre in map-image pixels */
@@ -86,7 +102,7 @@ function prepare(meta: MapMeta, points: readonly PathPoint[]): Prepared {
   const runs: [number, number][] = [];
   let start = 0;
   points.forEach(([tick, x, z, , jump], n) => {
-    if (jump === 1 && n > start) runs.push([start, n]), (start = n);
+    if (jump === 1 && n > start) (runs.push([start, n]), (start = n));
     const [px, py] = tileToImage(meta, x, surfaceZ(z));
     xy[n * 2] = px;
     xy[n * 2 + 1] = py;
@@ -203,7 +219,14 @@ export function WorldMap({
   useEffect(() => {
     let live = true;
     const srcs = [...new Set(markerKey ? markerKey.split('|') : [])];
-    Promise.all(srcs.map(src => loadTrimmedSprite(src).then(s => [src, s] as const, () => null))).then(pairs => {
+    Promise.all(
+      srcs.map(src =>
+        loadTrimmedSprite(src).then(
+          s => [src, s] as const,
+          () => null
+        )
+      )
+    ).then(pairs => {
       if (live) setSprites(new Map(pairs.filter(p => p != null)));
     });
     return () => {
@@ -214,14 +237,21 @@ export function WorldMap({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const observer = new ResizeObserver(([entry]) => setSize({ w: entry.contentRect.width, h: entry.contentRect.height }));
+    const observer = new ResizeObserver(([entry]) =>
+      setSize({ w: entry.contentRect.width, h: entry.contentRect.height })
+    );
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
-  const prepared = useMemo(() => (meta ? paths.map(path => ({ path, ...prepare(meta, path.points) })) : []), [meta, paths]);
+  const prepared = useMemo(
+    () => (meta ? paths.map(path => ({ path, ...prepare(meta, path.points) })) : []),
+    [meta, paths]
+  );
   // What the fitted view depends on: which paths and markers, not their time dots or styles
-  const geometryKey = fitKey ?? `${paths.map(p => `${p.id}:${p.points.length}`).join('|')}#${markers.map(m => `${m.x},${m.z}`).join('|')}`;
+  const geometryKey =
+    fitKey ??
+    `${paths.map(p => `${p.id}:${p.points.length}`).join('|')}#${markers.map(m => `${m.x},${m.z}`).join('|')}`;
 
   /** The frame's height: the fitted paths' shape at the frame's width, so the map fills it; `height` is the most. */
   const frameHeight = useMemo(() => {
@@ -258,7 +288,8 @@ export function WorldMap({
       x1 = Math.max(x1, x);
       y1 = Math.max(y1, y);
     };
-    for (const p of prepared) for (const [a, b] of p.runs) for (let i = a; i < b; i++) add(p.xy[i * 2], p.xy[i * 2 + 1]);
+    for (const p of prepared)
+      for (const [a, b] of p.runs) for (let i = a; i < b; i++) add(p.xy[i * 2], p.xy[i * 2 + 1]);
     for (const m of markers) add(...tileToImage(meta, m.x, m.z));
     if (x0 === Infinity) {
       x0 = 0;
@@ -396,7 +427,8 @@ export function WorldMap({
   const viewKey = view?.join(',');
   const canFollow = follow !== undefined;
   const following = canFollow && !view;
-  const followKey = following && follow ? `${follow.map(f => `${f.x.toFixed(2)},${f.z.toFixed(2)}`).join(';')}@${followZoom}` : '';
+  const followKey =
+    following && follow ? `${follow.map(f => `${f.x.toFixed(2)},${f.z.toFixed(2)}`).join(';')}@${followZoom}` : '';
   useEffect(() => {
     if (!meta || size.w === 0) return;
     if (view) {
@@ -408,7 +440,11 @@ export function WorldMap({
       const [y0, y1] = [Math.min(...xs.map(p => p[1])), Math.max(...xs.map(p => p[1]))];
       // Close to one character, far enough out for a pack: room for the pins at the edges
       const room = 3 * padding;
-      const s = Math.min(followZoom / meta.px_per_tile, (size.w - 2 * room) / Math.max(1, x1 - x0), (size.h - 2 * room) / Math.max(1, y1 - y0));
+      const s = Math.min(
+        followZoom / meta.px_per_tile,
+        (size.w - 2 * room) / Math.max(1, x1 - x0),
+        (size.h - 2 * room) / Math.max(1, y1 - y0)
+      );
       camera.current = clampCentre(meta, { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, s: clampScale(meta, size, s) }, size);
     } else if (!following) {
       camera.current = fitRef.current();
@@ -432,7 +468,8 @@ export function WorldMap({
     (gesture: 'pan' | 'zoom' = 'pan') => {
       const cam = camera.current;
       if (!cam || !meta) return;
-      if (following && gesture === 'zoom' && onFollowZoom) return onFollowZoom(Math.round(cam.s * meta.px_per_tile * 100) / 100);
+      if (following && gesture === 'zoom' && onFollowZoom)
+        return onFollowZoom(Math.round(cam.s * meta.px_per_tile * 100) / 100);
       const [x, z] = imageToTile(meta, cam.cx, cam.cy);
       onViewChange?.(roundView([x, z, cam.s * meta.px_per_tile]));
     },
@@ -496,7 +533,11 @@ export function WorldMap({
       return;
     }
     if (active.size === 1) {
-      camera.current = clampCentre(meta, { ...cam, cx: cam.cx - (x - previous.x) / cam.s, cy: cam.cy - (y - previous.y) / cam.s }, size);
+      camera.current = clampCentre(
+        meta,
+        { ...cam, cx: cam.cx - (x - previous.x) / cam.s, cy: cam.cy - (y - previous.y) / cam.s },
+        size
+      );
       active.set(event.pointerId, { x, y });
       moved.current = true;
       requestDraw();
@@ -511,7 +552,11 @@ export function WorldMap({
       const my = (y + other.y) / 2;
       const px = (previous.x + other.x) / 2;
       const py = (previous.y + other.y) / 2;
-      camera.current = clampCentre(meta, { ...cam, cx: cam.cx - (mx - px) / cam.s, cy: cam.cy - (my - py) / cam.s }, size);
+      camera.current = clampCentre(
+        meta,
+        { ...cam, cx: cam.cx - (mx - px) / cam.s, cy: cam.cy - (my - py) / cam.s },
+        size
+      );
       moved.current = true;
       zoomAt(mx, my, after / before);
     }
@@ -532,7 +577,11 @@ export function WorldMap({
 
   const failed = metaFailed || imageFailed;
   return (
-    <div ref={containerRef} className={clsx('relative w-full min-w-0 overflow-hidden rounded-sm bg-background', className)} style={{ height: frameHeight }}>
+    <div
+      ref={containerRef}
+      className={clsx('relative w-full min-w-0 overflow-hidden rounded-sm bg-background', className)}
+      style={{ height: frameHeight }}
+    >
       <canvas
         ref={canvasRef}
         role="img"
@@ -549,7 +598,9 @@ export function WorldMap({
         }}
       />
       {failed ? (
-        <p className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">The map could not be loaded.</p>
+        <p className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+          The map could not be loaded.
+        </p>
       ) : (
         <div className="absolute top-2 right-2 flex gap-1">
           {button('+', 'Zoom in', () => {
@@ -560,7 +611,9 @@ export function WorldMap({
             zoomAt(size.w / 2, size.h / 2, 0.5);
             commit('zoom');
           })}
-          {canFollow && !following && button('Follow', 'Keep the character in the middle', () => onViewChange?.(undefined))}
+          {canFollow &&
+            !following &&
+            button('Follow', 'Keep the character in the middle', () => onViewChange?.(undefined))}
           {button('Fit', canFollow ? 'Show the whole path' : 'Fit the paths', () => {
             camera.current = fit();
             requestDraw();
@@ -586,10 +639,22 @@ function clampCentre(meta: MapMeta | undefined, cam: Camera, size: { w: number; 
   if (!meta) return cam;
   const within = (c: number, half: number, extent: number): number =>
     half * 2 >= extent ? extent / 2 : Math.min(extent - half, Math.max(half, c));
-  return { ...cam, cx: within(cam.cx, size.w / 2 / cam.s, meta.width), cy: within(cam.cy, size.h / 2 / cam.s, meta.height) };
+  return {
+    ...cam,
+    cx: within(cam.cx, size.w / 2 / cam.s, meta.width),
+    cy: within(cam.cy, size.h / 2 / cam.s, meta.height),
+  };
 }
 
-function markerHit(meta: MapMeta, cam: Camera, size: { w: number; h: number }, m: MapMarker, sprite: TrimmedSprite | undefined, x: number, y: number): boolean {
+function markerHit(
+  meta: MapMeta,
+  cam: Camera,
+  size: { w: number; h: number },
+  m: MapMarker,
+  sprite: TrimmedSprite | undefined,
+  x: number,
+  y: number
+): boolean {
   const [px, py] = tileToImage(meta, m.x, m.z);
   const sx = size.w / 2 + (px - cam.cx) * cam.s;
   const sy = size.h / 2 + (py - cam.cy) * cam.s;

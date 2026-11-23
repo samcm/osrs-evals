@@ -73,7 +73,10 @@ export function Centerpiece({
   // The eval's ranking, as the leaderboard everywhere: by its score over game ticks
   const ranked = useMemo(() => rankVariants(e, runs, 'ticks'), [e, runs]);
   const rows = useMemo(() => raceRows(runners, ranked), [runners, ranked]);
-  const span = Math.max(1, Math.min(maxTick, Math.max(0, ...runners.map(cv => cv.points[cv.points.length - 1]?.tick ?? 0))));
+  const span = Math.max(
+    1,
+    Math.min(maxTick, Math.max(0, ...runners.map(cv => cv.points[cv.points.length - 1]?.tick ?? 0)))
+  );
   const head = useEvalPlayhead(t, span, tick => update({ t: tick }));
   const mobile = useIsMobile();
   const [standingsRef, standingsHeight] = useHeight();
@@ -96,7 +99,9 @@ export function Centerpiece({
   const ordered = useMemo(() => rows.map(r => r.curve), [rows]);
   const details = useQueries({ queries: ordered.slice(0, DETAILED).map(cv => runQuery(cv.run.id)) });
   // Each raced run's chapters (site/summarize.py): the standings show the one at the playhead
-  const told = useQueries({ queries: ordered.map(cv => ({ ...runSummaryQuery(cv.run.id), enabled: Boolean(cv.run.summary) })) });
+  const told = useQueries({
+    queries: ordered.map(cv => ({ ...runSummaryQuery(cv.run.id), enabled: Boolean(cv.run.summary) })),
+  });
   const toldKey = told.map(q => (q.data ? '1' : '0')).join('');
   const loadedKey = details.map(d => (d.data ? '1' : '0')).join('');
   const base = useMemo(
@@ -106,9 +111,20 @@ export function Centerpiece({
         const detail = details[i]?.data;
         const points = (detail?.path ?? grid?.runs[curve.run.id]?.path ?? []) as readonly PathPoint[];
         // A team's run: every other account's path too, from the same source as the first's
-        const others = Object.entries((detail ? detail.paths : grid?.runs[curve.run.id]?.paths) ?? {}).map(([name, path]) => ({ name, points: path as readonly PathPoint[] }));
+        const others = Object.entries((detail ? detail.paths : grid?.runs[curve.run.id]?.paths) ?? {}).map(
+          ([name, path]) => ({ name, points: path as readonly PathPoint[] })
+        );
         const step = detail ? 10 : (grid?.path_every ?? 50);
-        return { row, curve, detail, points, others, step, marks: marksOf(detail?.events, points, step), events: laneMarks(detail?.events) };
+        return {
+          row,
+          curve,
+          detail,
+          points,
+          others,
+          step,
+          marks: marksOf(detail?.events, points, step),
+          events: laneMarks(detail?.events),
+        };
       }),
     // details is a new array every render; what is loaded is what matters
     [rows, grid, loadedKey]
@@ -167,10 +183,19 @@ export function Centerpiece({
       className="gap-0 overflow-hidden py-0 lg:grid lg:grid-cols-12"
       aria-label="Every run in the game"
     >
-      <div ref={standingsRef} className="relative flex min-w-0 flex-col gap-2 py-4 lg:col-span-5 lg:self-start 3xl:col-span-4" style={beside ? { maxHeight: height } : undefined}>
+      <div
+        ref={standingsRef}
+        className="relative flex min-w-0 flex-col gap-2 py-4 lg:col-span-5 lg:self-start 3xl:col-span-4"
+        style={beside ? { maxHeight: height } : undefined}
+      >
         <CardContent className="flex shrink-0 items-center gap-3">
           <Tip content={head.playing ? 'Pause' : 'Play'}>
-            <Button variant="outline" size="icon-sm" onClick={() => (head.playing ? pause() : play())} aria-label={head.playing ? 'Pause' : 'Play'}>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => (head.playing ? pause() : play())}
+              aria-label={head.playing ? 'Pause' : 'Play'}
+            >
               {head.playing ? <PauseIcon className="fill-current" /> : <PlayIcon className="fill-current" />}
             </Button>
           </Tip>
@@ -188,16 +213,29 @@ export function Centerpiece({
             className="min-w-0 flex-1"
           />
           <Tip content={`Tick ${formatInt(Math.round(head.tick))}`}>
-            <span className="shrink-0 text-right text-sm text-muted-foreground tabular-nums">{gameTime(e, head.tick)}</span>
+            <span className="shrink-0 text-right text-sm text-muted-foreground tabular-nums">
+              {gameTime(e, head.tick)}
+            </span>
           </Tip>
         </CardContent>
         <ScrollArea className="min-h-0 flex-1">
           <CardContent>
-            <Standings e={e} rows={lanes} max={top} perRun={agg === 'runs'} lit={lit} stages={target != null ? stages : []} />
+            <Standings
+              e={e}
+              rows={lanes}
+              max={top}
+              perRun={agg === 'runs'}
+              lit={lit}
+              stages={target != null ? stages : []}
+            />
           </CardContent>
         </ScrollArea>
       </div>
-      <div className="relative min-w-0 border-t lg:col-span-7 lg:border-t-0 3xl:col-span-8 lg:border-l" onPointerMove={onPointerMove} onPointerLeave={() => setHovered(undefined)}>
+      <div
+        className="relative min-w-0 border-t lg:col-span-7 lg:border-t-0 lg:border-l 3xl:col-span-8"
+        onPointerMove={onPointerMove}
+        onPointerLeave={() => setHovered(undefined)}
+      >
         {width === 0 || !grid ? (
           <Skeleton className="w-full rounded-none" style={{ height }} />
         ) : (

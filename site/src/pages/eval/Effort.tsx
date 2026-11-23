@@ -9,7 +9,16 @@ import { useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Bar, BarChart, CartesianGrid, Cell, Scatter, ScatterChart, XAxis, YAxis } from 'recharts';
 import { ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
-import { ChartFrame, chartMargin, KeyLegend, Y_AXIS_WIDTH, SeriesLabel, SeriesTooltip, gridProps, xAxisProps } from '@/components/charts';
+import {
+  ChartFrame,
+  chartMargin,
+  KeyLegend,
+  Y_AXIS_WIDTH,
+  SeriesLabel,
+  SeriesTooltip,
+  gridProps,
+  xAxisProps,
+} from '@/components/Charts';
 import type { Run } from '@/data/types';
 import { extraLabelWidth, toolSeries } from '@/lib/chartSeries';
 import { FADED_OPACITY, setHovered } from '@/lib/hover';
@@ -21,7 +30,6 @@ import { SelectField } from '@/components/SelectField';
 import { variantKey } from '@/lib/series';
 import { formatTick, formatX, labelWidth, roundMax, roundTicks, type Measure } from './chartBits';
 import { groupRuns, type Group, type GroupBy, type RankedVariant } from './model';
-
 
 interface Column {
   id: StripMeasure;
@@ -43,11 +51,30 @@ const COLUMNS: Column[] = [
   // How it worked, as site/summarize.py measured it from the logs
   { id: 'helpers', title: 'Helper agents', measure: 'count', value: r => r.facts?.subagents ?? null },
   { id: 'deaths', title: 'Deaths', measure: 'count', value: r => r.facts?.deaths ?? null },
-  { id: 'first_score', title: 'Time to first score', measure: 'seconds', value: r => (r.facts?.first_score_minutes != null ? r.facts.first_score_minutes * 60 : null) },
-  { id: 'source_reads', title: 'Reads of the server source', measure: 'count', value: r => r.facts?.server_source_reads ?? null },
+  {
+    id: 'first_score',
+    title: 'Time to first score',
+    measure: 'seconds',
+    value: r => (r.facts?.first_score_minutes != null ? r.facts.first_score_minutes * 60 : null),
+  },
+  {
+    id: 'source_reads',
+    title: 'Reads of the server source',
+    measure: 'count',
+    value: r => r.facts?.server_source_reads ?? null,
+  },
 ];
 
-export const STRIP_MEASURES = ['calls', 'waiting', 'actions', 'failed', 'helpers', 'deaths', 'first_score', 'source_reads'] as const;
+export const STRIP_MEASURES = [
+  'calls',
+  'waiting',
+  'actions',
+  'failed',
+  'helpers',
+  'deaths',
+  'first_score',
+  'source_reads',
+] as const;
 export type StripMeasure = (typeof STRIP_MEASURES)[number];
 
 export const GROUP_OPTIONS = [
@@ -57,7 +84,19 @@ export const GROUP_OPTIONS = [
 ];
 
 /** A group's label in the left gutter: its marks, short name, thinking level and harness mark. */
-function GroupTick({ x, y, payload, groups, width }: { x?: number; y?: number; payload?: { value: number }; groups: Group[]; width: number }) {
+function GroupTick({
+  x,
+  y,
+  payload,
+  groups,
+  width,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value: number };
+  groups: Group[];
+  width: number;
+}) {
   const g = groups[payload?.value ?? -1];
   if (!g || x == null || y == null) return null;
   return (
@@ -71,9 +110,27 @@ function GroupTick({ x, y, payload, groups, width }: { x?: number; y?: number; p
 
 /** A small vertical bar: the group's median. */
 const MedianMark = (props: { cx?: number; cy?: number }) =>
-  props.cx == null || props.cy == null ? <g /> : <rect x={props.cx - 1} y={props.cy - 8} width={2} height={16} rx={1} className="fill-foreground" />;
+  props.cx == null || props.cy == null ? (
+    <g />
+  ) : (
+    <rect x={props.cx - 1} y={props.cy - 8} width={2} height={16} rx={1} className="fill-foreground" />
+  );
 
-function Strip({ column, groups, labels, labelRoom, lit, titled = true }: { column: Column; groups: Group[]; labels: boolean; labelRoom: number; lit: string | null; titled?: boolean }) {
+function Strip({
+  column,
+  groups,
+  labels,
+  labelRoom,
+  lit,
+  titled = true,
+}: {
+  column: Column;
+  groups: Group[];
+  labels: boolean;
+  labelRoom: number;
+  lit: string | null;
+  titled?: boolean;
+}) {
   const navigate = useNavigate();
   const { dots, medians, max } = useMemo(() => {
     const dots = groups.flatMap((g, row) =>
@@ -102,7 +159,9 @@ function Strip({ column, groups, labels, labelRoom, lit, titled = true }: { colu
       <ChartFrame config={{}} rows={groups.length}>
         <ScatterChart margin={chartMargin()}>
           <CartesianGrid {...gridProps} vertical horizontal={false} />
-          <XAxis {...xAxisProps({ dataKey: 'x', domain: [0, max], ticks, format: v => formatTick(v, column.measure) })} />
+          <XAxis
+            {...xAxisProps({ dataKey: 'x', domain: [0, max], ticks, format: v => formatTick(v, column.measure) })}
+          />
           <YAxis
             dataKey="y"
             type="number"
@@ -130,7 +189,9 @@ function Strip({ column, groups, labels, labelRoom, lit, titled = true }: { colu
                   formatter={value => (
                     <div className="flex w-full items-center justify-between gap-4">
                       <span className="text-muted-foreground">{d.run ? `Epoch ${d.run.epoch}` : 'Median'}</span>
-                      <span className="font-mono font-medium text-foreground tabular-nums">{formatX(Number(value), column.measure)}</span>
+                      <span className="font-mono font-medium text-foreground tabular-nums">
+                        {formatX(Number(value), column.measure)}
+                      </span>
                     </div>
                   )}
                 />
@@ -141,7 +202,10 @@ function Strip({ column, groups, labels, labelRoom, lit, titled = true }: { colu
             data={dots}
             isAnimationActive={false}
             className="cursor-pointer"
-            onClick={(d: { payload?: { run?: Run } }) => d.payload?.run && navigate({ to: '/runs/$runId', params: { runId: d.payload.run.id }, search: {} as never })}
+            onClick={(d: { payload?: { run?: Run } }) =>
+              d.payload?.run &&
+              navigate({ to: '/runs/$runId', params: { runId: d.payload.run.id }, search: {} as never })
+            }
           >
             {dots.map(d => (
               <Cell
@@ -198,16 +262,44 @@ export function EffortStrips({
       ref={ref}
       className={wide ? 'grid gap-6' : 'flex flex-col gap-3'}
       // Wide, the first column also holds the labels, so every column's plot is the same width
-      style={wide ? { gridTemplateColumns: `calc(${labelRoom}px + (100% - ${labelRoom}px - 4.5rem) / 4) repeat(3, minmax(0, 1fr))` } : undefined}
+      style={
+        wide
+          ? {
+              gridTemplateColumns: `calc(${labelRoom}px + (100% - ${labelRoom}px - 4.5rem) / 4) repeat(3, minmax(0, 1fr))`,
+            }
+          : undefined
+      }
     >
       {width > 0 &&
         (wide ? (
           // Four to a row, each row's first column holding the labels
-          COLUMNS.map((column, i) => <Strip key={column.id} column={column} groups={groups} labels={i % 4 === 0} labelRoom={labelRoom} lit={lit} />)
+          COLUMNS.map((column, i) => (
+            <Strip
+              key={column.id}
+              column={column}
+              groups={groups}
+              labels={i % 4 === 0}
+              labelRoom={labelRoom}
+              lit={lit}
+            />
+          ))
         ) : (
           <>
-            <SelectField label="Measure" hideLabel value={measure} options={COLUMNS.map(c => ({ value: c.id, label: c.title }))} onChange={v => v && onMeasure(v as StripMeasure)} />
-            <Strip column={COLUMNS.find(c => c.id === measure)!} groups={groups} labels labelRoom={labelRoom} lit={lit} titled={false} />
+            <SelectField
+              label="Measure"
+              hideLabel
+              value={measure}
+              options={COLUMNS.map(c => ({ value: c.id, label: c.title }))}
+              onChange={v => v && onMeasure(v as StripMeasure)}
+            />
+            <Strip
+              column={COLUMNS.find(c => c.id === measure)!}
+              groups={groups}
+              labels
+              labelRoom={labelRoom}
+              lit={lit}
+              titled={false}
+            />
           </>
         ))}
     </div>
@@ -232,42 +324,55 @@ export function ToolMix({ runs, by, ranked }: { runs: Run[]; by: GroupBy; ranked
   const config: ChartConfig = Object.fromEntries(series.map(s => [s.key, { label: s.label, color: s.color }]));
   return (
     <div className="flex flex-col">
-        <ChartFrame config={config} rows={groups.length} legend={<KeyLegend items={present.map(cat => ({ label: cat.label, color: cat.color }))} />}>
-          <BarChart data={rows} layout="vertical" margin={chartMargin()} barCategoryGap={12} maxBarSize={20}>
-            <CartesianGrid {...gridProps} vertical horizontal={false} />
-            <XAxis {...xAxisProps({ domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1], format: v => `${Math.round(v * 100)}%` })} />
-            <YAxis
-              type="category"
-              dataKey="group"
-              width={labelRoom}
-              axisLine={false}
-              tickLine={false}
-              interval={0}
-              tick={<GroupTick groups={groups} width={labelRoom} />}
+      <ChartFrame
+        config={config}
+        rows={groups.length}
+        legend={<KeyLegend items={present.map(cat => ({ label: cat.label, color: cat.color }))} />}
+      >
+        <BarChart data={rows} layout="vertical" margin={chartMargin()} barCategoryGap={12} maxBarSize={20}>
+          <CartesianGrid {...gridProps} vertical horizontal={false} />
+          <XAxis
+            {...xAxisProps({ domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1], format: v => `${Math.round(v * 100)}%` })}
+          />
+          <YAxis
+            type="category"
+            dataKey="group"
+            width={labelRoom}
+            axisLine={false}
+            tickLine={false}
+            interval={0}
+            tick={<GroupTick groups={groups} width={labelRoom} />}
+          />
+          <ChartTooltip
+            cursor={{ fill: 'var(--muted)', opacity: 0.6 }}
+            content={({ active, payload, label }) => {
+              const g = groups[Number(label)];
+              if (!g) return null;
+              return (
+                <SeriesTooltip
+                  active={active}
+                  payload={payload}
+                  label={g.spec.name}
+                  series={series}
+                  sort="none"
+                  labelFormat={() => <SeriesLabel series={g.spec} />}
+                  format={v => formatX(v, 'share')}
+                />
+              );
+            }}
+          />
+          {series.map((s, i) => (
+            <Bar
+              key={s.key}
+              dataKey={s.key}
+              stackId="a"
+              fill={s.color}
+              isAnimationActive={false}
+              radius={i === series.length - 1 ? [0, 4, 4, 0] : 0}
             />
-            <ChartTooltip
-              cursor={{ fill: 'var(--muted)', opacity: 0.6 }}
-              content={({ active, payload, label }) => {
-                const g = groups[Number(label)];
-                if (!g) return null;
-                return (
-                  <SeriesTooltip
-                    active={active}
-                    payload={payload}
-                    label={g.spec.name}
-                    series={series}
-                    sort="none"
-                    labelFormat={() => <SeriesLabel series={g.spec} />}
-                    format={v => formatX(v, 'share')}
-                  />
-                );
-              }}
-            />
-            {series.map((s, i) => (
-              <Bar key={s.key} dataKey={s.key} stackId="a" fill={s.color} isAnimationActive={false} radius={i === series.length - 1 ? [0, 4, 4, 0] : 0} />
-            ))}
-          </BarChart>
-        </ChartFrame>
+          ))}
+        </BarChart>
+      </ChartFrame>
     </div>
   );
 }

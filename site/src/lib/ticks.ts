@@ -28,6 +28,7 @@ export function roundCeil(max: number, count = 5, integer = true): number {
 
 /** A tick label: compact from a thousand up (2.5K, 10K, 1.2M), so one axis never mixes "5,000" and "10K". */
 export function formatTick(value: number): string {
-  if (Math.abs(value) >= 1000) return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+  if (Math.abs(value) >= 1000)
+    return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
   return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }

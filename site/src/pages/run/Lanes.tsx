@@ -10,14 +10,40 @@
  */
 
 import { memo, useMemo, useRef, type ReactNode, type RefObject } from 'react';
-import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, XAxis, YAxis, usePlotArea, useXAxisScale, useYAxisScale, type MouseHandlerDataParam, type TooltipContentProps } from 'recharts';
+import {
+  Area,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  ReferenceLine,
+  XAxis,
+  YAxis,
+  usePlotArea,
+  useXAxisScale,
+  useYAxisScale,
+  type MouseHandlerDataParam,
+  type TooltipContentProps,
+} from 'recharts';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { ParamSegmented, Segmented } from '@/components/bits';
-import { ChartFrame, crosshairCursor, gridProps, KeyLegend, syncProps, Y_AXIS_WIDTH, type LegendItem } from '@/components/charts';
+import {
+  ChartFrame,
+  crosshairCursor,
+  gridProps,
+  KeyLegend,
+  syncProps,
+  Y_AXIS_WIDTH,
+  type LegendItem,
+} from '@/components/Charts';
 import { Sprite } from '@/components/marks';
 import { Button } from '@/components/ui/button';
 import { PageSection, PageToolbar } from '@/components/page';
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import type { Price, RunDetail, RunEvent, ToolCategory, Turn } from '@/data/types';
 import { skillSrc } from '@/lib/assets';
@@ -59,7 +85,10 @@ const TOP = 4;
 const X_AXIS = 24;
 
 /** Where each kind of token sits in the calls series and in the price list. */
-const TOKEN_FIELDS: Record<TokenKind, { calls: 'input_uncached' | 'cache_write' | 'cache_read' | 'output'; price: keyof Price }> = {
+const TOKEN_FIELDS: Record<
+  TokenKind,
+  { calls: 'input_uncached' | 'cache_write' | 'cache_read' | 'output'; price: keyof Price }
+> = {
   input: { calls: 'input_uncached', price: 'input' },
   cache_write: { calls: 'cache_write', price: 'input_cache_write' },
   cache_read: { calls: 'cache_read', price: 'input_cache_read' },
@@ -108,7 +137,8 @@ interface Ctx {
   faded: (id: string) => boolean;
 }
 
-const formatX = (measure: XMeasure, x: number): string => (measure === 'ticks' ? `Tick ${formatInt(Math.round(x))}` : formatClock(x));
+const formatX = (measure: XMeasure, x: number): string =>
+  measure === 'ticks' ? `Tick ${formatInt(Math.round(x))}` : formatClock(x);
 
 /** For each grid point, the index of the last item at or before it (−1 before the first); `at` ascending. */
 function lastAtOrBefore(at: number[], grid: number[]): number[] {
@@ -166,7 +196,14 @@ function progressLane(ctx: Ctx): Lane {
   const attemptStarts = attempts(run);
   const max = Math.max(1, ...run.timeline.map(p => p.value));
   const target = run.target;
-  const yTicks = target != null ? (target % 2 === 0 ? [0, target / 2, target] : niceTicks(target, 2, true).filter(t => t <= target).concat(target)) : niceTicks(max, 2, true);
+  const yTicks =
+    target != null
+      ? target % 2 === 0
+        ? [0, target / 2, target]
+        : niceTicks(target, 2, true)
+            .filter(t => t <= target)
+            .concat(target)
+      : niceTicks(max, 2, true);
   const span = ctx.maxX || 1;
 
   return {
@@ -184,7 +221,8 @@ function progressLane(ctx: Ctx): Lane {
       const items: TipItem[] = [{ name: measureName, value: formatInt(rows[i].v), color: spec.color }];
       if (run.attempts > 1 && attempt) items.unshift({ name: 'Attempt', value: String(attempt.attempt) });
       for (const e of near) items.push({ name: eventName(e), value: formatX(measure, clock.x(e.tick, measure)) });
-      if (near.some(e => e.kind === 'quest' && e.source === 'inferred')) items.push({ name: '≈ guessed from the quest-points jump', value: '' });
+      if (near.some(e => e.kind === 'quest' && e.source === 'inferred'))
+        items.push({ name: '≈ guessed from the quest-points jump', value: '' });
       return { title: formatX(measure, xs[i]), items };
     },
   };
@@ -194,7 +232,8 @@ function progressLane(ctx: Ctx): Lane {
 function callXs(ctx: Ctx) {
   const { run, clock, measure } = ctx;
   const calls = run.series.calls;
-  const at = (seconds: number, tick: number | null): number => Math.min(ctx.maxX, measure === 'seconds' ? seconds : (tick ?? clock.toTick(seconds)));
+  const at = (seconds: number, tick: number | null): number =>
+    Math.min(ctx.maxX, measure === 'seconds' ? seconds : (tick ?? clock.toTick(seconds)));
   return {
     start: calls.seconds.map((s, i) => at(s, calls.tick[i])),
     end: calls.seconds.map((s, i) => at(s + calls.latency[i], null)),
@@ -212,7 +251,9 @@ function spendLane(ctx: Ctx, price: Price | undefined, cut: RunSearch['cost']): 
     const tokens = calls[TOKEN_FIELDS[kind].calls][call] ?? 0;
     return usd ? (tokens * price![TOKEN_FIELDS[kind].price]) / 1e6 : tokens;
   };
-  const rows = ctx.xs.map((x, i) => Object.fromEntries([['x', x], ...TOKEN_KINDS.map(k => [seriesKey(k.id), valueOf(k.id, at[i])])]) as Row);
+  const rows = ctx.xs.map(
+    (x, i) => Object.fromEntries([['x', x], ...TOKEN_KINDS.map(k => [seriesKey(k.id), valueOf(k.id, at[i])])]) as Row
+  );
   const total = kinds.reduce((sum, k) => sum + valueOf(k.id, calls.seconds.length - 1), 0);
   const format = (v: number): string => (usd ? formatCost(v) : formatTokens(v));
   return {
@@ -238,8 +279,11 @@ function spendLane(ctx: Ctx, price: Price | undefined, cut: RunSearch['cost']): 
     bound: true,
     legend: TOKEN_KINDS.map(k => ({ id: k.id, label: k.label, swatchClassName: k.color.swatchClassName })),
     tip: i => {
-      const items: TipItem[] = [...kinds].reverse().map(k => ({ name: k.label, value: format(valueOf(k.id, at[i])), color: cssColor(k.color) }));
-      if (kinds.length > 1) items.push({ name: 'Total', value: format(kinds.reduce((sum, k) => sum + valueOf(k.id, at[i]), 0)) });
+      const items: TipItem[] = [...kinds]
+        .reverse()
+        .map(k => ({ name: k.label, value: format(valueOf(k.id, at[i])), color: cssColor(k.color) }));
+      if (kinds.length > 1)
+        items.push({ name: 'Total', value: format(kinds.reduce((sum, k) => sum + valueOf(k.id, at[i]), 0)) });
       return { title: formatX(ctx.measure, ctx.xs[i]), items };
     },
   };
@@ -250,7 +294,9 @@ function contextLane(ctx: Ctx): Lane {
   const spec = modelSeries(ctx.run.model);
   const { start } = callXs(ctx);
   const at = lastAtOrBefore(start, ctx.xs);
-  const rows = ctx.xs.map((x, i) => (at[i] >= 0 && calls.context[at[i]] != null ? { x, c: calls.context[at[i]]! } : { x }));
+  const rows = ctx.xs.map((x, i) =>
+    at[i] >= 0 && calls.context[at[i]] != null ? { x, c: calls.context[at[i]]! } : { x }
+  );
   const max = Math.max(1, ...calls.context.map(c => c ?? 0));
   return {
     id: 'context',
@@ -260,10 +306,27 @@ function contextLane(ctx: Ctx): Lane {
     rows,
     yTicks: niceTicks(max, 3),
     yFormat: formatCompact,
-    body: <Line dataKey="c" type="stepAfter" stroke="var(--color-c)" strokeWidth={2} dot={false} activeDot={false} connectNulls={false} isAnimationActive={false} />,
+    body: (
+      <Line
+        dataKey="c"
+        type="stepAfter"
+        stroke="var(--color-c)"
+        strokeWidth={2}
+        dot={false}
+        activeDot={false}
+        connectNulls={false}
+        isAnimationActive={false}
+      />
+    ),
     tip: i => ({
       title: at[i] >= 0 ? `Turn ${at[i] + 1}` : formatX(ctx.measure, ctx.xs[i]),
-      items: [{ name: 'Context', value: at[i] >= 0 ? `${formatTokens(calls.context[at[i]])} tokens` : '–', color: spec.color }],
+      items: [
+        {
+          name: 'Context',
+          value: at[i] >= 0 ? `${formatTokens(calls.context[at[i]])} tokens` : '–',
+          color: spec.color,
+        },
+      ],
     }),
   };
 }
@@ -272,7 +335,15 @@ function contextLane(ctx: Ctx): Lane {
  * Each model call as a block: as wide as the time to the next call, as tall as the model took;
  * solid while the model worked, faint while its tools ran. Coloured by the call's tool category.
  */
-function CallBlocks({ starts, ends, untils, latency, colors, shown, errors }: {
+function CallBlocks({
+  starts,
+  ends,
+  untils,
+  latency,
+  colors,
+  shown,
+  errors,
+}: {
   starts: number[];
   ends: number[];
   untils: number[];
@@ -314,7 +385,9 @@ function callsLane(ctx: Ctx): Lane {
   const untils = start.map((_, i) => (i + 1 < start.length ? start[i + 1] : end[i]));
   const colors = calls.category.map(cat => (cat ? cssColor(TOOL_CATEGORY[cat].color) : 'var(--muted-foreground)'));
   const shown = turns.map(
-    t => (ctx.tools.length === 0 || t.actions.some(a => ctx.tools.includes(a.category))) && (!ctx.errorsOnly || turnHasError(t))
+    t =>
+      (ctx.tools.length === 0 || t.actions.some(a => ctx.tools.includes(a.category))) &&
+      (!ctx.errorsOnly || turnHasError(t))
   );
   const errors = turns.map(turnHasError);
   const present = [...new Set(calls.category.filter((c): c is ToolCategory => c != null))];
@@ -328,11 +401,22 @@ function callsLane(ctx: Ctx): Lane {
     rows: ctx.xs.map(x => ({ x, zero: 0 })),
     yTicks: latencyTicks,
     yFormat: v => `${formatCompact(v)} s`,
-    legend: present.map(cat => ({ label: TOOL_CATEGORY[cat].label, swatchClassName: TOOL_CATEGORY[cat].color.swatchClassName })),
+    legend: present.map(cat => ({
+      label: TOOL_CATEGORY[cat].label,
+      swatchClassName: TOOL_CATEGORY[cat].color.swatchClassName,
+    })),
     body: (
       <>
         <Line dataKey="zero" stroke="none" dot={false} activeDot={false} isAnimationActive={false} />
-        <CallBlocks starts={start} ends={end} untils={untils} latency={calls.latency} colors={colors} shown={shown} errors={errors} />
+        <CallBlocks
+          starts={start}
+          ends={end}
+          untils={untils}
+          latency={calls.latency}
+          colors={colors}
+          shown={shown}
+          errors={errors}
+        />
       </>
     ),
     tip: i => {
@@ -367,14 +451,26 @@ interface Group {
 }
 
 /** A stacked lane of per-bucket counts (per 100 ticks), sampled on the grid. */
-function bucketLane(ctx: Ctx, base: Omit<Lane, 'config' | 'rows' | 'yTicks' | 'yFormat' | 'body' | 'tip' | 'legend' | 'bound'>, bucket: number, groups: Group[]): Lane {
+function bucketLane(
+  ctx: Ctx,
+  base: Omit<Lane, 'config' | 'rows' | 'yTicks' | 'yFormat' | 'body' | 'tip' | 'legend' | 'bound'>,
+  bucket: number,
+  groups: Group[]
+): Lane {
   const { clock, measure, xs, ticks } = ctx;
   const visible = groups.filter(g => ctx.visible(g.id));
   const index = ticks.map(t => Math.max(0, Math.floor(t / bucket)));
-  const rows = xs.map((x, i) => Object.fromEntries([['x', x], ...visible.map(g => [seriesKey(g.id), g.values[index[i]] ?? 0])]) as Row);
+  const rows = xs.map(
+    (x, i) => Object.fromEntries([['x', x], ...visible.map(g => [seriesKey(g.id), g.values[index[i]] ?? 0])]) as Row
+  );
   let max = 1;
-  for (let b = 0; b < (groups[0]?.values.length ?? 0); b++) max = Math.max(max, visible.reduce((sum, g) => sum + (g.values[b] ?? 0), 0));
-  const end = (b: number): string => (measure === 'ticks' ? formatInt((b + 1) * bucket) : formatClock(clock.toSeconds((b + 1) * bucket)));
+  for (let b = 0; b < (groups[0]?.values.length ?? 0); b++)
+    max = Math.max(
+      max,
+      visible.reduce((sum, g) => sum + (g.values[b] ?? 0), 0)
+    );
+  const end = (b: number): string =>
+    measure === 'ticks' ? formatInt((b + 1) * bucket) : formatClock(clock.toSeconds((b + 1) * bucket));
   return {
     ...base,
     config: Object.fromEntries(groups.map(g => [seriesKey(g.id), { label: g.label, color: g.color }])),
@@ -390,7 +486,10 @@ function bucketLane(ctx: Ctx, base: Omit<Lane, 'config' | 'rows' | 'yTicks' | 'y
         .reverse()
         .filter(g => (g.values[b] ?? 0) > 0)
         .map(g => ({ name: g.label, value: formatInt(g.values[b]), color: g.color }));
-      return { title: `${formatX(measure, clock.x(b * bucket, measure))} to ${end(b)}`, items: items.length ? items : [{ name: 'None', value: '' }] };
+      return {
+        title: `${formatX(measure, clock.x(b * bucket, measure))} to ${end(b)}`,
+        items: items.length ? items : [{ name: 'None', value: '' }],
+      };
     },
   };
 }
@@ -411,8 +510,20 @@ function sdkLane(ctx: Ctx, cut: RunSearch['sdk']): Lane | null {
       failed[b] += bad;
     }
     groups = [
-      { id: 'ok', label: SDK_OUTCOMES.ok.label, color: cssColor(SDK_OUTCOMES.ok.color), swatch: SDK_OUTCOMES.ok.color.swatchClassName, values: ok },
-      { id: 'failed', label: SDK_OUTCOMES.failed.label, color: cssColor(SDK_OUTCOMES.failed.color), swatch: SDK_OUTCOMES.failed.color.swatchClassName, values: failed },
+      {
+        id: 'ok',
+        label: SDK_OUTCOMES.ok.label,
+        color: cssColor(SDK_OUTCOMES.ok.color),
+        swatch: SDK_OUTCOMES.ok.color.swatchClassName,
+        values: ok,
+      },
+      {
+        id: 'failed',
+        label: SDK_OUTCOMES.failed.label,
+        color: cssColor(SDK_OUTCOMES.failed.color),
+        swatch: SDK_OUTCOMES.failed.color.swatchClassName,
+        values: failed,
+      },
     ];
   } else {
     const byFn = sdk.functions.map(zeros);
@@ -422,7 +533,13 @@ function sdkLane(ctx: Ctx, cut: RunSearch['sdk']): Lane | null {
     }
     const total = (v: number[]): number => v.reduce((s, x) => s + x, 0);
     groups = sdk.functions
-      .map((name, i) => ({ id: name, label: name, color: cssColor(hashColor(name)), swatch: hashColor(name).swatchClassName, values: byFn[i] }))
+      .map((name, i) => ({
+        id: name,
+        label: name,
+        color: cssColor(hashColor(name)),
+        swatch: hashColor(name).swatchClassName,
+        values: byFn[i],
+      }))
       .sort((a, b) => total(b.values) - total(a.values));
   }
   return bucketLane(
@@ -455,7 +572,13 @@ function activityLane(ctx: Ctx, cut: RunSearch['act']): Lane | null {
   let groups: Group[];
   if (cut === 'moving') {
     groups = [
-      { id: 'walking', label: 'Walking', color: WALKING, swatch: 'bg-data-sky', values: rows.map(r => Math.max(0, r[1] - r[2])) },
+      {
+        id: 'walking',
+        label: 'Walking',
+        color: WALKING,
+        swatch: 'bg-data-sky',
+        values: rows.map(r => Math.max(0, r[1] - r[2])),
+      },
       { id: 'running', label: 'Running', color: RUNNING, swatch: 'bg-data-blue', values: rows.map(r => r[2]) },
     ];
   } else {
@@ -499,9 +622,19 @@ function wealthLane(ctx: Ctx): Lane | null {
   const wealth = ctx.run.series.wealth;
   if (!wealth || Object.keys(wealth).length === 0) return null;
   const accounts = Object.keys(wealth);
-  const idx = Object.fromEntries(accounts.map(a => [a, lastAtOrBefore(wealth[a].map(p => p[0]), ctx.ticks)]));
+  const idx = Object.fromEntries(
+    accounts.map(a => [
+      a,
+      lastAtOrBefore(
+        wealth[a].map(p => p[0]),
+        ctx.ticks
+      ),
+    ])
+  );
   const at = (a: string, i: number): number => wealth[a][idx[a][i]]?.[1] ?? 0;
-  const rows = ctx.xs.map((x, i) => Object.fromEntries([['x', x], ...accounts.map(a => [seriesKey(a), at(a, i)])]) as Row);
+  const rows = ctx.xs.map(
+    (x, i) => Object.fromEntries([['x', x], ...accounts.map(a => [seriesKey(a), at(a, i)])]) as Row
+  );
   const visible = accounts.filter(a => ctx.visible(a));
   const max = Math.max(1, ...visible.flatMap(a => wealth[a].map(p => p[1])));
   return {
@@ -517,7 +650,17 @@ function wealthLane(ctx: Ctx): Lane | null {
     body: (
       <>
         {visible.map(a => (
-          <Line key={a} dataKey={seriesKey(a)} type="stepAfter" stroke={`var(--color-${seriesKey(a)})`} strokeOpacity={fade(ctx.faded(a))} strokeWidth={2} dot={false} activeDot={false} isAnimationActive={false} />
+          <Line
+            key={a}
+            dataKey={seriesKey(a)}
+            type="stepAfter"
+            stroke={`var(--color-${seriesKey(a)})`}
+            strokeOpacity={fade(ctx.faded(a))}
+            strokeWidth={2}
+            dot={false}
+            activeDot={false}
+            isAnimationActive={false}
+          />
         ))}
       </>
     ),
@@ -543,7 +686,9 @@ function xpLane(ctx: Ctx): Lane | null {
       ),
     ])
   );
-  const rows = ctx.xs.map((x, i) => Object.fromEntries([['x', x], ...skills.map(s => [seriesKey(s), xp[s][idx[s][i]]?.[1] ?? 0])]) as Row);
+  const rows = ctx.xs.map(
+    (x, i) => Object.fromEntries([['x', x], ...skills.map(s => [seriesKey(s), xp[s][idx[s][i]]?.[1] ?? 0])]) as Row
+  );
   const max = Math.max(1, ...visible.map(s => xp[s].at(-1)?.[1] ?? 0));
   return {
     id: 'xp',
@@ -553,17 +698,37 @@ function xpLane(ctx: Ctx): Lane | null {
     yTicks: niceTicks(max, 3),
     yFormat: formatCompact,
     bound: true,
-    legend: skills.map(s => ({ id: s, label: label(s), color: hashColor(s), line: 'solid' as const, mark: <Sprite src={skillSrc(s)} size={14} alt="" /> })),
+    legend: skills.map(s => ({
+      id: s,
+      label: label(s),
+      color: hashColor(s),
+      line: 'solid' as const,
+      mark: <Sprite src={skillSrc(s)} size={14} alt="" />,
+    })),
     body: (
       <>
         {visible.map(s => (
-          <Line key={s} dataKey={seriesKey(s)} type="stepAfter" stroke={`var(--color-${seriesKey(s)})`} strokeOpacity={fade(ctx.faded(s))} strokeWidth={2} dot={false} activeDot={false} isAnimationActive={false} />
+          <Line
+            key={s}
+            dataKey={seriesKey(s)}
+            type="stepAfter"
+            stroke={`var(--color-${seriesKey(s)})`}
+            strokeOpacity={fade(ctx.faded(s))}
+            strokeWidth={2}
+            dot={false}
+            activeDot={false}
+            isAnimationActive={false}
+          />
         ))}
       </>
     ),
     tip: i => ({
       title: formatX(ctx.measure, ctx.xs[i]),
-      items: visible.map(s => ({ name: label(s), value: formatInt(xp[s][idx[s][i]]?.[1] ?? 0), color: cssColor(hashColor(s)) })),
+      items: visible.map(s => ({
+        name: label(s),
+        value: formatInt(xp[s][idx[s][i]]?.[1] ?? 0),
+        color: cssColor(hashColor(s)),
+      })),
     }),
   };
 }
@@ -581,7 +746,10 @@ function PlayheadLine({ run, clock, measure }: { run: RunDetail; clock: Clock; m
   return (
     <div
       aria-hidden
-      className={cn('pointer-events-none absolute w-0.5 -translate-x-1/2 bg-primary', !head.playing && head.scrub == null && 'transition-[left]')}
+      className={cn(
+        'pointer-events-none absolute w-0.5 -translate-x-1/2 bg-primary',
+        !head.playing && head.scrub == null && 'transition-[left]'
+      )}
       style={{ top: TOP, bottom: X_AXIS, left: `calc(${Y_WIDTH}px + (100% - ${Y_WIDTH + RIGHT}px) * ${share})` }}
     />
   );
@@ -644,7 +812,19 @@ function LanesMenu({ available, shown }: { available: { id: LaneId; label: strin
   );
 }
 
-export const Lanes = memo(function Lanes({ run, clock, search, price, aside }: { run: RunDetail; clock: Clock; search: RunSearch; price: Price | undefined; aside?: ReactNode }) {
+export const Lanes = memo(function Lanes({
+  run,
+  clock,
+  search,
+  price,
+  aside,
+}: {
+  run: RunDetail;
+  clock: Clock;
+  search: RunSearch;
+  price: Price | undefined;
+  aside?: ReactNode;
+}) {
   const update = useSearchUpdate(runSearch);
   const settle = useSettle();
   const legend = useLegend();
@@ -661,7 +841,18 @@ export const Lanes = memo(function Lanes({ run, clock, search, price, aside }: {
   const { lanes, ticks } = useMemo(() => {
     const xs = Array.from({ length: GRID_POINTS + 1 }, (_, i) => (i / GRID_POINTS) * maxX);
     const ticks = xs.map(x => (measure === 'ticks' ? x : clock.toTick(x)));
-    const ctx: Ctx = { run, clock, measure, maxX, xs, ticks, visible, tools: [], errorsOnly: false, faded: hover.faded };
+    const ctx: Ctx = {
+      run,
+      clock,
+      measure,
+      maxX,
+      xs,
+      ticks,
+      visible,
+      tools: [],
+      errorsOnly: false,
+      faded: hover.faded,
+    };
     const build: Record<LaneId, () => Lane | null> = {
       progress: () => progressLane(ctx),
       wealth: () => wealthLane(ctx),
@@ -798,7 +989,17 @@ function LaneChart({
               interval={0}
               allowDataOverflow
             />
-            <YAxis width={Y_WIDTH} domain={[0, yTop]} ticks={lane.yTicks} tickFormatter={lane.yFormat} tickLine={false} axisLine={false} tickMargin={8} interval={0} allowDataOverflow />
+            <YAxis
+              width={Y_WIDTH}
+              domain={[0, yTop]}
+              ticks={lane.yTicks}
+              tickFormatter={lane.yFormat}
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              interval={0}
+              allowDataOverflow
+            />
             <ChartTooltip
               cursor={crosshairCursor}
               isAnimationActive={false}
@@ -814,7 +1015,15 @@ function LaneChart({
                     active
                     label={tip.title as never}
                     labelFormatter={() => tip.title}
-                    payload={tip.items.map(item => ({ name: item.name, dataKey: item.name, value: item.value, color: item.color ?? 'transparent', payload: {} })) as never}
+                    payload={
+                      tip.items.map(item => ({
+                        name: item.name,
+                        dataKey: item.name,
+                        value: item.value,
+                        color: item.color ?? 'transparent',
+                        payload: {},
+                      })) as never
+                    }
                   />
                 );
               }}
@@ -826,14 +1035,25 @@ function LaneChart({
                 x={a.x}
                 stroke="var(--muted-foreground)"
                 strokeDasharray="3 3"
-                label={lane.id === 'progress' ? { value: `Attempt ${a.attempt}`, position: 'insideTopLeft', fontSize: 12, className: 'fill-muted-foreground' } : undefined}
+                label={
+                  lane.id === 'progress'
+                    ? {
+                        value: `Attempt ${a.attempt}`,
+                        position: 'insideTopLeft',
+                        fontSize: 12,
+                        className: 'fill-muted-foreground',
+                      }
+                    : undefined
+                }
               />
             ))}
           </ComposedChart>
         </ChartFrame>
         <PlayheadLine run={run} clock={clock} measure={measure} />
       </div>
-      {lane.legend && lane.legend.length > 0 && <KeyLegend items={lane.legend} legend={lane.bound ? legend : undefined} className="pt-0" />}
+      {lane.legend && lane.legend.length > 0 && (
+        <KeyLegend items={lane.legend} legend={lane.bound ? legend : undefined} className="pt-0" />
+      )}
     </PageSection>
   );
 }

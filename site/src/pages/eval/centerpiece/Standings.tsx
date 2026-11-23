@@ -36,7 +36,14 @@ const LINE: Record<AgentLine, string> = { solid: 'border-solid', dashed: 'border
 export function Pin({ curve, small }: { curve: RunCurve; small?: boolean }) {
   const v = curve.variant;
   return (
-    <span aria-hidden className={cn('flex shrink-0 items-center justify-center rounded-full ring-2 ring-card', small ? 'size-3' : 'size-5', v.color.swatchClassName)}>
+    <span
+      aria-hidden
+      className={cn(
+        'flex shrink-0 items-center justify-center rounded-full ring-2 ring-card',
+        small ? 'size-3' : 'size-5',
+        v.color.swatchClassName
+      )}
+    >
       {!small && <BrandMark slug={v.vendorSlug} size={14} className="size-3 bg-card" />}
     </span>
   );
@@ -56,8 +63,21 @@ export interface Lane extends RaceRow {
 /** Game time of a tick count at the eval's tick rate. */
 export const gameTime = (e: Eval, ticks: number): string => formatClock((ticks * e.tick_ms) / 1000);
 
-
-export function Standings({ e, rows, max, perRun, lit, stages }: { e: Eval; rows: Lane[]; max: number; perRun: boolean; lit: string | null; stages: LaneStage[] }) {
+export function Standings({
+  e,
+  rows,
+  max,
+  perRun,
+  lit,
+  stages,
+}: {
+  e: Eval;
+  rows: Lane[];
+  max: number;
+  perRun: boolean;
+  lit: string | null;
+  stages: LaneStage[];
+}) {
   const target = e.target != null;
   // A phone has no room for the tracks or the cost (the Cost tab has it): each row is its pairing,
   // its value now and its result
@@ -89,10 +109,16 @@ export function Standings({ e, rows, max, perRun, lit, stages }: { e: Eval; rows
           <TableHead>
             <span className="sr-only">Pairing</span>
           </TableHead>
-          {(track || !target) && <TableHead className="text-right">{target ? <span className="sr-only">Progress</span> : 'Now'}</TableHead>}
+          {(track || !target) && (
+            <TableHead className="text-right">{target ? <span className="sr-only">Progress</span> : 'Now'}</TableHead>
+          )}
           {target && !perRun && <TableHead className="text-right">Finished</TableHead>}
           <TableHead className="text-right">
-            <Tip content={perRun ? undefined : target ? 'Median time to finish, over finished runs' : 'Median over its runs'}>
+            <Tip
+              content={
+                perRun ? undefined : target ? 'Median time to finish, over finished runs' : 'Median over its runs'
+              }
+            >
               <span>{target ? (perRun ? 'Result' : 'Time') : perRun ? 'Result' : 'Median'}</span>
             </Tip>
           </TableHead>
@@ -136,40 +162,59 @@ export function Standings({ e, rows, max, perRun, lit, stages }: { e: Eval; rows
                   <TableCell>
                     {/* The track opens the run: a hairline to the end, the stages as ticks, the run's line (its harness's dash) to its pin */}
                     <Tip content={row.status}>
-                    <Link
-                      to="/runs/$runId"
-                      params={{ runId: run.id }}
-                      // A click into a run opens it at its start, playing
-                      search={{} as never}
-                      aria-label={`Epoch ${run.epoch}: ${formatInt(row.value)}`}
-                      className="flex items-center gap-1.5 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                    >
-                      <span className="relative h-4 min-w-6 flex-1">
-                        <span aria-hidden className="absolute inset-x-0 top-1/2 border-t" />
-                        <span aria-hidden className={cn('absolute top-1/2 left-0 -translate-y-1/2 border-t-2', LINE[variant.line], variant.color.borderClassName)} style={{ width: `${f * 100}%` }} />
-                        {stages.map(s => (
+                      <Link
+                        to="/runs/$runId"
+                        params={{ runId: run.id }}
+                        // A click into a run opens it at its start, playing
+                        search={{} as never}
+                        aria-label={`Epoch ${run.epoch}: ${formatInt(row.value)}`}
+                        className="flex items-center gap-1.5 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                      >
+                        <span className="relative h-4 min-w-6 flex-1">
+                          <span aria-hidden className="absolute inset-x-0 top-1/2 border-t" />
                           <span
-                            key={s.stage}
                             aria-hidden
-                            className={cn('absolute top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full', row.value >= s.stage ? variant.color.swatchClassName : 'border bg-card')}
-                            style={{ left: `${Math.min(1, s.stage / max) * 100}%` }}
+                            className={cn(
+                              'absolute top-1/2 left-0 -translate-y-1/2 border-t-2',
+                              LINE[variant.line],
+                              variant.color.borderClassName
+                            )}
+                            style={{ width: `${f * 100}%` }}
                           />
-                        ))}
-                        <span className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ left: `${f * 100}%` }}>
-                          <Pin curve={row.curve} small />
+                          {stages.map(s => (
+                            <span
+                              key={s.stage}
+                              aria-hidden
+                              className={cn(
+                                'absolute top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full',
+                                row.value >= s.stage ? variant.color.swatchClassName : 'border bg-card'
+                              )}
+                              style={{ left: `${Math.min(1, s.stage / max) * 100}%` }}
+                            />
+                          ))}
+                          <span
+                            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+                            style={{ left: `${f * 100}%` }}
+                          >
+                            <Pin curve={row.curve} small />
+                          </span>
                         </span>
-                      </span>
-                      {row.mark && !target && (
-                        <span className={cn('flex shrink-0', row.mark.inferred && 'border-b border-dashed border-muted-foreground')}>
-                          <Sprite src={row.mark.src} size={14} alt={row.mark.name} />
-                        </span>
-                      )}
-                      {!target && (
-                        <span className="w-10 shrink-0 text-right text-muted-foreground tabular-nums">
-                          {formatAxisNumber(row.value)}
-                        </span>
-                      )}
-                    </Link>
+                        {row.mark && !target && (
+                          <span
+                            className={cn(
+                              'flex shrink-0',
+                              row.mark.inferred && 'border-b border-dashed border-muted-foreground'
+                            )}
+                          >
+                            <Sprite src={row.mark.src} size={14} alt={row.mark.name} />
+                          </span>
+                        )}
+                        {!target && (
+                          <span className="w-10 shrink-0 text-right text-muted-foreground tabular-nums">
+                            {formatAxisNumber(row.value)}
+                          </span>
+                        )}
+                      </Link>
                     </Tip>
                   </TableCell>
                 ) : (
@@ -192,14 +237,24 @@ export function Standings({ e, rows, max, perRun, lit, stages }: { e: Eval; rows
                 <TableCell className="text-right tabular-nums">
                   {/* Without a target a value can run to millions: compact, exact on hover */}
                   {target ? (
-                    perRun ? resultText(run, e) : times.length ? gameTime(e, median(times)!) : '–'
+                    perRun ? (
+                      resultText(run, e)
+                    ) : times.length ? (
+                      gameTime(e, median(times)!)
+                    ) : (
+                      '–'
+                    )
                   ) : (
                     <Tip content={formatInt(perRun ? resultValue(run) : p.medianResult)}>
                       <span>{formatAxisNumber((perRun ? resultValue(run) : p.medianResult) ?? 0)}</span>
                     </Tip>
                   )}
                 </TableCell>
-                {track && <TableCell className="text-right tabular-nums">{formatCost(perRun ? run.cost : median(p.runs.map(r => r.cost)))}</TableCell>}
+                {track && (
+                  <TableCell className="text-right tabular-nums">
+                    {formatCost(perRun ? run.cost : median(p.runs.map(r => r.cost)))}
+                  </TableCell>
+                )}
               </TableRow>
               {told && (
                 // The run's chapter at the playhead, its title only (its text on hover), under its row

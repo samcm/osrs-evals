@@ -25,12 +25,24 @@ export type PanelTab = 'inv' | 'worn' | 'bank' | 'skills';
 
 /** The stats tab's order, row by row, as the 2004 client lays it out. */
 const SKILLS = [
-  'attack', 'hitpoints', 'mining',
-  'strength', 'agility', 'smithing',
-  'defence', 'herblore', 'fishing',
-  'ranged', 'thieving', 'cooking',
-  'prayer', 'crafting', 'firemaking',
-  'magic', 'fletching', 'woodcutting',
+  'attack',
+  'hitpoints',
+  'mining',
+  'strength',
+  'agility',
+  'smithing',
+  'defence',
+  'herblore',
+  'fishing',
+  'ranged',
+  'thieving',
+  'cooking',
+  'prayer',
+  'crafting',
+  'firemaking',
+  'magic',
+  'fletching',
+  'woodcutting',
   'runecraft',
 ];
 const INVENTORY_SLOTS = 28;
@@ -42,13 +54,27 @@ function Slot({ id, count }: { id?: string; count?: number }) {
     <Tip content={id ? `${itemName(id)}${count && count > 1 ? `, ${formatInt(count)}` : ''}` : undefined}>
       <span className="relative flex size-9 items-center justify-center rounded-sm bg-muted/60">
         {id && <Sprite src={itemSprite(id, count)} size={32} alt={itemName(id)} />}
-        {id && count != null && count > 1 && <span className="absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums text-shadow-sm text-shadow-card">{stackCount(count)}</span>}
+        {id && count != null && count > 1 && (
+          <span className="text-shadow-sm absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums text-shadow-card">
+            {stackCount(count)}
+          </span>
+        )}
       </span>
     </Tip>
   );
 }
 
-export function Held({ run, clock, account, tab }: { run: RunDetail; clock: Clock; account: string; tab: RunSearch['panel'] }) {
+export function Held({
+  run,
+  clock,
+  account,
+  tab,
+}: {
+  run: RunDetail;
+  clock: Clock;
+  account: string;
+  tab: RunSearch['panel'];
+}) {
   const update = useSearchUpdate(runSearch);
   const [committed] = useCommitted(run, clock);
   const head = usePlayhead(clock, committed);
@@ -101,7 +127,10 @@ export function Held({ run, clock, account, tab }: { run: RunDetail; clock: Cloc
           (held[open].length === 0 ? (
             <p className="text-sm text-muted-foreground">{open === 'worn' ? 'Nothing worn.' : 'Nothing banked.'}</p>
           ) : (
-            <ol className="grid w-max grid-cols-4 gap-1.5 max-md:grid-cols-7" aria-label={open === 'worn' ? 'Worn' : 'Bank'}>
+            <ol
+              className="grid w-max grid-cols-4 gap-1.5 max-md:grid-cols-7"
+              aria-label={open === 'worn' ? 'Worn' : 'Bank'}
+            >
               {held[open].map(([id, n]) => (
                 <li key={id}>
                   <Slot id={id} count={n} />
@@ -122,7 +151,8 @@ export function Held({ run, clock, account, tab }: { run: RunDetail; clock: Cloc
               ))}
             </ol>
             <p className="text-sm">
-              <span className="text-muted-foreground">Total level</span> <span className="tabular-nums">{formatInt(total)}</span>
+              <span className="text-muted-foreground">Total level</span>{' '}
+              <span className="tabular-nums">{formatInt(total)}</span>
             </p>
           </div>
         )}

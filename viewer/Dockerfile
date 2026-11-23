@@ -20,12 +20,13 @@ COPY --from=world /opt/server/engine/data/pack /pack
 RUN bun scripts/sync-rs-sdk-cache.ts --pack /pack
 RUN PUBLIC_URL=/world GENERATE_SOURCEMAP=false NODE_OPTIONS=--max-old-space-size=3072 yarn build && cp -r caches build/caches
 
-FROM node:22-bookworm AS site
+FROM node:26-bookworm AS site
 WORKDIR /site
-COPY site/package.json site/package-lock.json ./
-RUN npm ci
+RUN npm install -g pnpm@12.18.0
+COPY site/package.json site/pnpm-lock.yaml site/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY site/ ./
-RUN rm -rf public/data && npm run build
+RUN rm -rf public/data && pnpm build
 
 FROM oven/bun:1-debian
 COPY --from=rs-world /rs-world/build /viewer/world

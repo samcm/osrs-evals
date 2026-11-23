@@ -28,7 +28,13 @@ import { modelSlug } from '@/lib/series';
 import { cn } from '@/lib/utils';
 
 /** One hue in tint steps, darker for a higher score. */
-export const TINTS = ['bg-data-emerald/5', 'bg-data-emerald/15', 'bg-data-emerald/25', 'bg-data-emerald/40', 'bg-data-emerald/55'];
+export const TINTS = [
+  'bg-data-emerald/5',
+  'bg-data-emerald/15',
+  'bg-data-emerald/25',
+  'bg-data-emerald/40',
+  'bg-data-emerald/55',
+];
 export const tint = (score: number): string => TINTS[Math.min(TINTS.length - 1, Math.floor(score * TINTS.length))];
 
 /** The pairing's own result on an eval, in the eval's terms: how many finished and how fast, or its median amount. */
@@ -37,7 +43,9 @@ function resultText(pairing: Pairing, e: Eval): string {
   if (e.target != null) {
     const done = runs.filter(r => r.success);
     const time = median(done.map(r => r.seconds));
-    return done.length ? `Finished ${done.length} of ${runs.length}, median ${formatDuration(time)}` : `Finished 0 of ${runs.length}`;
+    return done.length
+      ? `Finished ${done.length} of ${runs.length}, median ${formatDuration(time)}`
+      : `Finished 0 of ${runs.length}`;
   }
   return `Median ${e.measure.toLowerCase()} ${formatInt(median(runs.map(resultValue)))}, over ${runs.length === 1 ? '1 run' : `${runs.length} runs`}`;
 }
@@ -55,7 +63,10 @@ function HeatCell({ pairing, e, mark }: { pairing: Pairing; e: Eval; mark?: bool
           params={{ evalId: evalSlug(e.id), model: modelSlug(variant.model) }}
           search={{ level: [variant.thinking], harness: [variant.agent] } as never}
           onClick={ev => ev.stopPropagation()}
-          className={cn('inline-flex h-6 items-center gap-1 rounded-sm px-1 text-muted-foreground tabular-nums outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50', !mark && '-mr-1')}
+          className={cn(
+            'inline-flex h-6 items-center gap-1 rounded-sm px-1 text-muted-foreground tabular-nums outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
+            !mark && '-mr-1'
+          )}
         >
           {mark && <EvalMark evalId={e.id} size={14} title="" />}
           {formatScore(s.score)}
@@ -86,8 +97,14 @@ function Scoring({ evals }: { evals: Eval[] }) {
             </li>
           ))}
         </ul>
-        <p>Each run scores 0 to 100 on its eval. A finish is worth 50 to 100, more the sooner it came; a miss up to 50 by how far it got. Evals without a target score against the best run.</p>
-        <p>A pairing's score is the average plus how far it beat or trailed everyone on each eval it ran. An eval it skipped neither helps nor hurts, and a pairing that ran few evals stays nearer the middle.</p>
+        <p>
+          Each run scores 0 to 100 on its eval. A finish is worth 50 to 100, more the sooner it came; a miss up to 50 by
+          how far it got. Evals without a target score against the best run.
+        </p>
+        <p>
+          A pairing's score is the average plus how far it beat or trailed everyone on each eval it ran. An eval it
+          skipped neither helps nor hurts, and a pairing that ran few evals stays nearer the middle.
+        </p>
       </PopoverContent>
     </Popover>
   );
@@ -117,7 +134,12 @@ export function Leaderboard({
   const columns = useMemo(
     () =>
       [
-        col.accessor('rank', { header: '#', enableSorting: false, meta: { className: 'w-px' }, cell: ({ getValue }) => <span className="text-muted-foreground">{getValue()}</span> }),
+        col.accessor('rank', {
+          header: '#',
+          enableSorting: false,
+          meta: { className: 'w-px' },
+          cell: ({ getValue }) => <span className="text-muted-foreground">{getValue()}</span>,
+        }),
         col.accessor(p => p.variant.name, {
           id: 'pairing',
           header: 'Pairing',
@@ -125,7 +147,12 @@ export function Leaderboard({
           // On a phone a long name truncates (its title has it whole) so the score stays in view
           cell: ({ row }) => (
             <span className="flex min-w-0 flex-col gap-1">
-              <VariantLabel variant={row.original.variant} run={row.original.sample} compact className="max-md:max-w-52" />
+              <VariantLabel
+                variant={row.original.variant}
+                run={row.original.sample}
+                compact
+                className="max-md:max-w-52"
+              />
               {/* A phone has no room for the eval columns: the cells under the name */}
               <span className="flex flex-wrap gap-1 md:hidden">
                 {evals.map(e => (
@@ -140,15 +167,25 @@ export function Leaderboard({
           meta: { className: 'w-px' },
           sortDescFirst: true,
           // Complete pairings above partial ones, whichever way it sorts by score
-          sortingFn: (a, b) => Number(a.original.complete) - Number(b.original.complete) || a.original.score - b.original.score,
+          sortingFn: (a, b) =>
+            Number(a.original.complete) - Number(b.original.complete) || a.original.score - b.original.score,
           // A partial pairing's score is over the evals it ran: muted, and says so
           // The row's answer: the number, large, over a bar of its 100
           cell: ({ row, getValue }) => (
             <span className={cn('flex items-center gap-2', !row.original.complete && 'text-muted-foreground')}>
               <span className="w-8 text-base font-semibold tabular-nums">{formatScore(getValue())}</span>
               {/* A bar of its 100 in the model's colour, as on every chart */}
-              <span aria-hidden className={cn('h-2 w-12 overflow-hidden rounded-full bg-muted md:w-24 2xl:w-48', !row.original.complete && 'opacity-50')}>
-                <span className={cn('block h-full rounded-full', row.original.variant.color.swatchClassName)} style={{ width: `${getValue() * 100}%` }} />
+              <span
+                aria-hidden
+                className={cn(
+                  'h-2 w-12 overflow-hidden rounded-full bg-muted md:w-24 2xl:w-48',
+                  !row.original.complete && 'opacity-50'
+                )}
+              >
+                <span
+                  className={cn('block h-full rounded-full', row.original.variant.color.swatchClassName)}
+                  style={{ width: `${getValue() * 100}%` }}
+                />
               </span>
             </span>
           ),
@@ -175,7 +212,11 @@ export function Leaderboard({
           header: 'Spent',
           // Where every eval's column fits beside it
           meta: { numeric: true, className: 'max-md:hidden', minWidth: 1100 },
-          cell: ({ getValue, row }) => <span className="text-muted-foreground">{row.original.runs.some(r => r.cost != null) ? formatCost(getValue()) : '–'}</span>,
+          cell: ({ getValue, row }) => (
+            <span className="text-muted-foreground">
+              {row.original.runs.some(r => r.cost != null) ? formatCost(getValue()) : '–'}
+            </span>
+          ),
         }),
       ] as ColumnDef<Row, unknown>[],
     [evals]

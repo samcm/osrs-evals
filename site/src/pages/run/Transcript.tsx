@@ -69,7 +69,17 @@ function Prose({ text }: { text: string }) {
 type Row =
   | { kind: 'said'; first: number; last: number; text: string }
   | { kind: 'error'; first: number; last: number; text: string }
-  | { kind: 'did'; first: number; last: number; clauses: Clause[]; steps: string[]; category: ToolCategory; failed: boolean; count: number; input: string };
+  | {
+      kind: 'did';
+      first: number;
+      last: number;
+      clauses: Clause[];
+      steps: string[];
+      category: ToolCategory;
+      failed: boolean;
+      count: number;
+      input: string;
+    };
 
 const clauseKey = (row: Extract<Row, { kind: 'did' }>): string => JSON.stringify([row.clauses, row.steps, row.failed]);
 
@@ -80,7 +90,17 @@ function feedRows(run: RunDetail): Row[] {
     if (turn.text?.trim()) rows.push({ kind: 'said', first: i, last: i, text: turn.text });
     if (turn.error) rows.push({ kind: 'error', first: i, last: i, text: plainLine(turn.error.split('\n')[0]) });
     for (const action of turn.actions) {
-      const row: Row = { kind: 'did', first: i, last: i, clauses: actionClauses(action), steps: gameSteps(action.sdk_calls), category: action.category, failed: action.error != null, count: 1, input: action.input };
+      const row: Row = {
+        kind: 'did',
+        first: i,
+        last: i,
+        clauses: actionClauses(action),
+        steps: gameSteps(action.sdk_calls),
+        category: action.category,
+        failed: action.error != null,
+        count: 1,
+        input: action.input,
+      };
       const before = rows[rows.length - 1];
       if (before?.kind === 'did' && clauseKey(before) === clauseKey(row)) {
         before.last = i;
@@ -94,8 +114,13 @@ function feedRows(run: RunDetail): Row[] {
 /** A line: its category's dot, what it did, then on the right the game steps its script takes and how many calls it folds. */
 function Line({ row }: { row: Extract<Row, { kind: 'did' }> }) {
   return (
-    <span className={cn('flex w-full min-w-0 items-center gap-2 text-muted-foreground', row.failed && 'text-destructive')}>
-      <span aria-hidden className={cn('size-1.5 shrink-0 rounded-full', TOOL_CATEGORY[row.category].color.swatchClassName)} />
+    <span
+      className={cn('flex w-full min-w-0 items-center gap-2 text-muted-foreground', row.failed && 'text-destructive')}
+    >
+      <span
+        aria-hidden
+        className={cn('size-1.5 shrink-0 rounded-full', TOOL_CATEGORY[row.category].color.swatchClassName)}
+      />
       <span className="min-w-0 flex-1 truncate">
         {row.clauses.map((c, n) => (
           <span key={n}>
@@ -143,16 +168,28 @@ export const Transcript = memo(function Transcript({
   // The feed in chapters: each chapter wraps the rows from the first call at or after its start up
   // to the next chapter's; without chapters, one untitled group holds every row
   const groups = useMemo(() => {
-    const starts = (chapters ?? []).map(c => ({ chapter: c, at: rows.findIndex(r => turnTick(run.turns[r.first], clock) >= c.from_tick) })).filter(g => g.at >= 0);
+    const starts = (chapters ?? [])
+      .map(c => ({ chapter: c, at: rows.findIndex(r => turnTick(run.turns[r.first], clock) >= c.from_tick) }))
+      .filter(g => g.at >= 0);
     if (starts.length === 0) return [{ chapter: null, index: -1, from: 0, to: rows.length }];
     if (starts[0].at > 0) starts[0].at = 0;
-    return starts.map((g, i) => ({ chapter: g.chapter, index: (chapters ?? []).indexOf(g.chapter), from: g.at, to: starts[i + 1]?.at ?? rows.length }));
+    return starts.map((g, i) => ({
+      chapter: g.chapter,
+      index: (chapters ?? []).indexOf(g.chapter),
+      from: g.at,
+      to: starts[i + 1]?.at ?? rows.length,
+    }));
   }, [chapters, rows, run.turns, clock]);
 
   const rowItem = (row: (typeof rows)[number], n: number) => {
     const state = current >= row.first && current <= row.last ? 'current' : row.first > current ? 'future' : 'past';
     return (
-      <li key={n} data-current={state === 'current' || undefined} aria-current={state === 'current' ? 'step' : undefined} className={cn(row.kind === 'said' && 'pt-2')}>
+      <li
+        key={n}
+        data-current={state === 'current' || undefined}
+        aria-current={state === 'current' ? 'step' : undefined}
+        className={cn(row.kind === 'said' && 'pt-2')}
+      >
         <Button
           variant="ghost"
           onClick={() => settle(turnTick(run.turns[row.first], clock), row.first + 1)}
@@ -181,7 +218,11 @@ export const Transcript = memo(function Transcript({
         const now = g.index === chapterIndex;
         const future = g.index > chapterIndex;
         return (
-          <li key={`chapter-${g.chapter.from_tick}`} data-current={(!calls && now) || undefined} className={cn(calls && 'border-b last:border-b-0')}>
+          <li
+            key={`chapter-${g.chapter.from_tick}`}
+            data-current={(!calls && now) || undefined}
+            className={cn(calls && 'border-b last:border-b-0')}
+          >
             <Button
               variant="ghost"
               onClick={() => settle(g.chapter!.from_tick)}
@@ -221,7 +262,8 @@ export const Transcript = memo(function Transcript({
     if (!row) return;
     const top = row.offsetTop;
     const bottom = top + Math.min(row.offsetHeight, container.clientHeight);
-    if (top < container.scrollTop || bottom > container.scrollTop + container.clientHeight) container.scrollTop = Math.max(0, top - container.clientHeight / 3);
+    if (top < container.scrollTop || bottom > container.scrollTop + container.clientHeight)
+      container.scrollTop = Math.max(0, top - container.clientHeight / 3);
   }, [current, calls, chapterIndex]);
 
   return (
@@ -232,21 +274,27 @@ export const Transcript = memo(function Transcript({
         <CardDescription>{formatInt(run.turns.length)} model calls</CardDescription>
         {told && (
           <CardAction>
-            <Toggle size="sm" variant="outline" pressed={search.calls === '1'} onPressedChange={on => update({ calls: on ? '1' : undefined })} aria-label="Show every call">
+            <Toggle
+              size="sm"
+              variant="outline"
+              pressed={search.calls === '1'}
+              onPressedChange={on => update({ calls: on ? '1' : undefined })}
+              aria-label="Show every call"
+            >
               Every call
             </Toggle>
           </CardAction>
         )}
       </CardHeader>
       <ScrollArea viewportRef={list} className="min-h-0 flex-1 border-t">
-      <ol aria-label="What the agent was doing" className="relative pb-3">
-        {body}
-        {run.answer && (
-          <li className="mx-4 mt-3 border-t pt-3">
-            <Prose text={run.answer} />
-          </li>
-        )}
-      </ol>
+        <ol aria-label="What the agent was doing" className="relative pb-3">
+          {body}
+          {run.answer && (
+            <li className="mx-4 mt-3 border-t pt-3">
+              <Prose text={run.answer} />
+            </li>
+          )}
+        </ol>
       </ScrollArea>
     </Card>
   );

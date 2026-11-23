@@ -5,7 +5,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { WorldMap, type MapOverlay, type MapPath } from '@/components/WorldMap';
-import { KeyLegend } from '@/components/charts';
+import { KeyLegend } from '@/components/Charts';
 import type { EvalRuns } from '@/data/types';
 import type { LegendState } from '@/lib/legend';
 import { surfaceZ, type MapView } from '@/lib/map';
@@ -19,7 +19,19 @@ const HEAT = '--color-data-red';
 /** Screen pixels a square takes at the least: one tile zoomed in, several zoomed out */
 const MIN_CELL = 8;
 
-export function WhereMap({ curves, grid, legend, view, height = 480 }: { curves: RunCurve[]; grid: EvalRuns | undefined; legend: LegendState; view: MapView | undefined; height?: number }) {
+export function WhereMap({
+  curves,
+  grid,
+  legend,
+  view,
+  height = 480,
+}: {
+  curves: RunCurve[];
+  grid: EvalRuns | undefined;
+  legend: LegendState;
+  view: MapView | undefined;
+  height?: number;
+}) {
   const update = useSearchUpdate();
   const colors = useThemeColors();
   const shown = curves.filter(cv => legend.visible(cv.variant.key) && grid?.runs[cv.run.id]?.path.length);
@@ -31,9 +43,16 @@ export function WhereMap({ curves, grid, legend, view, height = 480 }: { curves:
     for (const cv of shown) {
       const points = grid!.runs[cv.run.id].path;
       const end = cv.points[cv.points.length - 1]?.tick ?? points[points.length - 1][0];
-      paths.push({ id: cv.run.id, color: cv.variant.color.token, points: points as unknown as MapPath['points'], opacity: 0 });
+      paths.push({
+        id: cv.run.id,
+        color: cv.variant.color.token,
+        points: points as unknown as MapPath['points'],
+        opacity: 0,
+      });
       // Underground and upstairs count where they are on the surface map
-      points.forEach((p, i) => stays.push({ x: p[1], z: surfaceZ(p[2]), ticks: Math.max(0, (points[i + 1]?.[0] ?? end) - p[0]) }));
+      points.forEach((p, i) =>
+        stays.push({ x: p[1], z: surfaceZ(p[2]), ticks: Math.max(0, (points[i + 1]?.[0] ?? end) - p[0]) })
+      );
     }
     return { stays, paths };
   }, [grid, shown]);
@@ -68,17 +87,22 @@ export function WhereMap({ curves, grid, legend, view, height = 480 }: { curves:
 
   return (
     <div className="flex flex-col">
-        <WorldMap
-          paths={paths}
-          overlay={overlay}
-          view={view}
-          onViewChange={v => update({ heat: v })}
-          height={height}
-          fitHeight
-          dim={0.55}
-          label="Game time spent on each part of the map, summed over the runs"
-        />
-        <KeyLegend items={[{ label: 'Less time', swatchClassName: 'bg-data-red/20' }, { label: 'More', swatchClassName: 'bg-data-red/85' }]} />
+      <WorldMap
+        paths={paths}
+        overlay={overlay}
+        view={view}
+        onViewChange={v => update({ heat: v })}
+        height={height}
+        fitHeight
+        dim={0.55}
+        label="Game time spent on each part of the map, summed over the runs"
+      />
+      <KeyLegend
+        items={[
+          { label: 'Less time', swatchClassName: 'bg-data-red/20' },
+          { label: 'More', swatchClassName: 'bg-data-red/85' },
+        ]}
+      />
     </div>
   );
 }

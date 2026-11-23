@@ -64,7 +64,12 @@ export function callsByTick(detail: RunDetail): (tick: number) => number {
  * value. Once a run reaches the target it holds it (the harness may reset the account after). A
  * single-attempt run's exact finish tick is added, since the grid is coarse.
  */
-export function buildCurves(e: Eval, grid: EvalRuns | undefined, runs: Run[], calls: Map<string, (tick: number) => number>): RunCurve[] {
+export function buildCurves(
+  e: Eval,
+  grid: EvalRuns | undefined,
+  runs: Run[],
+  calls: Map<string, (tick: number) => number>
+): RunCurve[] {
   const maxTick = totalBudgetTicks(e);
   return runs.map(run => {
     const g = grid?.runs[run.id];
@@ -272,7 +277,12 @@ export interface Group {
 export function groupRuns(runs: Run[], by: GroupBy): Group[] {
   const groups = new Map<string, Group>();
   for (const run of runs) {
-    const spec = by === 'variant' ? variantSeries(run) : by === 'model' ? modelSeries(run.model) : agentSeries(run.agent, run.agent_name);
+    const spec =
+      by === 'variant'
+        ? variantSeries(run)
+        : by === 'model'
+          ? modelSeries(run.model)
+          : agentSeries(run.agent, run.agent_name);
     const group = groups.get(spec.id) ?? { spec, runs: [] };
     group.runs.push(run);
     groups.set(spec.id, group);

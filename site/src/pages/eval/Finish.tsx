@@ -12,10 +12,29 @@ import { useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { Trophy } from 'lucide-react';
-import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, XAxis, YAxis, useXAxisScale, useYAxisScale } from 'recharts';
+import {
+  Area,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  ReferenceLine,
+  XAxis,
+  YAxis,
+  useXAxisScale,
+  useYAxisScale,
+} from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartTooltip, type ChartConfig } from '@/components/ui/chart';
-import { ChartFrame, chartMargin, crosshairCursor, gridProps, lineProps, SeriesTooltip, xAxisProps, yAxisProps } from '@/components/charts';
+import {
+  ChartFrame,
+  chartMargin,
+  crosshairCursor,
+  gridProps,
+  lineProps,
+  SeriesTooltip,
+  xAxisProps,
+  yAxisProps,
+} from '@/components/Charts';
 import { DataTable } from '@/components/DataTable';
 import { VariantLabel } from '@/components/marks';
 import type { Eval, Run } from '@/data/types';
@@ -56,16 +75,33 @@ function stepAt(points: [number, number][], x: number): number | null {
 }
 
 /** Where each run reached the target: a dot in its pairing's colour with a check. */
-function FinishMarks({ marks, lit }: { marks: { key: string; spec: SeriesSpec; tick: number; value: number }[]; lit: string | null }) {
+function FinishMarks({
+  marks,
+  lit,
+}: {
+  marks: { key: string; spec: SeriesSpec; tick: number; value: number }[];
+  lit: string | null;
+}) {
   const x = useXAxisScale();
   const y = useYAxisScale();
   if (!x || !y) return null;
   return (
     <g className="pointer-events-none">
       {marks.map(m => (
-        <g key={m.key} transform={`translate(${Number(x(m.tick))} ${Number(y(m.value))})`} opacity={faded(lit, m.spec.id) ? FADED_OPACITY : 1}>
+        <g
+          key={m.key}
+          transform={`translate(${Number(x(m.tick))} ${Number(y(m.value))})`}
+          opacity={faded(lit, m.spec.id) ? FADED_OPACITY : 1}
+        >
           <circle r={6} fill={m.spec.color} stroke="var(--card)" strokeWidth={1.5} />
-          <path d="M-2.75 0.25 L-0.75 2.25 L2.75 -1.75" fill="none" stroke="var(--card)" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M-2.75 0.25 L-0.75 2.25 L2.75 -1.75"
+            fill="none"
+            stroke="var(--card)"
+            strokeWidth={1.75}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </g>
       ))}
     </g>
@@ -95,8 +131,12 @@ export function FinishChart({
   const lastValue = (cv: RunCurve): number => cv.points[cv.points.length - 1]?.value ?? 0;
 
   // The top of the axis: the target, or the most any run reached
-  const top = useMemo(() => target ?? Math.max(1, ...curves.map(lastValue), ...ranked.map(r => r.bestResult ?? 0)), [curves, ranked, target]);
-  const yTicks = target != null ? roundTicks(target).filter(v => v <= target) : [0, 0.25, 0.5, 0.75, 1].map(f => f * top);
+  const top = useMemo(
+    () => target ?? Math.max(1, ...curves.map(lastValue), ...ranked.map(r => r.bestResult ?? 0)),
+    [curves, ranked, target]
+  );
+  const yTicks =
+    target != null ? roundTicks(target).filter(v => v <= target) : [0, 0.25, 0.5, 0.75, 1].map(f => f * top);
 
   const pairings = useMemo<Pairing[]>(() => {
     const grid = sampleGrid({ min: 0, max: budget, log: false, budget }, 320);
@@ -115,12 +155,22 @@ export function FinishChart({
               run: cv.run,
               points: cv.points.map(p => [Math.min(budget, p.tick), Math.min(top, p.value)] as [number, number]),
             }))
-          : [{ key: spec.key, points: xs.map((x, i) => [x, agg === 'best' ? Math.max(...values[i]) : (median(values[i]) ?? 0)] as [number, number]) }];
+          : [
+              {
+                key: spec.key,
+                points: xs.map(
+                  (x, i) => [x, agg === 'best' ? Math.max(...values[i]) : (median(values[i]) ?? 0)] as [number, number]
+                ),
+              },
+            ];
       return {
         spec,
         curves: group,
         lines,
-        band: agg === 'runs' || group.length < 2 ? [] : xs.map((x, i) => [x, Math.min(...values[i]), Math.max(...values[i])] as [number, number, number]),
+        band:
+          agg === 'runs' || group.length < 2
+            ? []
+            : xs.map((x, i) => [x, Math.min(...values[i]), Math.max(...values[i])] as [number, number, number]),
       };
     });
   }, [curves, ranked, legend, agg, budget, top]);
@@ -143,13 +193,21 @@ export function FinishChart({
         : pairings.flatMap(p =>
             p.curves
               .filter(cv => cv.run.success)
-              .map(cv => ({ key: cv.run.id, spec: p.spec, tick: Math.min(budget, reachedAt(cv, target)), value: target }))
+              .map(cv => ({
+                key: cv.run.id,
+                spec: p.spec,
+                tick: Math.min(budget, reachedAt(cv, target)),
+                value: target,
+              }))
               .filter(m => Number.isFinite(m.tick))
           ),
     [pairings, target, budget]
   );
 
-  const config = useMemo<ChartConfig>(() => Object.fromEntries(pairings.map(p => [p.spec.key, { label: p.spec.label, color: p.spec.color }])), [pairings]);
+  const config = useMemo<ChartConfig>(
+    () => Object.fromEntries(pairings.map(p => [p.spec.key, { label: p.spec.label, color: p.spec.color }])),
+    [pairings]
+  );
 
   // Ticks on round game-clock times
   const xTicks = roundTicks(toSeconds(budget), 'seconds').map(s => (s * 1000) / e.tick_ms);
@@ -178,25 +236,60 @@ export function FinishChart({
       <Card className="min-w-0 xl:col-span-7">
         <CardHeader>
           <CardTitle>{e.measure}</CardTitle>
-          {target != null && <CardDescription>{`${formatInt(ranked.reduce((n, r) => n + r.finished, 0))} of ${formatInt(ranked.reduce((n, r) => n + r.runs.length, 0))} runs finished`}</CardDescription>}
+          {target != null && (
+            <CardDescription>{`${formatInt(ranked.reduce((n, r) => n + r.finished, 0))} of ${formatInt(ranked.reduce((n, r) => n + r.runs.length, 0))} runs finished`}</CardDescription>
+          )}
         </CardHeader>
         <CardContent>
           <ChartFrame config={config} height="lead">
             <ComposedChart data={rows} margin={chartMargin()} onMouseLeave={() => setHovered(undefined)}>
               <CartesianGrid {...gridProps} />
-              <XAxis {...xAxisProps({ dataKey: 'x', domain: [0, budget], ticks: xTicks, format: v => (v === 0 ? '0' : formatDuration(toSeconds(v))) })} />
-              <YAxis {...yAxisProps({ domain: [0, top], ticks: yTicks, clamp: true, format: target != null ? formatInt : axisAmount })} />
-              {target != null && <ReferenceLine y={target} stroke="var(--success)" strokeDasharray="3 3" strokeOpacity={0.7} />}
+              <XAxis
+                {...xAxisProps({
+                  dataKey: 'x',
+                  domain: [0, budget],
+                  ticks: xTicks,
+                  format: v => (v === 0 ? '0' : formatDuration(toSeconds(v))),
+                })}
+              />
+              <YAxis
+                {...yAxisProps({
+                  domain: [0, top],
+                  ticks: yTicks,
+                  clamp: true,
+                  format: target != null ? formatInt : axisAmount,
+                })}
+              />
+              {target != null && (
+                <ReferenceLine y={target} stroke="var(--success)" strokeDasharray="3 3" strokeOpacity={0.7} />
+              )}
               <ChartTooltip
                 cursor={crosshairCursor}
                 content={({ active, label }) => {
                   const at = Number(label);
                   if (!active || !Number.isFinite(at)) return null;
                   const payload = pairings
-                    .flatMap(p => p.lines.map(l => ({ dataKey: l.key, name: l.key, value: stepAt(l.points, at) ?? 0, color: p.spec.color, payload: {} })))
+                    .flatMap(p =>
+                      p.lines.map(l => ({
+                        dataKey: l.key,
+                        name: l.key,
+                        value: stepAt(l.points, at) ?? 0,
+                        color: p.spec.color,
+                        payload: {},
+                      }))
+                    )
                     .filter(p => p.value > 0);
                   if (payload.length === 0) return null;
-                  return <SeriesTooltip active label={at} payload={payload as never} series={lineSeries} labelFormat={v => formatClock(toSeconds(Number(v)))} format={amount} />;
+                  return (
+                    <SeriesTooltip
+                      active
+                      label={at}
+                      payload={payload as never}
+                      series={lineSeries}
+                      labelFormat={v => formatClock(toSeconds(Number(v)))}
+                      format={amount}
+                    />
+                  );
                 }}
               />
               {pairings
@@ -221,7 +314,10 @@ export function FinishChart({
                 p.lines.map(l => (
                   <Line
                     key={l.key}
-                    {...lineProps(p.spec, { faded: faded(lit, p.spec.id), width: lit === p.spec.id || p.spec.id === winner ? 2.25 : 1.5 })}
+                    {...lineProps(p.spec, {
+                      faded: faded(lit, p.spec.id),
+                      width: lit === p.spec.id || p.spec.id === winner ? 2.25 : 1.5,
+                    })}
                     dataKey={l.key}
                     name={l.key}
                     connectNulls
@@ -229,7 +325,11 @@ export function FinishChart({
                     className="cursor-pointer"
                     onMouseEnter={() => setHovered(p.spec.id)}
                     onMouseLeave={() => setHovered(undefined)}
-                    onClick={() => (l.run ? navigate({ to: '/runs/$runId', params: { runId: l.run.id }, search: {} as never }) : legend.isolate(p.spec.id))}
+                    onClick={() =>
+                      l.run
+                        ? navigate({ to: '/runs/$runId', params: { runId: l.run.id }, search: {} as never })
+                        : legend.isolate(p.spec.id)
+                    }
                   />
                 ))
               )}
@@ -266,7 +366,11 @@ interface Standing {
 const col = createColumnHelper<Standing>();
 
 /** Place, pairing (its swatch keys its line), and its result; on an eval with a target, how many of its runs finished. */
-function tableColumns(e: Eval, winner: string | undefined, toSeconds: (tick: number) => number): ColumnDef<Standing, unknown>[] {
+function tableColumns(
+  e: Eval,
+  winner: string | undefined,
+  toSeconds: (tick: number) => number
+): ColumnDef<Standing, unknown>[] {
   const target = e.target;
   const still = (s: Standing): boolean => s.value <= 0 && s.r.finished === 0;
   return [
@@ -285,7 +389,15 @@ function tableColumns(e: Eval, winner: string | undefined, toSeconds: (tick: num
       id: 'pairing',
       header: 'Pairing',
       enableSorting: false,
-      cell: ({ row }) => <VariantLabel variant={row.original.r.variant} run={row.original.r.runs[0]} compact swatch className={cn('max-md:max-w-52', still(row.original) && 'text-muted-foreground')} />,
+      cell: ({ row }) => (
+        <VariantLabel
+          variant={row.original.r.variant}
+          run={row.original.r.runs[0]}
+          compact
+          swatch
+          className={cn('max-md:max-w-52', still(row.original) && 'text-muted-foreground')}
+        />
+      ),
     }),
     ...(target != null
       ? [
@@ -296,7 +408,9 @@ function tableColumns(e: Eval, winner: string | undefined, toSeconds: (tick: num
             // A phone keeps the result beside the name
             meta: { numeric: true, minWidth: 380 },
             cell: ({ row }) => (
-              <span className={cn(row.original.r.finished === 0 && 'text-muted-foreground')}>{`${formatInt(row.original.r.finished)} of ${formatInt(row.original.r.runs.length)}`}</span>
+              <span
+                className={cn(row.original.r.finished === 0 && 'text-muted-foreground')}
+              >{`${formatInt(row.original.r.finished)} of ${formatInt(row.original.r.runs.length)}`}</span>
             ),
           }),
         ]

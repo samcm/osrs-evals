@@ -20,7 +20,15 @@ import { Empty as EmptyRoot, EmptyDescription } from '@/components/ui/empty';
  * A shadcn Tooltip on an element, the element itself its trigger: the one way to say more on hover
  * (never the browser's own `title`). Without content it is just the element.
  */
-export function Tip({ content, children, side }: { content: ReactNode; children: ReactElement; side?: 'top' | 'right' | 'bottom' | 'left' }) {
+export function Tip({
+  content,
+  children,
+  side,
+}: {
+  content: ReactNode;
+  children: ReactElement;
+  side?: 'top' | 'right' | 'bottom' | 'left';
+}) {
   if (content == null || content === '' || content === false) return children;
   return (
     <Tooltip>
@@ -44,7 +52,9 @@ export function Outcome({ run }: { run: Pick<Run, 'success'> }) {
           word === 'Scored' && 'bg-muted-foreground/50'
         )}
       />
-      <span className={cn(word === 'Finished' && 'text-success', word === 'Not finished' && 'text-destructive')}>{word}</span>
+      <span className={cn(word === 'Finished' && 'text-success', word === 'Not finished' && 'text-destructive')}>
+        {word}
+      </span>
     </span>
   );
 }
@@ -119,7 +129,15 @@ export function ParamSegmented<T extends string>({
   className?: string;
 }) {
   const update = useSearchUpdate();
-  return <Segmented label={label} value={value} options={options} className={className} onChange={v => update({ [param]: v }, { resetPage })} />;
+  return (
+    <Segmented
+      label={label}
+      value={value}
+      options={options}
+      className={className}
+      onChange={v => update({ [param]: v }, { resetPage })}
+    />
+  );
 }
 
 /** A collapsed block of content behind a one-line trigger (shadcn Collapsible). */
@@ -148,7 +166,15 @@ export function Disclosure({
 }
 
 /** Preformatted text in Geist Mono that wraps on narrow screens. */
-export function CodeBlock({ children, tone = 'default', className }: { children: ReactNode; tone?: 'default' | 'danger'; className?: string }) {
+export function CodeBlock({
+  children,
+  tone = 'default',
+  className,
+}: {
+  children: ReactNode;
+  tone?: 'default' | 'danger';
+  className?: string;
+}) {
   return (
     <pre
       className={cn(
@@ -180,4 +206,5 @@ export function PageTitle({ children, aside }: { children: ReactNode; aside?: Re
 }
 
 /** Text that reads as a link, for in-table links and inline links. */
-export const linkClassName = 'text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary hover:decoration-primary';
+export const linkClassName =
+  'text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary hover:decoration-primary';

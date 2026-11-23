@@ -4,7 +4,15 @@ import type { ReactNode } from 'react';
 import { CirclePlus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 
@@ -74,9 +82,7 @@ export function FacetFilter({
               <>
                 <CommandSeparator />
                 <CommandGroup>
-                  <CommandItem onSelect={() => onChange([])}>
-                    Clear
-                  </CommandItem>
+                  <CommandItem onSelect={() => onChange([])}>Clear</CommandItem>
                 </CommandGroup>
               </>
             )}
@@ -86,4 +92,3 @@ export function FacetFilter({
     </Popover>
   );
 }
-
