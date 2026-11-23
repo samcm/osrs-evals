@@ -50,12 +50,6 @@ export interface RangeInputProps {
   onChange: (value: number) => void;
 
   /**
-   * Keep the label for screen readers only, as for a playback scrubber whose value shows beside it
-   * @default false
-   */
-  hideLabel?: boolean;
-
-  /**
    * Optional CSS class name for the container
    */
   className?: string;

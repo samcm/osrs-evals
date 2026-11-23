@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState, type JSX, type RefObject } from 'react';
-import { WorldMap, type MapOverlay, type MapPath } from '@/components/WorldMap';
+import { WorldMap, type MapHover, type MapOverlay, type MapPath } from '@/components/WorldMap';
 import type { PathPoint } from '@/data/types';
 import { brandSrc, loadTrimmedSprite, type TrimmedSprite } from '@/lib/assets';
 import { positionAt, surfaceZ, type MapView } from '@/lib/map';
@@ -17,6 +17,10 @@ import { PIN, type Bounds, type PlacedPin, type PointedPin, type Track } from '@
 
 const MARK = 12;
 const DASH: Record<AgentLine, number[]> = { solid: [], dashed: [7, 5], dotted: [0.5, 4.5] };
+
+/** A pin's pairing as the site names one: the short model name and its level ("Sonnet 5.5 medium"). */
+const pinName = (t: Track): string =>
+  `${modelInfo(t.curve.variant.model).short} ${levelName(t.curve.variant.thinking)}`;
 
 // Vendor marks, tinted for the canvas (the DOM draws them as a CSS mask)
 const brandImages = new Map<string, Promise<HTMLImageElement>>();
@@ -276,55 +280,66 @@ export function RaceMap({
       }
       ctx.globalAlpha = 1;
 
-      // The lit pairing's runs say whose they are, as a tooltip would: one label a run, at the pin under
-      // the pointer (naming its account in a team's run) or else at its first account's pin
+      // The lit pairing's runs say whose they are: one label a run, at its first account's pin. The pin
+      // under the pointer is named by the map's tooltip instead (`hoverAt`), so its run has no label
       if (lit != null) {
         const font = getComputedStyle(document.body).fontFamily;
         ctx.textBaseline = 'middle';
         const labelled = order.filter(
           (o, i) =>
             o.t.curve.variant.key === lit &&
-            (pointed?.run === o.t.curve.run.id
-              ? o.account === pointed.account
-              : order.findIndex(p => p.t === o.t) === i)
+            pointed?.run !== o.t.curve.run.id &&
+            order.findIndex(p => p.t === o.t) === i
         );
-        for (const { t, s, account: pinAccount } of labelled) {
-          const account = pointed?.run === t.curve.run.id ? pinAccount : null;
-          const v = t.curve.variant;
-          const text = `${modelInfo(v.model).short} ${levelName(v.thinking)}`;
+        for (const { t, s } of labelled) {
+          const text = pinName(t);
           ctx.font = `500 12px ${font}`;
-          const nameWidth = ctx.measureText(text).width;
-          ctx.font = `400 12px ${font}`;
-          const accountWidth = account ? ctx.measureText(account).width : 0;
-          const w = Math.max(nameWidth, accountWidth) + 16;
-          const h = account ? 40 : 24;
+          const w = ctx.measureText(text).width + 16;
+          const h = 24;
           // To the pin's right, or its left near the map's right edge
           const right = s[0] + PIN + 4 + w <= ctx.canvas.width / dpr;
           const x = right ? s[0] + PIN + 4 : s[0] - PIN - 4 - w;
-          const y = s[1] - h / 2;
           ctx.beginPath();
-          ctx.roundRect(x, y, w, h, 4);
+          ctx.roundRect(x, s[1] - h / 2, w, h, 4);
           ctx.fillStyle = colors.surface;
           ctx.fill();
           ctx.lineWidth = 1;
           ctx.strokeStyle = colors.border;
           ctx.stroke();
-          ctx.font = `500 12px ${font}`;
           ctx.fillStyle = colors.foreground;
-          ctx.fillText(text, x + 8, account ? y + 12 : s[1]);
-          if (account) {
-            ctx.font = `400 12px ${font}`;
-            ctx.fillStyle = colors.muted;
-            ctx.fillText(account, x + 8, y + 28);
-          }
+          ctx.fillText(text, x + 8, s[1]);
         }
       }
     },
     [colors, images, lit, placedRef, pointed, tick, trail, tracks]
   );
 
+  /** The pin under the pointer, named as the site's tooltip: its pairing, and in a team's run its account. */
+  const hoverAt = useCallback(
+    (x: number, y: number): MapHover | undefined => {
+      const hit = placedRef.current.findLast(p => Math.hypot(p.x - x, p.y - y) <= PIN + 2);
+      const track = hit && tracks.find(t => t.curve.run.id === hit.run);
+      if (!hit || !track) return undefined;
+      return {
+        id: `${hit.run}|${hit.account ?? ''}`,
+        x: hit.x,
+        y: hit.y - PIN,
+        label: hit.account ? (
+          <span className="flex flex-col">
+            <span>{pinName(track)}</span>
+            <span className="text-muted">{hit.account}</span>
+          </span>
+        ) : (
+          pinName(track)
+        ),
+      };
+    },
+    [placedRef, tracks]
+  );
+
   return (
     <WorldMap
+      hoverAt={hoverAt}
       paths={fitPaths}
       fitKey={bounds ? `${bounds.x0},${bounds.z0},${bounds.x1},${bounds.z1}` : ''}
       view={view}
