@@ -5,11 +5,11 @@
  * and harness (`level`, `harness`), which a leaderboard row presets.
  */
 
-import { useMemo } from 'react';
+import { useMemo, type JSX } from 'react';
 import { getRouteApi, Link } from '@tanstack/react-router';
-import { Button } from '@/components/ui/button';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Empty, ParamSegmented } from '@/components/bits';
+import { buttonClassName } from '@/components/Elements/Button';
 import { BrandMark } from '@/components/marks';
 import { PairingFilters } from '@/components/PairingFilters';
 import { PageHeader, PageSection, PageToolbar, type MetaItem } from '@/components/page';
@@ -23,11 +23,12 @@ import { inScope, useDocumentTitle, useScope, useSearchUpdate } from '@/lib/sear
 import { compareThinking, modelFacts, modelInfo, modelSlug } from '@/lib/series';
 import { median } from '@/lib/stats';
 import { blendedScores, modelRank } from '@/lib/score';
-import { Centerpiece } from '../eval/Centerpiece';
-import { buildCurves, rankVariants, totalBudgetTicks, X_OPTIONS, xRange } from '../eval/model';
-import { ProgressChart } from '../eval/Progress';
-import { RunsTable } from '../eval/RunsTable';
-import { evalMeasure, harnessSeries, ThinkingChart } from './ThinkingChart';
+import { Centerpiece } from '@/pages/eval/Centerpiece';
+import { buildCurves, rankVariants, totalBudgetTicks, X_OPTIONS, xRange } from '@/pages/eval/model';
+import { ProgressChart } from '@/pages/eval/Progress';
+import { RunsTable } from '@/pages/eval/RunsTable';
+import { evalMeasure, harnessSeries } from '@/pages/model/measures';
+import { ThinkingChart } from '@/pages/model/ThinkingChart';
 
 const route = getRouteApi('/evals/$evalId_/$model');
 
@@ -56,7 +57,7 @@ function facts(
   ];
 }
 
-export function EvalModelPage() {
+export function EvalModelPage(): JSX.Element {
   const { evalId: slug, model } = route.useParams();
   const search = route.useSearch();
   const update = useSearchUpdate();
@@ -119,11 +120,13 @@ export function EvalModelPage() {
         mark={<BrandMark slug={info.vendor.slug} size={40} title={info.vendor.name} />}
         meta={facts(runs, e.target, e.measure, rank)}
         actions={
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/models/$model" params={{ model: modelSlug(all[0].model) }}>
-              Every eval
-            </Link>
-          </Button>
+          <Link
+            to="/models/$model"
+            params={{ model: modelSlug(all[0].model) }}
+            className={buttonClassName({ variant: 'secondary', size: 'sm' })}
+          >
+            Every eval
+          </Link>
         }
       />
       <PageToolbar label="Filters">

@@ -19,59 +19,16 @@ import {
   Y_AXIS_WIDTH,
   yAxisProps,
 } from '@/components/Charts';
-import type { Eval, Run } from '@/data/types';
-import { agentSeries, cssColor, dashArray, scatterShape, type SeriesSpec } from '@/lib/chartSeries';
-import { formatCost, formatInt } from '@/lib/format';
+import type { Run } from '@/data/types';
+import type { ThinkingMeasure } from '@/pages/model/measures';
+import { cssColor, dashArray, scatterShape, type SeriesSpec } from '@/lib/chartSeries';
+import { formatInt } from '@/lib/format';
 import { FADED_OPACITY, setHovered, useHover } from '@/lib/hover';
-import { resultValue } from '@/lib/runResult';
 import { levelColor, levelName, modelInfo } from '@/lib/series';
 import { useWidth } from '@/lib/useWidth';
 import { median } from '@/lib/stats';
-import { formatTick, roundMax, roundTicks } from '../eval/chartBits';
-import { PointTooltip } from '../eval/Cuts';
-
-/** What the chart plots of each run: its value (null when it has none), how to write it, its axis. */
-export interface ThinkingMeasure {
-  label: string;
-  value: (run: Run) => number | null;
-  format: (value: number) => string;
-  /** A log axis on 1-2-5 dollar steps (cost) */
-  log?: boolean;
-  /** The axis' top, when the measure has one (a target, 100) */
-  max?: number;
-  /** Ticks rather than counts on a linear axis */
-  ticks?: boolean;
-  /** What is missing when no run has a value */
-  empty: string;
-}
-
-/** One eval's measures: its result, ticks to finish, and cost per run. */
-export function evalMeasure(e: Eval, y: 'result' | 'ticks' | 'cost'): ThinkingMeasure {
-  if (y === 'cost') return costMeasure;
-  if (y === 'ticks')
-    return {
-      label: 'Ticks to finish',
-      value: r => (r.success ? r.ticks : null),
-      format: v => `${formatInt(v)} ticks`,
-      ticks: true,
-      empty: 'No run here finished.',
-    };
-  return {
-    label: e.measure,
-    value: resultValue,
-    format: formatInt,
-    max: e.target ?? undefined,
-    empty: 'No run here has a result.',
-  };
-}
-
-export const costMeasure: ThinkingMeasure = {
-  label: 'Cost',
-  value: r => (r.cost != null && r.cost > 0 ? r.cost : null),
-  format: formatCost,
-  log: true,
-  empty: 'No run here has a cost.',
-};
+import { formatTick, roundMax, roundTicks } from '@/pages/eval/chartBits';
+import { PointTooltip } from '@/pages/eval/Cuts';
 
 /** Short names for the level labels when the full ones don't fit; the tooltip names the level in full. */
 const SHORT: Record<string, string> = { none: 'none', minimal: 'min', medium: 'med', xhigh: 'xhi' };
@@ -96,17 +53,6 @@ interface Point {
   y: number;
   run: Run;
   spec: SeriesSpec;
-}
-
-/** Each harness of the runs as a series: its own mark, line and shape, in the model's colour. */
-export function harnessSeries(runs: Run[]): SeriesSpec[] {
-  const byAgent = new Map(runs.map(r => [r.agent, r]));
-  return [...byAgent.values()]
-    .map(r => {
-      const color = modelInfo(r.model).color;
-      return { ...agentSeries(r.agent, r.agent_name), color: cssColor(color), swatch: color };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function ThinkingChart({
