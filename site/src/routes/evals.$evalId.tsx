@@ -8,8 +8,10 @@ import { defineSearch, int, legendParams, oneOf, sortParam } from '@/lib/search'
 
 export const evalSearch = defineSearch({
   /** The page's view */
-  tab: oneOf(['overview', 'held', 'cost', 'behaviour', 'runs'], 'overview'),
-  /** The overview's x measure, and which runs it shows: each pairing's median or best run, or every run */
+  tab: oneOf(['verdict', 'race', 'held', 'cost', 'behaviour', 'runs'], 'verdict'),
+  /** The verdict chart's y on an open-ended eval: the value, or a share of the best run */
+  y: oneOf(['value', 'share'], 'value'),
+  /** The race's x measure, and which runs it shows: each pairing's median or best run, or every run */
   x: oneOf(['ticks', 'seconds', 'cost', 'calls'], 'ticks'),
   agg: oneOf(['median', 'best', 'runs'], 'median'),
   /** The cost tab's spend: what the Pareto and the finished-within chart count */

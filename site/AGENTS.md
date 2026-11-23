@@ -16,7 +16,7 @@ way to dig into that answer.
 | Page | Question it answers first |
 | --- | --- |
 | `/` (Home) | Which model at which thinking level in which harness is best, across every eval and at each? (one blended leaderboard that scales to many evals, then a featured eval) |
-| `/evals/$evalId` | How did each run progress through the game, and what did it cost? |
+| `/evals/$evalId` | Did any run finish, who won and by how much? (then how each run progressed and what it cost) |
 | `/evals/$evalId/$model` | How did one model do on one eval, across thinking levels and harnesses? |
 | `/models/$model` | How does one model do across every eval, at each thinking level and in each harness? |
 | `/runs/$runId` | What did this agent do, minute by minute, in the game and in its head? |
@@ -37,7 +37,8 @@ Every page has the same skeleton, and nothing on a page invents its own.
 - **Type comes from the library:** card titles, descriptions and table text at their shadcn sizes;
   meta is small, term and value. No `text-lg`/`text-xl` in pages.
 - **One centrepiece.** Each detail page opens with one thing that grabs you and shows the game: the
-  eval page shows every run together in the game; the run page is a game player. Everything else
+  eval page opens on its verdict, then shows every run together in the game in its Race tab; the run
+  page is a game player. Everything else
   hangs off it, in tabs or below it.
 - **Each thing is listed once.** A page lists its model + harness pairings in one place (the
   leaderboard; on an eval page, the race's standings); charts key their lines with a compact legend, never a second ranked list. No chips
@@ -83,7 +84,13 @@ its chart, and beside the leaderboard (eight and four of twelve columns) from 2x
 
 `PageHeader`, one line: the eval's sprite, the goal (the prompt, which says what wins), the budget
 as game time (its ticks on hover), a team's characters, and how many runs. How the server's saves
-are read (varps, save files) is the README's business, never the site's. Then tabs: **Race**
+are read (varps, save files) is the README's business, never the site's. Then tabs: **Verdict**
+(`eval/Verdict.tsx`, static: one card titled with how many runs finished, or the measure on an
+eval without a target; its first line the winner with its result and how far ahead of the next
+pairing it was: on an eval with a target the eval's ranking, most finished then the median time to
+finish; else the best run's value and who reached it; then every run's result against its cost,
+log, the winner's runs ringed, each pairing's best run labelled where it fits, the runs that didn't
+finish as hollow marks in a band past the budget, `?y=share` for a share of the best run), **Race**
 (`Centerpiece`: the standings, the eval's one ranked list, beside every run together in the game
 on one playhead; then `Progress`, the eval's measure over time, starting on the first screen at
 1440), **Cost** (cost against result, finished within a budget, attempts), **Behaviour** (time and
@@ -215,7 +222,7 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   param every page reads from the root.
 - Names are short and plain: `x`, `by`, `agg`, `scale`, `sort`, `page`, `hide`, `focus`, `turn`,
   `t`, `tab`, `lanes`, `code`, `speed`, `eval`, `effort`, `level`, `harness`, `map` (the race
-  map's view), `heat` (the heat map's), `measure`. Lists are comma-separated. Sorts are a column id with a leading `-` for descending.
+  map's view), `heat` (the heat map's), `measure`, `y` (the verdict's scale). Lists are comma-separated. Sorts are a column id with a leading `-` for descending.
 - Paths are readable: an eval is its id in kebab case (`/evals/dragon-slayer`; the old snake-case
   links redirect), a model its name without the provider route (`claude-opus-5-5`, `gpt-6.2-sol`).
 - An eval's race with `t` absent plays from the start on load, at its normal pace; a link with `t`

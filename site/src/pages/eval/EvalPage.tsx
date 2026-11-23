@@ -24,6 +24,7 @@ import { ProgressChart } from './Progress';
 import { RunsTable } from './RunsTable';
 import { WhereMap } from './Where';
 import { HeldView, heldTab } from './Held';
+import { Verdict } from './Verdict';
 
 const route = getRouteApi('/evals/$evalId');
 
@@ -60,9 +61,10 @@ function facts(e: Eval, runs: Run[]): MetaItem[] {
   ];
 }
 
-// The first view is the race: "Overview" already names the site's home in the sidebar and breadcrumb
+// The first view is the verdict: who won and whether anyone finished; the race is a tab beside it
 const TABS = [
-  { value: 'overview', label: 'Race' },
+  { value: 'verdict', label: 'Verdict' },
+  { value: 'race', label: 'Race' },
   { value: 'cost', label: 'Cost' },
   { value: 'behaviour', label: 'Behaviour' },
   { value: 'runs', label: 'Runs' },
@@ -150,7 +152,7 @@ export function EvalPage() {
 
   // The race's x measure is its progress chart's own control; the toolbar keeps what drives the whole view
   const controls =
-    search.tab === 'overview' ? (
+    search.tab === 'race' ? (
       <ParamSegmented param="agg" value={search.agg} label="Runs shown" options={AGG_OPTIONS} />
     ) : search.tab === 'cost' ? (
       <ParamSegmented param="px" value={search.px} label="Spend" options={PX_OPTIONS} />
@@ -163,7 +165,7 @@ export function EvalPage() {
       <PageHeader mark={<EvalMark evalId={e.id} size={40} />} description={e.goal} meta={facts(e, all)} />
       {/* The views and the controls that drive the open one share a row, as shadcn's dashboards do */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PageTabs value={search.tab} tabs={heldTab(e) ? [...TABS.slice(0, 1), { value: 'held' as const, label: heldTab(e)! }, ...TABS.slice(1)] : [...TABS]} />
+        <PageTabs value={search.tab} tabs={heldTab(e) ? [...TABS.slice(0, 2), { value: 'held' as const, label: heldTab(e)! }, ...TABS.slice(2)] : [...TABS]} />
         <PageToolbar label="View controls">
           {runs.length > 0 && controls}
           <PairingFilters runs={all} thinking={scope.thinking} agent={scope.agent} onChange={setScope} />
@@ -172,7 +174,9 @@ export function EvalPage() {
 
       {runs.length === 0 ? (
         <Empty>No runs in this scope.</Empty>
-      ) : search.tab === 'overview' ? (
+      ) : search.tab === 'verdict' ? (
+        <Verdict e={e} runs={runs} y={search.y} legend={legend} />
+      ) : search.tab === 'race' ? (
         <>
           <Centerpiece e={e} runs={runs} curves={shownCurves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} agg={search.agg} />
           <PageSection title={e.measure} actions={<ParamSegmented param="x" value={search.x} label="Along" options={X_OPTIONS} />}>
