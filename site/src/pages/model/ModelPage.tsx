@@ -23,7 +23,7 @@ import { setHovered } from '@/lib/hover';
 import { resultValue } from '@/lib/runResult';
 import { bestLevelKeys, blendedScores, modelRank, runScore } from '@/lib/score';
 import { inScope, useDocumentTitle, useEffort, useScope, useSearchUpdate } from '@/lib/search';
-import { compareThinking, modelFacts, modelInfo, modelSlug, providerInfo, variantKey } from '@/lib/series';
+import { compareThinking, modelFacts, modelInfo, modelSlug, providerInfo, providerLogo, variantKey } from '@/lib/series';
 import { median } from '@/lib/stats';
 import { cn } from '@/lib/utils';
 import { runColumns, type Row } from '../RunsPage';
@@ -137,9 +137,9 @@ export function ModelPage() {
   const allLevels = [...new Set(everyRun.map(r => r.thinking))].sort(compareThinking);
   // What the model is, from models.dev (the header bar names it, its maker's mark leads), then what ran
   const facts = modelFacts(model);
-  const named = (id: string) => (
+  const named = (id: string, mark = true) => (
     <span className="inline-flex items-center gap-1.5 align-middle">
-      <BrandMark slug={id} size={16} />
+      {mark && <BrandMark slug={id} size={16} />}
       {providerInfo(id).name}
     </span>
   );
@@ -149,7 +149,7 @@ export function ModelPage() {
     ...(facts?.open_weights != null ? [{ term: 'Weights', value: facts.open_weights ? 'Open' : 'Closed' }] : []),
     ...(facts?.limit.context ? [{ term: 'Context', value: `${formatTokens(facts.limit.context)} tokens` }] : []),
     ...(facts?.knowledge ? [{ term: 'Knowledge', value: formatDay(facts.knowledge) }] : []),
-    ...(facts && facts.provider !== facts.maker ? [{ term: 'Served by', value: named(facts.provider) }] : []),
+    ...(facts && facts.provider !== facts.maker ? [{ term: 'Served by', value: named(facts.provider, providerLogo(facts.provider) != null) }] : []),
     {
       term: 'Harnesses',
       value: (

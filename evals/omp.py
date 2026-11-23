@@ -25,6 +25,14 @@ VERSION = "19.0.1"  # the version image/Dockerfile installs
 BRIDGE = "http://localhost:13131"
 HOME = "/home/agent"  # the agent user's home: omp's settings and sessions, outside /work
 BUDGET_LEVELS = {1024: "minimal", 2048: "low", 8192: "medium", 16384: "high", 32768: "xhigh"}  # omp's thinkingBudgets
+# Models on private inference (openai-api/private/<id>, with PRIVATE_BASE_URL and PRIVATE_API_KEY) have no
+# provider in omp, so omp gets one that speaks Chat Completions; omp's own reference for the id gives its
+# context window and thinking levels. Overrides where the endpoint differs: its Qwen3.8 27B takes only
+# reasoning_effort low, medium or xhigh, and the bridge forwards reasoning_effort but not the chat
+# template's kwargs, where omp would put Qwen's effort.
+PRIVATE_MODELS = {
+    "qwen3.8-27b": {"thinking": {"mode": "effort", "efforts": ["low", "medium", "xhigh"]}, "compat": {"thinkingFormat": "openai"}},
+}
 
 
 @solver
@@ -54,7 +62,10 @@ def omp(thinking: str = "high", version: str = VERSION, model: str | None = None
         await check_installed(sb, version)
         # omp's own provider for the model, in its own API, pointed at the bridge: omp keeps what it knows
         # about the model (context window, thinking levels, request format).
-        await sb.write_file(f"{HOME}/.omp/agent/models.yml", json.dumps({"providers": {provider: {"baseUrl": f"{BRIDGE}/v1", "apiKey": "inspect", "auth": "apiKey"}}}))
+        config = {"baseUrl": f"{BRIDGE}/v1", "apiKey": "inspect", "auth": "apiKey"}
+        if provider == "private":
+            config |= {"api": "openai-completions", "models": [{"id": model_id, **PRIVATE_MODELS.get(model_id, {})}]}
+        await sb.write_file(f"{HOME}/.omp/agent/models.yml", json.dumps({"providers": {provider: config}}))
         # omp's own intent field on every tool call (off by default in print mode), no update check, and
         # no retries: a failed model call reaches the agent as it failed (omp retries 10 times by default).
         await sb.write_file(f"{HOME}/.omp/agent/config.yml", json.dumps({"tools": {"intentTracing": True}, "startup": {"checkUpdate": False}, "retry": {"enabled": False}}))

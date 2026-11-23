@@ -183,6 +183,8 @@ ALIAS = re.compile(r"\s+\(latest\)$", re.I)
 SIZES = re.compile(r"(\s+A?\d+(\.\d+)?[BT])+$", re.I)
 # Inference providers models.dev doesn't list, by their route in the Inspect model name
 ROUTE_NAMES = {"openai-codex": "ChatGPT Codex"}
+# Private inference (openai-api/private/<id>): named only that, with no logo, whoever runs it
+PRIVATE = "private"
 LOGOS = "https://models.dev/logos/"
 LEVELS = ["none", "off", "minimal", "low", "medium", "high", "xhigh", "max"]  # lowest first, as the site orders them
 
@@ -232,7 +234,21 @@ def model_facts(catalog: dict, models: set[str]) -> dict:
         name = parts[-1]
         provider = parts[1] if len(parts) > 2 else parts[0]
         served = (catalog.get(provider) or {}).get("models", {}).get(name)
-        if served is not None and len(parts) > 2:
+        if provider == PRIVATE:
+            # Private inference serves a model under its plain id: the entries that list that id name the
+            # model (by their most common canonical id); the maker's own entry says what it is, else the
+            # entry under that canonical id with the most common name ("Qwen3.8 27B", not "Qwen3.8-27B")
+            entries = [(prov, m) for prov, p in catalog.items() for m in (p.get("models") or {}).values()]
+            ids = Counter(m["canonical_model_id"] for _, m in entries if str(m.get("id")).split("/")[-1].lower() == name.lower() and m.get("canonical_model_id"))
+            if not ids:
+                continue
+            canonical = ids.most_common(1)[0][0]
+            maker = canonical.split("/")[0]
+            hits = [(prov, m) for prov, m in entries if m.get("canonical_model_id") == canonical and not VARIANT.search(m.get("name") or "")]
+            names = Counter(m.get("name") for _, m in hits)
+            mine = min(hits, key=lambda h: (h[0] != maker, -names[h[1].get("name")]))[1]
+            served, variant = mine, None
+        elif served is not None and len(parts) > 2:
             # A router's entry: the maker's own entry says what the model is
             canonical = served.get("canonical_model_id")
             found = own(canonical.split("/")[0] if canonical else "", canonical, served.get("family"))
@@ -245,7 +261,10 @@ def model_facts(catalog: dict, models: set[str]) -> dict:
             served, variant = mine, None
             if mine is None:
                 continue
-        base = SIZES.sub("", VARIANT.sub("", ALIAS.sub("", mine.get("name") or name)))
+        full = VARIANT.sub("", ALIAS.sub("", mine.get("name") or name))
+        sizes = SIZES.search(full)
+        # A size the run's own model id names (qwen3.8-27b: "Qwen3.8 27B") is part of the model's name
+        base = full if sizes and all(s.lower() in name.lower() for s in sizes.group(0).split()) else SIZES.sub("", full)
         facts[model] = {
             "name": f"{base}, {variant.group(1).lower()}" if variant else base,
             "description": mine.get("description") or served.get("description"),
@@ -256,7 +275,7 @@ def model_facts(catalog: dict, models: set[str]) -> dict:
             "open_weights": mine.get("open_weights"),
             "limit": {k: (served.get("limit") or mine.get("limit") or {}).get(k) for k in ("context", "output")},
             "modalities": served.get("modalities") or mine.get("modalities"),
-            "levels": levels(served),
+            "levels": None if provider == PRIVATE else levels(served),
             "provider": provider,
         }
     return facts
@@ -278,6 +297,9 @@ def fetch_logos(catalog: dict, ids: set[str], out: Path) -> dict:
     generic = get(f"{LOGOS}no-such-provider.svg")
     providers = {}
     for id in sorted(ids):
+        if id == PRIVATE:
+            providers[id] = {"name": "Private inference", "logo": None}
+            continue
         name = (catalog.get(id) or {}).get("name") or ROUTE_NAMES.get(id) or id.capitalize()
         svg = get(f"{LOGOS}{id}.svg")
         logo = None
