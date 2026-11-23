@@ -5,6 +5,7 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { X } from 'lucide-react';
 import { DataTable } from '@/components/DataTable';
+import { RunStory } from '@/components/RunStory';
 import { FacetFilter, type FacetOption as Option } from '@/components/FacetFilter';
 import { FiltersFold } from '@/components/PairingFilters';
 import { PageSection, PageToolbar } from '@/components/page';
@@ -51,16 +52,6 @@ const facetValue: Record<Facet, (r: Run) => string> = {
 const col = createColumnHelper<Row>();
 
 /** The best value the run held; a filled or hollow dot says whether it reached the eval's target. */
-/** A run's one sentence (site/summarize.py) under its name, cut to one line; whole on hover. */
-export function RunSummaryLine({ run }: { run: Run }) {
-  if (!run.summary) return null;
-  return (
-    <span className="block max-w-96 truncate text-xs text-muted-foreground max-md:max-w-60" title={run.summary}>
-      {run.summary}
-    </span>
-  );
-}
-
 function ResultCell({ run, e }: { run: Run; e: Eval | undefined }) {
   const value = formatInt(resultValue(run));
   const text = resultText(run, e);
@@ -103,7 +94,7 @@ export function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[]
             {!oneEval && <EvalMark evalId={row.original.eval} size={16} title={row.original.e?.title ?? row.original.eval} className="md:hidden" />}
             <VariantLabel run={row.original} compact />
           </span>
-          <RunSummaryLine run={row.original} />
+          <RunStory run={row.original} />
         </span>
       ),
     }),

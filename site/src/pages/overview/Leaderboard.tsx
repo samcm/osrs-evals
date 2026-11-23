@@ -14,13 +14,14 @@ import { DataTable } from '@/components/DataTable';
 import { Empty } from '@/components/bits';
 import { EvalMark, VariantLabel } from '@/components/marks';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { PageSection } from '@/components/page';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Eval } from '@/data/types';
 import { evalArt, evalSlug } from '@/lib/evals';
 import { formatScore, type Pairing } from '@/lib/score';
-import { modelSlug } from '@/lib/series';
+import { modelInfo, modelSlug } from '@/lib/series';
 import { cn } from '@/lib/utils';
 
 /** One hue in tint steps, darker for a higher score. */
@@ -29,7 +30,7 @@ export const tint = (score: number): string => TINTS[Math.min(TINTS.length - 1, 
 
 function HeatCell({ pairing, e, mark }: { pairing: Pairing; e: Eval; mark?: boolean }) {
   const s = pairing.evals.get(e.id);
-  if (!s) return mark ? null : <span className="inline-flex h-6 w-10 items-center justify-center text-muted-foreground">–</span>;
+  if (!s) return mark ? null : <span className="inline-flex h-6 w-10 items-center justify-center text-xs text-muted-foreground">–</span>;
   const { variant } = pairing;
   return (
     <Tooltip>
@@ -40,7 +41,7 @@ function HeatCell({ pairing, e, mark }: { pairing: Pairing; e: Eval; mark?: bool
           params={{ evalId: evalSlug(e.id), model: modelSlug(variant.model) }}
           search={{ level: [variant.thinking], harness: [variant.agent] } as never}
           onClick={ev => ev.stopPropagation()}
-          className={cn('inline-flex h-6 items-center justify-center gap-1 rounded-sm tabular-nums outline-none hover:ring-2 hover:ring-ring/40 focus-visible:ring-3 focus-visible:ring-ring/50', mark ? 'px-1' : 'w-10', tint(s.score))}
+          className={cn('inline-flex h-6 items-center justify-center gap-1 rounded-sm text-xs text-muted-foreground tabular-nums outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50', mark ? 'px-1' : 'w-10')}
         >
           {mark && <EvalMark evalId={e.id} size={14} title="" />}
           {formatScore(s.score)}
@@ -122,19 +123,21 @@ export function Leaderboard({
         }),
         col.accessor('score', {
           header: () => <span title="Out of 100: how it's scored, top right">Score of 100</span>,
-          meta: { numeric: true, className: 'w-px' },
+          meta: { className: 'w-px' },
           sortDescFirst: true,
           // Complete pairings above partial ones, whichever way it sorts by score
           sortingFn: (a, b) => Number(a.original.complete) - Number(b.original.complete) || a.original.score - b.original.score,
           // A partial pairing's score is over the evals it ran: muted, and says so
-          cell: ({ row, getValue }) =>
-            row.original.complete ? (
-              <span className="font-medium tabular-nums">{formatScore(getValue())}</span>
-            ) : (
-              <span className="text-muted-foreground tabular-nums" title={`Over the ${row.original.evals.size} evals it ran, not all of them: it ranks below every pairing that ran them all`}>
-                {formatScore(getValue())}
-              </span>
-            ),
+          // The row's answer: the number, large, over a bar of its 100
+          cell: ({ row, getValue }) => (
+            <span
+              className={cn('flex items-center gap-3', !row.original.complete && 'text-muted-foreground')}
+              title={row.original.complete ? undefined : `Over the ${row.original.evals.size} evals it ran, not all of them: it ranks below every pairing that ran them all`}
+            >
+              <span className="w-8 text-base font-semibold tabular-nums">{formatScore(getValue())}</span>
+              <Progress value={getValue() * 100} className={cn('h-2 w-12 md:w-64', !row.original.complete && 'opacity-50')} aria-hidden />
+            </span>
+          ),
         }),
         ...evals.map(e =>
           col.accessor(p => p.evals.get(e.id)?.score ?? -1, {
@@ -154,8 +157,20 @@ export function Leaderboard({
     [evals]
   );
 
+  // The answer in one line: who leads, by how much (over pairings that ran every eval)
+  const [first, second] = pairings.filter(p => p.complete);
+  const lead = first && second ? Number(formatScore(first.score)) - Number(formatScore(second.score)) : 0;
+  const description = first && (
+    <span className="inline-flex flex-wrap items-center gap-x-1.5">
+      <VariantLabel variant={first.variant} run={first.sample} className="font-medium text-foreground" />
+      <span>
+        leads with {formatScore(first.score)} of 100
+        {second && (lead > 0 ? `, ${lead} ahead of ${modelInfo(second.variant.model).short}` : `, level with ${modelInfo(second.variant.model).short}`)}
+      </span>
+    </span>
+  );
   return (
-    <PageSection title="Leaderboard" actions={<Scoring evals={every} />} className="2xl:col-span-8">
+    <PageSection title="Leaderboard" description={description} actions={<Scoring evals={every} />} className="2xl:col-span-8">
       <DataTable
         page={page}
         pageSize={10}

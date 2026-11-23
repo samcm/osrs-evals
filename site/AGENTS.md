@@ -66,11 +66,13 @@ Every page has the same skeleton, and nothing on a page invents its own.
 ### Home
 
 No description line (the sidebar names the product). A toolbar with the Filters button, then the
-Leaderboard (rank, pairing, its score of 100, every pairing that ran every eval ranked above any that
-didn't, whose partial score is muted (a thinking-level sweep runs two evals) with "How it's scored" in the card's action, a heat
-cell per eval that more than one pairing ran, headed by the eval's sprite with its name on hover so
-every eval's column fits at 1280 without scrolling; ten rows a page, `?page=`; on a phone the eval
-cells sit under the pairing's name) and the featured eval (a Select of the evals heads the card,
+Leaderboard. The blended score is the hero: the card's description names the leading pairing, its
+score and its lead over the next; each row's score is a large number over a bar of its 100. Rank,
+pairing, its score, every pairing that ran every eval ranked above any that didn't, whose partial
+score is muted (a thinking-level sweep runs two evals), with "How it's scored" in the card's action.
+The per-eval results are secondary: a small muted number per eval that more than one pairing ran
+(no tint), headed by the eval's sprite with its name on hover, each opening that model's runs of that
+eval; ten rows a page, `?page=`; on a phone the eval numbers sit under the pairing's name and the featured eval (a Select of the evals heads the card,
 `?eval=` as the eval's slug; its best run's last moment and every pairing's median progress,
 compact, keyed by the leaderboard). The featured eval sits under the leaderboard, its still beside
 its chart, and beside the leaderboard (eight and four of twelve columns) from 2xl.

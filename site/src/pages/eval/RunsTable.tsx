@@ -1,4 +1,4 @@
-/** Every run of the eval: its pairing, its progress as a sparkline, its result, cost and length; a row opens the run. */
+/** Every run of the eval: its pairing and what it did (its sentence and chapters, so runs compare at a glance), its progress as a sparkline, its result, cost and length; a row opens the run. */
 
 import { useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
@@ -14,7 +14,7 @@ import { formatCost, formatInt } from '@/lib/format';
 import { useSearchUpdate } from '@/lib/search';
 import { variantKey, variantOf } from '@/lib/series';
 import { endedWord, resultText } from '@/lib/runResult';
-import { RunSummaryLine } from '../RunsPage';
+import { RunStory } from '@/components/RunStory';
 import { resultValue, totalBudgetTicks, type RunCurve } from './model';
 
 const col = createColumnHelper<Run>();
@@ -45,7 +45,7 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
       cell: ({ row }) => (
         <span className="flex min-w-0 flex-col gap-0.5">
           <VariantLabel run={row.original} compact />
-          <RunSummaryLine run={row.original} />
+          <RunStory run={row.original} />
         </span>
       ),
     }),
