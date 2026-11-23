@@ -1,7 +1,6 @@
 /** Pieces shared by the eval page's charts: round ticks, x formats, collision-free point labels. */
 
 import { formatClock, formatCost, formatCostTick, formatInt } from '@/lib/format';
-import type { SeriesSpec } from '@/lib/chartSeries';
 import type { XMeasure } from './model';
 
 export type Measure = XMeasure | 'tokens' | 'share' | 'count';
@@ -56,9 +55,6 @@ export function roundMax(value: number, x: Measure = 'count'): number {
   if (last >= value) return last;
   return last + (ticks[1] - ticks[0] || 1);
 }
-
-/** A series for an end label or a dense legend: the vendor mark and short name, without the harness. */
-export const shortSeries = (s: SeriesSpec): SeriesSpec => ({ ...s, harness: undefined });
 
 export type LabelPosition =
   | 'right'

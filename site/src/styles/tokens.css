@@ -295,6 +295,7 @@ html.star {
   --color-danger-90: color-mix(in oklab, var(--color-danger) 90%, transparent);
   --color-on-fill-20: color-mix(in oklab, var(--color-on-fill) 20%, transparent);
   --color-on-solid-80: color-mix(in oklab, var(--color-on-solid) 80%, transparent);
+  --color-data-red-20: color-mix(in oklab, var(--color-data-red) 20%, transparent);
   --color-data-red-80: color-mix(in oklab, var(--color-data-red) 80%, transparent);
   --color-data-orange-10: color-mix(in oklab, var(--color-data-orange) 10%, transparent);
   --color-data-orange-20: color-mix(in oklab, var(--color-data-orange) 20%, transparent);

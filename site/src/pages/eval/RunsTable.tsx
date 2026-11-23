@@ -1,15 +1,15 @@
 /** Every run of the eval: its pairing and what it did (its sentence and chapters, so runs compare at a glance), its progress as a sparkline, its result, cost and length; a row opens the run. */
 
-import { useMemo } from 'react';
+import { useMemo, type JSX } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
-import { Line, LineChart, YAxis, XAxis } from 'recharts';
-import { cn } from '@/lib/utils';
+import clsx from 'clsx';
 import { DataTable } from '@/components/DataTable';
 import { Empty, Tip } from '@/components/bits';
 import { VariantLabel } from '@/components/marks';
 import type { Eval, Run } from '@/data/types';
 import { cssColor } from '@/lib/chartSeries';
+import { Sparkline } from '@/components/Charts/Sparkline';
 import { formatCost, formatInt } from '@/lib/format';
 import { useSearchUpdate } from '@/lib/search';
 import { variantKey, variantOf } from '@/lib/series';
@@ -21,22 +21,25 @@ const col = createColumnHelper<Run>();
 const PAGE_SIZE = 25;
 
 /** A run's value over the budget, in its model's colour, on a scale shared by every row. */
-function Spark({ curve, maxTick, top }: { curve: RunCurve | undefined; maxTick: number; top: number }) {
+function Spark({
+  curve,
+  maxTick,
+  top,
+}: {
+  curve: RunCurve | undefined;
+  maxTick: number;
+  top: number;
+}): JSX.Element | null {
   if (!curve) return null;
-  const data = curve.points.map(p => ({ t: Math.min(p.tick, maxTick), v: p.value }));
   return (
-    <LineChart width={96} height={24} data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }} aria-hidden>
-      <XAxis dataKey="t" type="number" domain={[0, maxTick]} hide />
-      <YAxis domain={[0, top]} hide />
-      <Line
-        dataKey="v"
-        type="stepAfter"
-        stroke={cssColor(curve.variant.color)}
-        strokeWidth={1.5}
-        dot={false}
-        isAnimationActive={false}
-      />
-    </LineChart>
+    <Sparkline
+      data={curve.points.map(p => [Math.min(p.tick, maxTick), p.value])}
+      xDomain={[0, maxTick]}
+      yDomain={[0, top]}
+      width={96}
+      color={cssColor(curve.variant.color)}
+      step
+    />
   );
 }
 
@@ -69,7 +72,7 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
             <span className="inline-flex items-center gap-1.5">
               <span
                 aria-hidden
-                className={cn('size-2 rounded-full', run.success ? 'bg-success' : 'border-2 border-destructive')}
+                className={clsx('size-2 rounded-full', run.success ? 'bg-success' : 'border-2 border-danger')}
               />
               {value}
             </span>
@@ -94,7 +97,7 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
       id: 'ended',
       header: 'Ended',
       meta: { className: 'max-md:hidden' },
-      cell: ({ row }) => <span className="text-muted-foreground">{endedWord(row.original.ended_by)}</span>,
+      cell: ({ row }) => <span className="text-muted">{endedWord(row.original.ended_by)}</span>,
     }),
     col.accessor('epoch', { header: 'Epoch', meta: { numeric: true } }),
     ...(target
@@ -122,7 +125,7 @@ export function RunsTable({
   curves: RunCurve[];
   sort: string[];
   page: number;
-}) {
+}): JSX.Element {
   const navigate = useNavigate();
   const update = useSearchUpdate();
   const cols = useMemo(() => columns(e, new Map(curves.map(cv => [cv.run.id, cv]))), [e, curves]);

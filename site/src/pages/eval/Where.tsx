@@ -3,7 +3,7 @@
  * darker where more ticks were spent. The centrepiece shows movement; this shows where they stood.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, type JSX } from 'react';
 import { WorldMap, type MapOverlay, type MapPath } from '@/components/WorldMap';
 import { KeyLegend } from '@/components/Charts';
 import type { EvalRuns } from '@/data/types';
@@ -31,7 +31,7 @@ export function WhereMap({
   legend: LegendState;
   view: MapView | undefined;
   height?: number;
-}) {
+}): JSX.Element {
   const update = useSearchUpdate();
   const colors = useThemeColors();
   const shown = curves.filter(cv => legend.visible(cv.variant.key) && grid?.runs[cv.run.id]?.path.length);
@@ -99,8 +99,8 @@ export function WhereMap({
       />
       <KeyLegend
         items={[
-          { label: 'Less time', swatchClassName: 'bg-data-red/20' },
-          { label: 'More', swatchClassName: 'bg-data-red/85' },
+          { label: 'Less time', swatchClassName: 'bg-data-red-20' },
+          { label: 'More', swatchClassName: 'bg-data-red-80' },
         ]}
       />
     </div>
