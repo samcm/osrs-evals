@@ -1157,6 +1157,10 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], items: dict, o
     evl = {
         "id": eval_id, "base": base, "title": eval_title(eval_id), "measure": MEASURES.get(base, "Value"),
         "goal": s.input if isinstance(s.input, str) else str(s.input), "budget_ticks": m["budget_ticks"], "tick_ms": tick_ms,
+        # The whole prompt the agent got: the goal and the harness's note on the machine, as omp.py joins them
+        "prompt": "\n\n".join(msg.text for msg in s.messages if msg.role == "user") or None,
+        # The game server's settings for the eval (tick rate, Grand Exchange)
+        "world": m.get("world"),
         "attempts": attempts, "target": m.get("target"), "accounts": [a["username"] for a in m["accounts"]], "task_file": spec.task_file,
         # Where the character starts: its start save and the first tile it was recorded on
         "start": {"save": m["accounts"][0].get("save"), "tile": path[0][1:3] if path else None},
@@ -1164,7 +1168,7 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], items: dict, o
     detail = {
         **run,
         "goal": evl["goal"],
-        "prompt": next((msg.text for msg in s.messages if msg.role == "user"), None),
+        "prompt": evl["prompt"],
         "timeline": change_points(timeline),
         "score_metadata": {k: v.metadata for k, v in s.scores.items()},
         "turns": turns,

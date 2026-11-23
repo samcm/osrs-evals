@@ -7,6 +7,8 @@ import { mapViewParam } from '@/lib/map';
 import { defineSearch, int, legendParams, oneOf, sortParam } from '@/lib/search';
 
 export const evalSearch = defineSearch({
+  /** The header's Setup section, open: the prompt and settings every run got */
+  setup: oneOf(['1'], undefined),
   /** The page's view */
   tab: oneOf(['overview', 'held', 'cost', 'behaviour', 'runs'], 'overview'),
   /** The overview's x measure, and which runs it shows: each pairing's median or best run, or every run */

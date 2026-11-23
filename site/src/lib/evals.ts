@@ -12,6 +12,8 @@ interface EvalArt {
   measure: string;
   /** What wins, in a player's terms: the eval page's header and the scoring explainers say it */
   score?: string;
+  /** Why the project runs this eval, in plain words: what it tests that the others don't. The eval page's lead */
+  why?: string;
   /** The eval's name, for one the site lists before it has runs (the evals the project runs now) */
   title?: string;
 }
@@ -22,6 +24,8 @@ const ART: Record<string, EvalArt> = {
     items: [],
     measure: 'Quest points',
     score: 'Most quest points',
+    why:
+      'Quests are the game’s puzzles: long chains of errands that send you across the map to talk to people, fetch items and beat monsters. It tests whether an agent can work out what each quest needs and get through as many as it can.',
   },
   dragon_slayer: {
     mark: { src: questSrc('dragon_slayer'), name: 'Dragon Slayer' },
@@ -29,6 +33,8 @@ const ART: Record<string, EvalArt> = {
     measure: 'Quest stage',
     score: 'Fastest to finish the quest',
     title: 'Dragon Slayer',
+    why:
+      'One long task with a hard gate. Dragon Slayer won’t start until you have 32 quest points, then needs a ship, a map in three pieces and a fight with a level 83 dragon. It tests whether an agent can plan and keep going toward one far-off goal.',
   },
   total_level: {
     mark: { src: uiSrc('stats'), name: 'Skills' },
@@ -36,12 +42,16 @@ const ART: Record<string, EvalArt> = {
     measure: 'Total level',
     score: 'Highest total level',
     title: 'Total level',
+    why:
+      'Every skill counts, so there is no single right answer: the agent has to choose what to train, get the tools for it and keep training without stalling. It tests open-ended grinding.',
   },
   collection: {
     mark: { src: uiSrc('inventory'), name: 'Inventory' },
     items: [],
     measure: 'Different items',
     score: 'Most different items',
+    why:
+      'Each new kind of item counts once, so repeating one trick stops paying almost at once. It rewards exploring the world: shops, drops, gathering and making things.',
   },
   team_wealth: {
     mark: { src: itemSrc('995-10000'), name: 'Coins' },
@@ -49,6 +59,8 @@ const ART: Record<string, EvalArt> = {
     measure: 'Wealth',
     score: 'Richest team',
     title: 'Team wealth',
+    why:
+      'Four characters share one score, so the agent has to run several at once instead of one. It tests whether an agent can find a way to make money, spread it across a team and keep it running.',
   },
   coins: { mark: { src: itemSrc(995), name: 'Coins' }, items: [{ id: '995', name: 'Coins' }], measure: 'Coins' },
   gold: { mark: { src: itemSrc('995-10000'), name: 'Coins' }, items: [{ id: '995-10000', name: 'Coins' }], measure: 'Coins' },

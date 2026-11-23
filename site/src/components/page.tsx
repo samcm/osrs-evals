@@ -65,6 +65,34 @@ export function PageHeader({
   );
 }
 
+/**
+ * A page's opening card, the human version first: its sprite on a tile, the lead (why an eval is
+ * run, or what a run did) at full strength, then the facts as terms over values, with actions on
+ * the right. `children` go under it, inside the card (the eval's Setup).
+ */
+export function PageHero({ mark, lead, meta, actions, children }: { mark?: ReactNode; lead?: ReactNode; meta: MetaItem[]; actions?: ReactNode; children?: ReactNode }) {
+  return (
+    <Card className="gap-0 py-0">
+      <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-start">
+        {mark && <span className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-muted">{mark}</span>}
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          {lead && <p className="max-w-3xl text-base text-pretty">{lead}</p>}
+          <dl className="flex flex-wrap gap-x-8 gap-y-3 text-sm">
+            {meta.map(m => (
+              <div key={m.term} className="flex min-w-0 flex-col gap-0.5">
+                <dt className="text-muted-foreground">{m.term}</dt>
+                <dd className="tabular-nums **:font-normal">{m.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+      </div>
+      {children}
+    </Card>
+  );
+}
+
 /** A row of controls that drive the cards below it. */
 export function PageToolbar({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (

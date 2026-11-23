@@ -2,7 +2,7 @@ import { useEffect, useMemo, type ReactNode } from 'react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Outcome, Segmented } from '@/components/bits';
-import { PageHeader, type MetaItem } from '@/components/page';
+import { PageHero, type MetaItem } from '@/components/page';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Sprite } from '@/components/marks';
 import { Button } from '@/components/ui/button';
@@ -54,10 +54,10 @@ function QuestIcons({ quests }: { quests: RunDetail['metrics']['quests'] }) {
 
 /**
  * The run's result as header meta, each value its own term. A run with a target: whether it
- * finished, then how long it took (in the lanes' unit) and on which attempt, or how far it got. A
+ * finished, then how long it took (game time, its ticks on hover) and on which attempt, or how far it got. A
  * run without one (quest points): its score, with each quest's icon.
  */
-function resultMeta(run: RunDetail, evalInfo: Eval | undefined, measure: XMeasure): MetaItem[] {
+function resultMeta(run: RunDetail, evalInfo: Eval | undefined): MetaItem[] {
   const term = evalInfo?.measure ?? 'Score';
   const value = resultValue(run) ?? 0;
   if (run.target == null) {
@@ -76,7 +76,16 @@ function resultMeta(run: RunDetail, evalInfo: Eval | undefined, measure: XMeasur
   }
   const meta: MetaItem[] = [{ term: 'Result', value: <Outcome run={run} /> }];
   if (run.success) {
-    meta.push({ term: 'Time', value: measure === 'ticks' ? `${formatInt(run.ticks)} ticks` : formatDuration(run.seconds) });
+    // Game time reads as a player's; its ticks, the charts' unit, on hover
+    meta.push({
+      term: 'Time',
+      value: (
+        <Tooltip>
+          <TooltipTrigger className="cursor-help underline decoration-dotted underline-offset-4">{formatDuration(run.seconds)}</TooltipTrigger>
+          <TooltipContent>{formatInt(run.ticks)} game ticks</TooltipContent>
+        </Tooltip>
+      ),
+    });
     const won = run.attempt_results?.find(a => a.ticks != null);
     if (run.attempts > 1 && won) meta.push({ term: 'Attempt', value: formatInt(won.attempt) });
   } else {
@@ -186,17 +195,17 @@ function placeAmong(run: Run, runs: Run[]): { place: number; of: number } {
 }
 
 /**
- * The result, its place among the eval's runs and its cost as meta; the run id (its facts behind it)
- * and the epochs on the right. The header bar already names the eval and the pairing, with its marks.
+ * The run's opening card: what it did in one sentence (site/summarize.py), then its result, its
+ * place among the eval's runs and its cost; the run id (its facts behind it) and the epochs on the
+ * right. The header bar already names the eval and the pairing, with its marks.
  */
 function Header({ run, evalInfo, runs, measure, summary }: { run: RunDetail; evalInfo: Eval | undefined; runs: Run[]; measure: XMeasure; summary?: string }) {
   const { place, of } = placeAmong(run, runs);
   return (
-    <PageHeader
-      // The run in one sentence (site/summarize.py), above its facts
-      description={summary}
+    <PageHero
+      lead={summary}
       meta={[
-        ...resultMeta(run, evalInfo, measure),
+        ...resultMeta(run, evalInfo),
         ...(of > 1 ? [{ term: 'Place', value: `#${formatInt(place)} of ${formatInt(of)} runs` }] : []),
         ...(run.cost != null ? [{ term: 'Cost', value: formatCost(run.cost) }] : []),
       ]}
@@ -209,7 +218,6 @@ function Header({ run, evalInfo, runs, measure, summary }: { run: RunDetail; eva
     />
   );
 }
-
 
 export function RunPage() {
   const { runId } = route.useParams();

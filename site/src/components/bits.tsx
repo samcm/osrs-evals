@@ -131,12 +131,13 @@ export function Disclosure({
 }
 
 /** Preformatted text in Geist Mono that wraps on narrow screens. */
-export function CodeBlock({ children, tone = 'default' }: { children: ReactNode; tone?: 'default' | 'danger' }) {
+export function CodeBlock({ children, tone = 'default', className }: { children: ReactNode; tone?: 'default' | 'danger'; className?: string }) {
   return (
     <pre
       className={cn(
         'max-h-96 overflow-auto rounded-md border px-3 py-2 font-mono text-xs/5 wrap-break-word whitespace-pre-wrap',
-        tone === 'danger' ? 'border-destructive/20 bg-destructive/5 text-destructive' : 'bg-muted/50 text-foreground'
+        tone === 'danger' ? 'border-destructive/20 bg-destructive/5 text-destructive' : 'bg-muted/50 text-foreground',
+        className
       )}
     >
       {children}

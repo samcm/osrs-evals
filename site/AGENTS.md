@@ -31,7 +31,8 @@ Every page has the same skeleton, and nothing on a page invents its own.
 - **shadcn's dashboard, nothing bespoke.** The inset `Sidebar`; the header bar names the page with
   the `Breadcrumb` (the landing page is "Home"); the content never repeats the page's name and has no
   H1. Content is a column of shadcn `Card`s.
-- **Skeleton:** `PageHeader` (a one-line description and facts, optional), `PageTabs` when the page
+- **Skeleton:** `PageHeader` (a one-line description and facts, optional; the eval and run pages
+  open on a `PageHero` card instead: a full-strength lead, then the facts), `PageTabs` when the page
   has more than one view (`?tab=`), `PageToolbar` (a plain row of controls), then `PageSection`s,
   each a `Card` with `CardHeader` (`CardTitle`, controls in `CardAction`) and `CardContent`.
 - **Type comes from the library:** card titles, descriptions and table text at their shadcn sizes;
@@ -81,10 +82,14 @@ its chart, and beside the leaderboard (eight and four of twelve columns) from 2x
 
 ### Eval page
 
-A header card (`eval/EvalHero.tsx`): the eval's sprite on a muted tile and the goal (the prompt,
-which says what wins) in full-strength text, then its facts as terms over values (the budget as game
-time, its ticks on hover; a team's characters; how many runs). Nothing restates the goal, and no
-run's picture goes up here (Sam: don't just render some run in the header). How the server's saves
+A header card (`eval/EvalHero.tsx`, on `PageHero`), the human version first: the eval's sprite on a
+muted tile and why the project runs it (`why` in `lib/evals.ts`, what it tests in plain words) in
+full-strength text, then the goal and its facts as terms over values (the budget as game time, its
+ticks on hover; a team's characters; how many runs). Under it, in the card, a **Setup** section
+(closed unless `?setup=1`): the exact prompt every run got (the goal and the harness's note on the
+machine, from the export's `prompt`) and the settings (start, accounts, budget in ticks, attempts,
+score, game, agent, the thinking levels run, a link to the eval's file). No run's picture goes up
+here (Sam: don't just render some run in the header). How the server's saves
 are read (varps, save files) is the README's business, never the site's. Then tabs: **Race**
 (`Centerpiece`: the standings, the eval's one ranked list, beside every run together in the game
 on one playhead; then `Progress`, the eval's measure over time, starting on the first screen at
@@ -147,7 +152,8 @@ median in grey, and its runs. On a phone the breadcrumb keeps the eval. Filtered
 ### Run page
 
 A debugger. The header bar names the eval and the pairing with its marks (vendor, thinking level,
-harness); `PageHeader` holds the result, its place among the eval's runs and its cost as meta,
+harness); a `PageHero` card has the run's sentence as its lead, then the result (game time, ticks
+on hover), its place among the eval's runs and its cost as terms over values,
 the run id (its facts behind it), the epoch and previous/next. Then the game player with the
 playback bar as its footer (quests and attempts on its track; the default speed plays the run in
 about two minutes), and the transcript card beside it at the game's height. Without a live game

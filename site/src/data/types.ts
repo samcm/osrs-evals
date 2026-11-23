@@ -16,8 +16,12 @@ export interface Eval {
   title: string;
   /** What `value` counts, for axis names: "Quest stage", "Quest points", "Total level" */
   measure: string;
-  /** The prompt the agent gets, verbatim */
+  /** The goal the eval sets, verbatim: the first part of the agent's prompt */
   goal: string;
+  /** The whole prompt the agent gets, verbatim: the goal, then the harness's note on the machine */
+  prompt?: string | null;
+  /** The game server's settings for the eval (NODE_TICKRATE, GE_ENABLED, ...) */
+  world?: Record<string, string> | null;
   budget_ticks: number;
   tick_ms: number;
   attempts: number;
