@@ -41,7 +41,7 @@ const spriteHtml = (src: string): string =>
   `<img src="${escapeHtml(src)}" alt="" class="size-3.5 shrink-0 object-contain" style="image-rendering:pixelated">`;
 
 /** A series' marks and name, as SeriesLabel draws them. */
-export function seriesLabelHtml(series: SeriesSpec): string {
+function seriesLabelHtml(series: SeriesSpec): string {
   const mark = series.sprite
     ? spriteHtml(series.sprite)
     : series.vendor

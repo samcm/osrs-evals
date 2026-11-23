@@ -8,13 +8,13 @@
  *   const head = useEvalPlayhead(committed, span, commit)   // once, in the component that plays
  *   seek(tick)   move without touching the URL (drag)
  *   play() / pause()
- *   useEvalTick(committed, span)                            // anywhere else: the tick to show
+ *   usePlayheadMark(committed)                              // anywhere else: the tick to mark
  */
 
 import { useEffect, useEffectEvent, useSyncExternalStore } from 'react';
 
 /** Real seconds the whole race takes to play. */
-export const PLAY_SECONDS = 30;
+const PLAY_SECONDS = 30;
 
 interface State {
   scrub: number | null;
@@ -44,12 +44,6 @@ function useStore(): State {
 export const seek = (tick: number): void => set({ scrub: tick });
 export const play = (): void => set({ playing: true });
 export const pause = (): void => set({ playing: false });
-
-/** The tick to show: the moving playhead, else `?t=`, else the end. */
-export function useEvalTick(committed: number | undefined, span: number): number {
-  const { scrub } = useStore();
-  return Math.min(span, scrub ?? committed ?? span);
-}
 
 /** The tick to mark: the moving playhead, else `?t=`; null when neither is set (nothing to mark). */
 export function usePlayheadMark(committed: number | undefined): number | null {

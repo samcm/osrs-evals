@@ -40,7 +40,7 @@ export function runScore(e: Eval, run: Run, best: number): number | null {
   return best > 0 ? clamp01(value / best) : 0;
 }
 
-export interface EvalScore {
+interface EvalScore {
   /** The pairing's mean run score on the eval, 0 to 1 */
   score: number;
   runs: number;

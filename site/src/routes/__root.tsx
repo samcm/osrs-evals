@@ -10,7 +10,6 @@ import {
 } from '@tanstack/react-router';
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { ThemeProvider } from '@/providers/ThemeProvider';
-import { SharedCrosshairsProvider } from '@/providers/SharedCrosshairsProvider';
 import { ThemeToggle } from '@/components/Layout/ThemeToggle';
 import { Sidebar, PRODUCT_NAME } from '@/components/Layout/Sidebar';
 import { Container } from '@/components/Layout/Container';
@@ -131,32 +130,30 @@ function Shell({ children }: { children: ReactNode }): JSX.Element {
 
   return (
     <ThemeProvider themeOverride={themeOverride}>
-      <SharedCrosshairsProvider>
-        <TooltipGroup>
-          <div className="bg-background">
-            {/* Sidebar (mobile + desktop) */}
-            <Sidebar
-              sidebarOpen={sidebarOpen}
-              setSidebarOpen={setSidebarOpen}
-              collapsed={sidebarCollapsed}
-              setCollapsed={setSidebarCollapsed}
-            />
+      <TooltipGroup>
+        <div className="bg-background">
+          {/* Sidebar (mobile + desktop) */}
+          <Sidebar
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+            collapsed={sidebarCollapsed}
+            setCollapsed={setSidebarCollapsed}
+          />
 
-            {/* Mobile header */}
-            <MobileHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+          {/* Mobile header */}
+          <MobileHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-            {/* Main content */}
-            <main
-              className={`min-w-0 bg-background pt-16.25 transition-all duration-200 lg:min-h-dvh lg:pt-0 ${sidebarCollapsed ? 'lg:pl-14' : 'lg:pl-56'}`}
-            >
-              <div className="z-20 flex h-12 items-center border-b border-border bg-background px-4 sm:px-6 lg:sticky lg:top-0 lg:px-8">
-                <Breadcrumb items={crumbs} />
-              </div>
-              <Container className="flex min-w-0 flex-col gap-6">{children}</Container>
-            </main>
-          </div>
-        </TooltipGroup>
-      </SharedCrosshairsProvider>
+          {/* Main content */}
+          <main
+            className={`min-w-0 bg-background pt-16.25 transition-all duration-200 lg:min-h-dvh lg:pt-0 ${sidebarCollapsed ? 'lg:pl-14' : 'lg:pl-56'}`}
+          >
+            <div className="z-20 flex h-12 items-center border-b border-border bg-background px-4 sm:px-6 lg:sticky lg:top-0 lg:px-8">
+              <Breadcrumb items={crumbs} />
+            </div>
+            <Container className="flex min-w-0 flex-col gap-6">{children}</Container>
+          </main>
+        </div>
+      </TooltipGroup>
     </ThemeProvider>
   );
 }

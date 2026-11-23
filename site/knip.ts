@@ -6,5 +6,4 @@
 export default {
   entry: ['src/routes/**/*.tsx'],
   project: ['src/**/*.{ts,tsx,css}'],
-  ignore: ['game/**', 'capture.ts'],
 };

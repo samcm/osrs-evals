@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 
-export interface SelectMenuOption<T> {
+interface SelectMenuOption<T> {
   value: T;
   label: string;
   icon?: ReactNode;

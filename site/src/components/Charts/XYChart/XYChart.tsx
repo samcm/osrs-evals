@@ -7,7 +7,6 @@
  *
  * Lab's MultiLine and ScatterAndLine don't fit here: they have no log axis, their legends and end
  * labels are plain text without marks, and they don't expose where their plot is for HTML on top.
- * Lab's Heatmap and Bar fit their charts as they are; use them in a ChartFrame.
  *
  *   <ChartFrame height="lead" legend={<SeriesLegend series={specs} legend={legend} />}>
  *     <XYChart x={{ domain: [0, budget], ticks: roundTicks(budget) }} y={{ domain: [0, 10], ticks }}

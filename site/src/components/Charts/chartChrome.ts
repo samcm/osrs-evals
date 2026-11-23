@@ -1,5 +1,5 @@
 /**
- * Shared ECharts chrome (axes, tooltip, title) so every chart matches MultiLine.
+ * Shared ECharts chrome (axes, tooltip) from lab, so every chart matches lab's charts.
  */
 
 /** Subset of theme colors used by the chrome helpers. */
@@ -8,15 +8,6 @@ export interface ChartChromeColors {
   muted: string;
   border: string;
   surface: string;
-}
-
-/** Default chart title text style. */
-export function getChartTitleTextStyle(colors: ChartChromeColors): {
-  color: string;
-  fontSize: number;
-  fontWeight: number;
-} {
-  return { color: colors.foreground, fontSize: 14, fontWeight: 600 };
 }
 
 /** Tooltip container styling shared by all charts. */
@@ -78,12 +69,4 @@ export function getChartValueSplitLine(colors: ChartChromeColors): {
   lineStyle: { color: string; type: 'solid' };
 } {
   return { show: true, lineStyle: { color: colors.border, type: 'solid' } };
-}
-
-/** Axis numbers: compact from 10,000 up ("40M", "1.2B"), grouped digits below */
-export function formatAxisNumber(value: number): string {
-  if (Math.abs(value) >= 10_000) {
-    return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
-  }
-  return value.toLocaleString('en-US', { maximumFractionDigits: 6 });
 }

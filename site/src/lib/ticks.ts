@@ -1,7 +1,7 @@
 /** Round ticks for a linear axis from zero: 0, 10K, 20K, 30K, never 1,883 or 10.9K. */
 
 /** The 1-2-2.5-5 step that gives about `count` intervals up to `max`; at least 1 for counts. */
-export function roundStep(max: number, count = 5, integer = true): number {
+function roundStep(max: number, count = 5, integer = true): number {
   if (!(max > 0)) return 1;
   const raw = max / count;
   const e = Math.floor(Math.log10(raw));

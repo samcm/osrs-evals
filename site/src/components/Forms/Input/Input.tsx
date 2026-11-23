@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components -- Input is a compound component (Object.assign), which the rule
+   doesn't count as one; its parts (Leading, Trailing, Field) are reached only through it */
 import React, { useId, createContext, use, type JSX, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { Button } from '@/components/Elements/Button';
@@ -126,7 +128,7 @@ const slotIconStyles: Record<InputSize, string> = {
  * </Input.Leading>
  * ```
  */
-export const InputLeading = ({ children, className, type }: InputSlotProps): React.ReactNode => {
+const InputLeading = ({ children, className, type }: InputSlotProps): React.ReactNode => {
   const { size, inline, labelVariant } = useInputContext();
 
   // An inset label takes the slots' place
@@ -201,7 +203,7 @@ InputLeading.displayName = 'Input.Leading';
  * </Input.Trailing>
  * ```
  */
-export const InputTrailing = ({ children, className, type }: InputSlotProps): React.ReactNode => {
+const InputTrailing = ({ children, className, type }: InputSlotProps): React.ReactNode => {
   const { size, inline, labelVariant } = useInputContext();
 
   // An inset label takes the slots' place
@@ -282,7 +284,7 @@ InputTrailing.displayName = 'Input.Trailing';
  * />
  * ```
  */
-export const InputField = ({ className, ref, inputMode, ...props }: InputFieldProps): JSX.Element => {
+const InputField = ({ className, ref, inputMode, ...props }: InputFieldProps): JSX.Element => {
   const { size, error, inline, inputId, labelVariant, describedBy, required } = useInputContext();
   const styles = getStyleConfig();
 
@@ -539,7 +541,6 @@ const InputBase = ({
 InputBase.displayName = 'Input';
 
 // Attach subcomponents to Input for compound component API
-// eslint-disable-next-line react-refresh/only-export-components
 export const Input = Object.assign(InputBase, {
   Leading: InputLeading,
   Trailing: InputTrailing,

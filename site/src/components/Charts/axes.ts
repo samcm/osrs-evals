@@ -2,8 +2,7 @@
  * The chart kit's geometry and axes, in lab's chart chrome (chartChrome.ts): one y axis width on
  * every chart so stacked charts share their plot's left edge, room on the right for line-end labels,
  * and ECharts value and log axes on the round ticks the page passes (lib/ticks.ts, lib/logAxis.ts).
- * XYChart builds its option from these; a page only reaches for them to build a lab core chart
- * (Heatmap, Bar) with the same edges.
+ * XYChart builds its option from these.
  */
 
 import { formatCostTick } from '@/lib/format';

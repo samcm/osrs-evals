@@ -9,8 +9,8 @@
  *   </ChartFrame>
  *
  * A chart with one row per group (a strip or bar chart ranking groups) sizes to its rows instead:
- * pass `rows`, and it takes ROW_HEIGHT per row plus room for the x axis. The child fills the frame:
- * an XYChart, or a lab core chart (Heatmap, Bar) with `height="100%"`.
+ * pass `rows`, and it takes ROW_HEIGHT per row plus room for the x axis. The child, an XYChart,
+ * fills the frame.
  */
 
 import type { JSX, ReactElement, ReactNode } from 'react';

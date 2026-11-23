@@ -27,7 +27,7 @@ function dash(line: SeriesSpec['line'] | undefined): 'solid' | number[] {
 }
 
 /** A line's value at x: the last point at or before it on a step line, else interpolated. */
-export function valueAt(points: [number, number | null][], x: number, step: boolean): number | null {
+function valueAt(points: [number, number | null][], x: number, step: boolean): number | null {
   let i = -1;
   for (let j = 0; j < points.length && points[j][0] <= x; j++) i = j;
   if (i < 0) return null;

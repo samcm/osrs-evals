@@ -224,23 +224,24 @@ row, never a one-off tooltip trigger. Draw something yourself only when no lab c
 say why in the file. The same goes for the small things: anything said on hover is the
 `Overlays/Tooltip` (`Tip` in `components/bits.tsx`), never the browser's `title`; anything clickable
 is a lab `Button` (or `buttonClassName` on a router `Link`), a `SegmentedControl` or a `Toggle`; a
-choice from a list is a `SelectMenu` (`SelectField`); a menu of actions is a `Dropdown`; a panel
-that opens from a button is a `Popover`, a modal a `Dialog`; a checklist is a `CheckboxGroup`; a
+choice from a list is a `SelectMenu` (`SelectField`); a menu of actions is lab's `Dropdown`; a panel
+that opens from a button is a `Popover`, a modal lab's `Dialog`; a checklist is a `CheckboxGroup`; a
 box that scrolls inside a card is lab's `ScrollArea`; an empty state is `Empty` (a muted line, as
-lab's tables say it) or an `InfoBox`; loading is `LoadingContainer` in the shape of what it stands
+lab's tables say it) or lab's `InfoBox`; loading is `LoadingContainer` in the shape of what it stands
 for; a scrubber is a `RangeInput`; a table the agent wrote in Markdown is a lab `Table`
 (`Lists/Table`). Icons are Heroicons, not hand-drawn SVG. Charts draw their own marks; nothing else
 does.
 
 **Use the libraries; don't hand-roll UI.** Every component comes from lab: Elements (`Button`,
-`ButtonGroup`, `Badge`, `Dropdown`), Forms (`SelectMenu`, `Checkbox`, `CheckboxGroup`,
-`SegmentedControl`, `Toggle`, `Input`, `RangeInput`), Layout (`Card`, `Container`, `Disclosure`,
-`Divider`, `LoadingContainer`, `ScrollArea`, `Sidebar`, `ThemeToggle`), Navigation (`Breadcrumb`,
-`Tab`, `ScrollableTabs`, `ProgressBar`), Overlays (`Popover`, `Dialog`, `Tooltip`), Feedback
-(`Alert`, `InfoBox`), `DataTable` and `Lists/Table`. Every chart is ECharts with lab's chrome
-(`Charts/chartChrome.ts`, `useThemeColors`, `utils/dataVizColors.ts`, the ECharts theme and shared
-crosshairs), through `XYChart` (lines, bands, areas, points, bars; `src/components/Charts/`) or a
-lab core chart there (Heatmap, Bar, StackedBar), in a `ChartFrame`. Use their default spacing, sizes and structure; a page
+`Badge`), Forms (`SelectMenu`, `Checkbox`, `CheckboxGroup`, `SegmentedControl`, `Toggle`, `Input`,
+`RangeInput`), Layout (`Card`, `Container`, `LoadingContainer`, `ScrollArea`,
+`Sidebar`, `ThemeToggle`), Navigation (`Breadcrumb`, `Tab`, `ScrollableTabs`), Overlays (`Popover`,
+`Tooltip`), Feedback (`Alert`), `DataTable` and `Lists/Table`. Only the components a page uses are
+here (knip fails on the rest): when a page first needs another of lab's (`Dropdown`, `Dialog`,
+`InfoBox`, `ButtonGroup`, `Divider`, `Disclosure`, `ProgressBar`, a core chart), copy it from lab then. Every chart
+is ECharts with lab's chrome (`Charts/chartChrome.ts`, `useThemeColors` and the ECharts
+theme), through `XYChart` (lines, bands, areas, points, bars, a synced crosshair;
+`src/components/Charts/`) in a `ChartFrame`, or lab's `Sparkline` in a table cell. Use their default spacing, sizes and structure; a page
 composes them and never re-styles their padding, radius or type. When a lab component almost fits,
 use it as is; change the file in `src/components/<Category>/` only to change the whole site's look,
 never for one page. The only custom-drawn component is the world map.

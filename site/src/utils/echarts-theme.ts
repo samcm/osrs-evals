@@ -1,5 +1,7 @@
 import { registerTheme } from 'echarts/core';
-import { CHART_FONT_FAMILY } from './dataVizColors';
+
+/** Font stack for ECharts canvas text; matches the UI's --font-sans. */
+const CHART_FONT_FAMILY = "'Geist Variable', Geist, system-ui, sans-serif";
 
 /** Name of the registered ECharts theme; pass as `theme` to every ReactECharts instance. */
 export const ECHARTS_THEME = 'lab';

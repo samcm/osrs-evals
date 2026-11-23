@@ -14,7 +14,6 @@ import {
   hashColor,
   modelInfo,
   variantOf,
-  vendorOf,
   type AgentLine,
   type AgentSymbol,
   type SeriesColor,
@@ -95,12 +94,6 @@ export function variantSeries(source: Variant | Pick<Run, 'model' | 'agent' | 'a
   });
 }
 
-/** A vendor (Anthropic, OpenAI …): its mark and a fixed hashed colour. */
-export function vendorSeries(vendorId: string): SeriesSpec {
-  const vendor = vendorOf(`${vendorId}/x`);
-  return spec(vendorId, vendor.name, vendor.name, hashColor(`vendor:${vendorId}`), { vendor: vendor.slug });
-}
-
 /** An agent harness: its mark, its line and shape, and a fixed hashed colour. */
 export function agentSeries(agent: string, fallbackName?: string): SeriesSpec {
   const info = agentInfo(agent, fallbackName);
@@ -132,18 +125,4 @@ export function tokenSeries(kind: TokenKind): SeriesSpec {
 /** An SVG strokeDasharray for an agent's line style (legend keys, end labels). */
 export function dashArray(line: AgentLine): string | undefined {
   return line === 'dashed' ? '6 4' : line === 'dotted' ? '1.5 3' : undefined;
-}
-
-/** A Recharts Scatter shape for an agent's point shape (the legacy kit; XYChart uses `symbol`). */
-export function scatterShape(symbol: AgentSymbol): 'circle' | 'square' | 'diamond' | 'triangle' | 'wye' {
-  return (
-    {
-      circle: 'circle',
-      rect: 'square',
-      roundRect: 'square',
-      diamond: 'diamond',
-      triangle: 'triangle',
-      pin: 'wye',
-    } as const
-  )[symbol];
 }

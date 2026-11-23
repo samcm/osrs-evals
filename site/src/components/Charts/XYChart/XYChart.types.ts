@@ -76,7 +76,7 @@ export interface ChartPoints {
 }
 
 /** A bar segment on a chart with rows: a series' value in one row, stacked after the bars before it. */
-export interface ChartBar {
+interface ChartBar {
   series: SeriesSpec;
   /** One value per row it has (row index from the top); bars stack in the order given */
   values: { row: number; value: number }[];

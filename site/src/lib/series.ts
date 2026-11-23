@@ -297,8 +297,6 @@ export function modelInfo(id: string): ModelInfo {
   };
 }
 
-export const modelName = (id: string): string => modelInfo(id).name;
-
 // Agents
 
 /** How an agent's series are drawn: an ECharts symbol and a line dash. */
@@ -350,8 +348,6 @@ export function agentInfo(id: string, fallbackName?: string): AgentInfo {
   };
 }
 
-export const agentName = (id: string, fallbackName?: string): string => agentInfo(id, fallbackName).name;
-
 // Thinking levels
 
 /**
@@ -369,7 +365,7 @@ let levelSheet: CSSStyleSheet | null = null;
  * cannot know these names ahead of time, so the rules are added to one stylesheet the first time a
  * level of a colour is used; everything that reads a SeriesColor works on them unchanged.
  */
-export function levelColor(base: SeriesColor, level: string): SeriesColor {
+function levelColor(base: SeriesColor, level: string): SeriesColor {
   const mix = LEVEL_MIX[level];
   if (!mix) return base;
   const name = `${base.token.replace(/^--color-/, '')}-${level}`;
@@ -403,7 +399,7 @@ export function levelColor(base: SeriesColor, level: string): SeriesColor {
  * Thinking levels, lowest first: the `thinking` every run's omp solver pins, and `none` (a model
  * with no thinking levels, which is not off). There is no "default".
  */
-export const THINKING_LEVELS = ['none', 'off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
+const THINKING_LEVELS = ['none', 'off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
 
 /** A level as words: "no thinking levels", "high". */
 export const levelName = (level: string): string => (level === 'none' ? 'no thinking levels' : level);
@@ -459,15 +455,6 @@ export function variantOf(run: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thi
     vendorSlug: model.vendor.slug,
     agentSlug: agent.slug,
   };
-}
-
-/** Variants in a stable order: by model, harness, then thinking level. */
-export function compareVariants(a: Variant, b: Variant): number {
-  return (
-    modelName(a.model).localeCompare(modelName(b.model)) ||
-    a.agent.localeCompare(b.agent) ||
-    compareThinking(a.thinking, b.thinking)
-  );
 }
 
 /**

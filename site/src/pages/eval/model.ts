@@ -43,7 +43,7 @@ const nonNull = <T>(v: T | null | undefined): v is T => v != null;
 /** Total ticks the eval allows: the budget of every attempt. */
 export const totalBudgetTicks = (e: Eval): number => e.budget_ticks * Math.max(1, e.attempts);
 /** The same budget in wall-clock seconds at the tick rate. */
-export const totalBudgetSeconds = (e: Eval): number => (totalBudgetTicks(e) * e.tick_ms) / 1000;
+const totalBudgetSeconds = (e: Eval): number => (totalBudgetTicks(e) * e.tick_ms) / 1000;
 
 /** A cumulative count of model calls by tick, from a run's detail. */
 export function callsByTick(detail: RunDetail): (tick: number) => number {
@@ -133,16 +133,6 @@ export function xOf(p: CurvePoint, x: XMeasure): number | null {
   return p.calls;
 }
 
-/** A run's position on an x measure at a tick: the last point at or before it. */
-export function xAtTick(curve: RunCurve, tick: number, x: XMeasure): number | null {
-  let found = curve.points[0];
-  for (const p of curve.points) {
-    if (p.tick <= tick) found = p;
-    else break;
-  }
-  return found ? xOf(found, x) : null;
-}
-
 /** A run's value at a position on an x measure: held after its end. */
 export function valueAt(curve: RunCurve, x: XMeasure, at: number): number | null {
   let value: number | null = null;
@@ -227,7 +217,7 @@ export interface RankedVariant {
 }
 
 /** Where a finished run finished on an x measure: ticks and seconds within its best attempt. */
-export function finishOn(run: Run, x: XMeasure): number | null {
+function finishOn(run: Run, x: XMeasure): number | null {
   if (!run.success) return null;
   if (x === 'ticks') return run.ticks;
   if (x === 'seconds') return run.seconds;

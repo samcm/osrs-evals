@@ -53,7 +53,7 @@ import {
   type XMeasure,
 } from './model';
 import { useCommitted, usePlayhead } from './playhead';
-import { DEFAULT_LANES, LANE_IDS, runSearch, useSettle, type LaneId, type RunSearch } from './search';
+import { LANE_IDS, runSearch, useSettle, type LaneId, type RunSearch } from './search';
 
 const SYNC = 'run-lanes';
 
@@ -679,7 +679,7 @@ function LanesMenu({
   const update = useSearchUpdate(runSearch);
   const toggle = (id: LaneId, on: boolean): void => {
     const next = LANE_IDS.filter(l => (l === id ? on : shown.includes(l)));
-    const isDefault = next.length === DEFAULT_LANES.length && next.every(l => DEFAULT_LANES.includes(l));
+    const isDefault = next.length === LANE_IDS.length;
     update({ lanes: isDefault ? [] : next });
   };
   return (
@@ -725,7 +725,7 @@ export const Lanes = memo(function Lanes({
   const measure = search.x;
   const maxX = measure === 'ticks' ? clock.maxTicks : clock.maxSeconds;
   const available = useMemo(() => availableLanes(run), [run]);
-  const requested: readonly LaneId[] = search.lanes.length ? (search.lanes as LaneId[]) : DEFAULT_LANES;
+  const requested: readonly LaneId[] = search.lanes.length ? (search.lanes as LaneId[]) : LANE_IDS;
   const shown = available.map(l => l.id).filter(id => requested.includes(id));
 
   const shownKey = shown.join(',');

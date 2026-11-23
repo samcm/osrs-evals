@@ -105,10 +105,6 @@ export function outcomeWord(run: Pick<Run, 'success'>): 'Finished' | 'Not finish
   return run.success ? 'Finished' : 'Not finished';
 }
 
-/** Budget in minutes of wall-clock at the eval's tick rate. */
-export const budgetMinutes = (e: Pick<Eval, 'budget_ticks' | 'tick_ms'>): number =>
-  (e.budget_ticks * e.tick_ms) / 60_000;
-
 /** An eval as it appears in a URL: its id in kebab case (dragon_slayer → dragon-slayer). */
 export const evalSlug = (evalId: string): string => evalId.replace(/_/g, '-');
 

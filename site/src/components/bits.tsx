@@ -1,6 +1,6 @@
 /**
  * Small shared pieces on lab's components: a tooltip on any element (Tip), segmented controls
- * (SegmentedControl, optionally bound to a URL param), a disclosure, code, empty states and a run's
+ * (SegmentedControl, optionally bound to a URL param), code, empty states and a run's
  * outcome. Identity marks are in marks.tsx.
  */
 
@@ -11,7 +11,6 @@ import { outcomeWord } from '@/lib/evals';
 import { useSearchUpdate } from '@/lib/search';
 import { Tooltip } from '@/components/Overlays/Tooltip';
 import { SegmentedControl } from '@/components/Forms/SegmentedControl';
-import { Disclosure as LabDisclosure } from '@/components/Layout/Disclosure';
 
 /**
  * The Tooltip on an element, the element itself its trigger: the one way to say more on hover
@@ -116,30 +115,6 @@ export function ParamSegmented<T extends string>({
       className={className}
       onChange={v => update({ [param]: v }, { resetPage })}
     />
-  );
-}
-
-/** A collapsed block of content behind a one-line trigger: lab's Disclosure, `meta` at its right. */
-export function Disclosure({
-  title,
-  meta,
-  children,
-  defaultOpen = false,
-}: {
-  title: ReactNode;
-  meta?: ReactNode;
-  children: ReactNode;
-  defaultOpen?: boolean;
-}): JSX.Element {
-  return (
-    <LabDisclosure
-      title={title}
-      rightContent={meta && <span className="text-xs text-muted">{meta}</span>}
-      defaultOpen={defaultOpen}
-      className="min-w-0"
-    >
-      {children}
-    </LabDisclosure>
   );
 }
 

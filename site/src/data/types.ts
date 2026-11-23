@@ -35,7 +35,7 @@ export interface Eval {
   start?: { save: string | null; tile: [number, number] | null };
 }
 
-export interface AttemptResult {
+interface AttemptResult {
   attempt: number;
   /** Ticks within the attempt to reach the target */
   ticks: number | null;
@@ -49,7 +49,7 @@ export type ToolCategory = 'write+run' | 'run' | 'write' | 'read' | 'state' | 'w
 /** A quest finished in a run. `source` says how we know: 'varp' read from the server's saves (the
  * quest's own varp), 'inferred' guessed from a quest-points jump, where the account was and whom it
  * last faced. An inferred quest may be null when nothing matched. */
-export interface QuestDone {
+interface QuestDone {
   /** An id in site/game/quests.json, or null when the jump could not be matched to a quest */
   quest: string | null;
   name: string | null;
@@ -63,7 +63,7 @@ export interface QuestDone {
 
 /** Per-run measures, in index.json, for comparing runs. Null when the run has no data for it (no
  * model, no world recording). */
-export interface RunMetrics {
+interface RunMetrics {
   /** First tick and seconds at which the eval's value changed */
   first_progress_tick: number | null;
   first_progress_seconds: number | null;
@@ -240,7 +240,7 @@ export interface ProviderInfo {
 
 /** The harness's sample of the eval's value (every 100 ticks); only the points where the value, a
  * per-account value or the attempt changed, plus the first and last points. */
-export interface TimelinePoint {
+interface TimelinePoint {
   /** Game ticks since the game started, through all attempts */
   tick: number;
   /** Seconds since the game started */
@@ -303,7 +303,7 @@ export interface Turn {
 export type PathPoint = [tick: number, x: number, z: number, level: number, jump?: 1];
 
 /** One entry per model call, in the order of `turns`: columns of the same length. */
-export interface CallSeries {
+interface CallSeries {
   seconds: number[];
   tick: (number | null)[];
   latency: number[];
@@ -321,14 +321,14 @@ export interface CallSeries {
   reasoning: number[];
 }
 
-export interface SdkSeries {
+interface SdkSeries {
   bucket_ticks: number;
   functions: string[];
   /** [bucket start tick, index into functions, ok, failed] */
   bins: [number, number, number, number][];
 }
 
-export interface ActivitySeries {
+interface ActivitySeries {
   bucket_ticks: number;
   /** Per bucket from tick 0 to the game's end: [start tick, ticks moving, ticks running, animations
    * started, tiles walked, the most common animation's name (rs-sdk seq name, e.g. human_cooking) or
@@ -336,7 +336,7 @@ export interface ActivitySeries {
   rows: [number, number, number, number, number, string | null, number][];
 }
 
-export interface RunSeries {
+interface RunSeries {
   calls: CallSeries;
   sdk: SdkSeries | null;
   activity: ActivitySeries | null;
@@ -407,7 +407,7 @@ export interface ItemInfo {
 }
 
 /** A run's measured facts (site/summarize.py's <id>.facts.json, the keys export.py keeps). */
-export interface RunFacts {
+interface RunFacts {
   subagents: number | null;
   compactions: number | null;
   deaths: number | null;

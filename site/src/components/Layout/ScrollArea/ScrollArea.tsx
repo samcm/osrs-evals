@@ -63,7 +63,7 @@ export function ScrollArea({
 /**
  * ScrollBar component for custom styled scrollbars within ScrollArea.
  */
-export function ScrollBar({ className, orientation = 'vertical', ...props }: ScrollBarProps): JSX.Element {
+function ScrollBar({ className, orientation = 'vertical', ...props }: ScrollBarProps): JSX.Element {
   return (
     <ScrollAreaPrimitive.ScrollAreaScrollbar
       data-slot="scroll-area-scrollbar"

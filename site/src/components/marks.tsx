@@ -171,7 +171,7 @@ export function BrandMark({
 }
 
 /** A series colour as a small square: only where the colour is the key for a chart. */
-export function Swatch({ color, className }: { color: SeriesColor; className?: string }): JSX.Element {
+function Swatch({ color, className }: { color: SeriesColor; className?: string }): JSX.Element {
   return (
     <span
       aria-hidden
@@ -210,26 +210,6 @@ function ProgramLabel({
       <BrandMark slug="program" size={size} />
       <span>Program</span>
     </span>
-  );
-}
-
-/** An agent harness as its mark, in the muted colour so the model's vendor mark leads; its name on hover. */
-export function HarnessMark({
-  agent,
-  fallback,
-  size = 14,
-  className,
-}: {
-  agent: string;
-  fallback?: string;
-  size?: BrandSize;
-  className?: string;
-}): JSX.Element {
-  const info = agentInfo(agent, fallback);
-  return (
-    <Tip content={info.name}>
-      <BrandMark slug={info.slug} size={size} title={info.name} tone="muted" className={className} />
-    </Tip>
   );
 }
 

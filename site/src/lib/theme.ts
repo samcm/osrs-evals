@@ -12,7 +12,7 @@ import { useThemeColors as useLabThemeColors, type ThemeColors as LabThemeColors
 let probe: HTMLSpanElement | null = null;
 let context: CanvasRenderingContext2D | null = null;
 
-export function resolveToken(token: string): string {
+function resolveToken(token: string): string {
   if (!probe) {
     probe = document.createElement('span');
     probe.style.display = 'none';

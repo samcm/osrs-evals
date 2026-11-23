@@ -1,13 +1,9 @@
 /** What the run page derives from a run: one clock for ticks and seconds, round axis ticks, turn helpers, the transient moment. */
 
 import { useSyncExternalStore } from 'react';
-import type { Action, RunDetail, ToolCategory, Turn } from '@/data/types';
+import type { Action, RunDetail, Turn } from '@/data/types';
 
 export type XMeasure = 'ticks' | 'seconds';
-
-/** Activity: ticks walking and running, as CSS colours. */
-export const WALKING = 'var(--color-data-sky)';
-export const RUNNING = 'var(--color-data-blue)';
 
 /** The map's path colours from the run's start to its end. */
 export const TIME_RAMP = ['--color-data-cyan', '--color-data-violet', '--color-data-orange'] as const;
@@ -118,18 +114,13 @@ export function plainLine(text: string): string {
 }
 
 /** The turn running at a tick: the last that started at or before it (the first before any). */
-export function turnAt(turns: Turn[], clock: Clock, tick: number): number {
+function turnAt(turns: Turn[], clock: Clock, tick: number): number {
   let found = 0;
   for (let i = 0; i < turns.length; i++) {
     if (turnTick(turns[i], clock) <= tick) found = i;
     else break;
   }
   return found;
-}
-
-/** The tool categories of a turn, each once, in order of first use. */
-export function turnCategories(turn: Turn): ToolCategory[] {
-  return [...new Set(turn.actions.map(a => a.category))];
 }
 
 export const turnHasError = (turn: Turn): boolean => turn.error != null || turn.actions.some(a => a.error != null);
@@ -145,12 +136,6 @@ export function turnSummary(turn: Turn): { text: string; kind: 'said' | 'sdk' | 
   return turn.stop_reason === 'game_over' ? { text: 'Cut off by the end of the game', kind: 'command' } : null;
 }
 
-/** What one action did, in one line: the game functions its script called, else its command. */
-export function actionLine(action: Action): string {
-  const sdk = [...new Set(action.sdk_calls)].filter(f => f !== 'getState');
-  return sdk.length ? sdk.join(' ') : commandLine(action) || action.tool;
-}
-
 /** The first line of a command worth reading: without a leading `cd somewhere;`. */
 function commandLine(action: Action): string {
   for (const line of action.input.split('\n')) {
@@ -158,13 +143,6 @@ function commandLine(action: Action): string {
     if (rest) return rest;
   }
   return '';
-}
-
-/** The most used tool of the run: actions with it don't print their tool's name. */
-export function commonTool(run: RunDetail): string | null {
-  const names = Object.entries(run.metrics.tool_names);
-  if (names.length === 0) return null;
-  return names.sort((a, b) => b[1] - a[1])[0][0];
 }
 
 /**
@@ -199,7 +177,7 @@ export function useMoment(): Moment {
 }
 
 /** A round step for an axis from 0 to `max` in about `count` intervals: 1, 2 or 5 times a power of ten. */
-export function niceStep(max: number, count = 3, integer = false): number {
+function niceStep(max: number, count = 3, integer = false): number {
   if (!(max > 0)) return 1;
   const raw = max / count;
   const power = 10 ** Math.floor(Math.log10(raw));

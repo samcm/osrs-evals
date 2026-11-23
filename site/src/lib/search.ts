@@ -178,7 +178,7 @@ export function useSearchUpdate<V extends object = Record<string, unknown>>(
 export const legendParams = { hide: list(), focus: text() };
 
 /** Scope params, on the root route and carried on every internal link: they narrow every page. */
-export const scopeParams = { model: list(), agent: list(), vendor: list(), thinking: list() };
+const scopeParams = { model: list(), agent: list(), vendor: list(), thinking: list() };
 
 /** The root route's params: scope plus a theme override for shared links. */
 export const rootSearch = defineSearch({

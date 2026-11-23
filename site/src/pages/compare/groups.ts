@@ -12,7 +12,7 @@ export interface Group {
   runs: Run[];
 }
 
-export function groupKey(run: Run, by: GroupBy): string {
+function groupKey(run: Run, by: GroupBy): string {
   if (by === 'model') return run.model;
   if (by === 'vendor') return vendorOf(run.model).id;
   if (by === 'agent') return run.agent;
