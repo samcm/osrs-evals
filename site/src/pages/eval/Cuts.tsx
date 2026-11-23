@@ -32,7 +32,7 @@ import {
   logAxisProps,
   xAxisProps,
   yAxisProps,
-} from '@/components/Charts';
+} from '@/components/Charts/legacy';
 import type { Eval, Run } from '@/data/types';
 import { extraLabelWidth, scatterShape, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
 import { variantKey } from '@/lib/series';

@@ -18,7 +18,7 @@ import {
   xAxisProps,
   Y_AXIS_WIDTH,
   yAxisProps,
-} from '@/components/Charts';
+} from '@/components/Charts/legacy';
 import type { Eval, Run } from '@/data/types';
 import { agentSeries, cssColor, dashArray, scatterShape, type SeriesSpec } from '@/lib/chartSeries';
 import { formatCost, formatInt } from '@/lib/format';

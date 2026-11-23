@@ -34,7 +34,7 @@ import {
   syncProps,
   Y_AXIS_WIDTH,
   type LegendItem,
-} from '@/components/Charts';
+} from '@/components/Charts/legacy';
 import { Sprite } from '@/components/marks';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
 import clsx from 'clsx';

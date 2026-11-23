@@ -34,7 +34,7 @@ import {
   SeriesTooltip,
   xAxisProps,
   yAxisProps,
-} from '@/components/Charts';
+} from '@/components/Charts/legacy';
 import { DataTable } from '@/components/DataTable';
 import { VariantLabel } from '@/components/marks';
 import type { Eval, Run } from '@/data/types';
