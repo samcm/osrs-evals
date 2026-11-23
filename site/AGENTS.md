@@ -84,12 +84,13 @@ its chart, and beside the leaderboard (eight and four of twelve columns) from 2x
 `PageHeader`, one line: the eval's sprite, the goal (the prompt, which says what wins), the budget
 as game time (its ticks on hover), a team's characters, and how many runs. How the server's saves
 are read (varps, save files) is the README's business, never the site's. Then tabs: **Results**
-(`eval/Finish.tsx`, one still chart that says who won and whether anyone finished: game time along
-x; up y the eval's measure in even quarters of the most any run reached, or its stages up to the
-target; each pairing its runs' median line, labelled at the right with its result by the eval's
-score, the winner first with a trophy; the band of its runs for the lit pairing, else the winner;
-every run that reached the target checked where it did; pairings that never left 0 counted under
-the chart), **Race**
+(`eval/Finish.tsx`: who won and whether anyone finished. A still chart, game time along x, up y the
+eval's measure in even quarters of the most any run reached or its stages up to the target, each
+pairing its runs' median line, the band of its runs for the lit pairing else the winner, every run
+that reached the target checked where it did; beside it in five of twelve columns from xl (under it
+narrower) the eval's ranked table, as tall as the chart and scrolling inside: place (a trophy for
+the winner), the pairing with its swatch, how many finished, its result; a row lights its line, a
+click isolates it), **Race**
 (`Centerpiece`: the standings, the eval's one ranked list, beside every run together in the game
 on one playhead; then `Progress`, the eval's measure over time, starting on the first screen at
 1440), **Cost** (cost against result, finished within a budget, attempts), **Behaviour** (time and
@@ -195,6 +196,12 @@ React 19, Vite, TypeScript, `@tanstack/react-router` (file routes in `src/routes
 UI in `src/pages/`), `@tanstack/react-query` for loading the JSON (components never call `fetch`
 directly; use the query options in `src/data/`), `@tanstack/react-table` for tables, Tailwind 4,
 Geist and Geist Mono via `@fontsource-variable`.
+
+**shadcn first, by default.** Before building any piece of UI, name the shadcn component or block it
+is, and use that: a list with columns is a `Table` (through `DataTable`), never labels laid out by
+hand beside or inside a chart; a note under a chart is a `CardDescription` or a table row, never a
+one-off tooltip trigger. Draw something yourself only when no shadcn component fits, and say why in
+the file.
 
 **Use the libraries; don't hand-roll UI.** Every component comes from **shadcn/ui** (Radix
 primitives, in `src/components/ui/`, added with `npx shadcn@latest add <name>`): Card, Button,

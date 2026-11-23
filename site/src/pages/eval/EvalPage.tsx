@@ -175,12 +175,7 @@ export function EvalPage() {
       {runs.length === 0 ? (
         <Empty>No runs in this scope.</Empty>
       ) : search.tab === 'overview' ? (
-        <PageSection
-          title={e.measure}
-          description={target ? `${formatInt(runs.filter(r => r.success).length)} of ${formatInt(runs.length)} runs finished` : undefined}
-        >
-          <FinishChart e={e} curves={curves} ranked={ranked} agg={search.agg} legend={legend} />
-        </PageSection>
+        <FinishChart e={e} curves={curves} ranked={ranked} agg={search.agg} legend={legend} />
       ) : search.tab === 'race' ? (
         <>
           <Centerpiece e={e} runs={runs} curves={shownCurves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} agg={search.agg} />
