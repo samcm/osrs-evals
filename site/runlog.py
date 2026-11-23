@@ -386,8 +386,11 @@ def write_workspace(dest: Path, detail: dict, sample, convs: list[dict], folder:
     files = dest / "files"
     for path, content in written_files(sample, convs).items():
         p = files / path.lstrip("/")
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content)
+        try:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content)
+        except OSError:
+            pass  # a path that is also a folder (or a file on the way): it is in the transcript anyway
     (dest / "facts.txt").write_text(facts_text(facts, peers) + "\n")
     (dest / "run.json").write_text(json.dumps(detail))
     link = dest / "run_folder"

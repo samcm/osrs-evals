@@ -613,6 +613,14 @@ def tell_eval(eval_id: str, args, data: Path, index: dict, proxy: Proxy) -> tupl
     return eval_id, "told", cost
 
 
+def told_or_failed(tell, what: str, *rest) -> tuple[str, str, dict | None]:
+    """One run or eval told; an error in this script fails it alone, not the whole pass."""
+    try:
+        return tell(what, *rest)
+    except Exception as err:
+        return what, f"failed: {type(err).__name__}: {err}", None
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -664,7 +672,7 @@ def main() -> None:
     total = {"calls": 0, "seconds": 0.0, "input_tokens": 0, "output_tokens": 0}
     t0 = time.monotonic()
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        for what, status, cost in pool.map(lambda i: tell(i, args, data, index, proxy), todo):
+        for what, status, cost in pool.map(lambda i: told_or_failed(tell, i, args, data, index, proxy), todo):
             if status != "printed":
                 print(f"{what}: {status}" + (f" ({cost['calls']} calls, {cost['seconds']:.0f}s)" if cost else ""), file=sys.stderr, flush=True)
             done[status.split(":")[0]] = done.get(status.split(":")[0], 0) + 1
