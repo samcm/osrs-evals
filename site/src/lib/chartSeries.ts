@@ -1,12 +1,11 @@
 /**
- * Series for shadcn charts: every model, variant, vendor, agent, tool category and token kind as a
- * `SeriesSpec` (a CSS-safe key, a label, a fixed colour, a line style and point shape, and its marks),
- * from series.ts, tools.ts and tokens.ts. components/charts turns specs into a ChartConfig, lines,
- * legends, tooltips and end labels.
+ * Series for charts: every model, variant, vendor, agent, tool category and token kind as a
+ * `SeriesSpec` (a CSS-safe key, a label, a fixed colour token, a line style and point shape, and its
+ * marks), from series.ts, tools.ts and tokens.ts. The chart kit (components/Charts) draws lines,
+ * points, legends, tooltips and end labels from specs, resolving the colour for the active theme.
  *
- *   const specs = variants.map(variantSeries);
- *   rows: [{ tick: 0, [specs[0].key]: 0, … }]   // data keyed by spec.key
- *   <Line dataKey={spec.key} stroke={`var(--color-${spec.key})`} … />
+ *   const specs = ranked.map(r => variantSeries(r.variant));
+ *   <XYChart lines={specs.map(s => ({ series: s, points: medians.get(s.id) }))} … />
  */
 
 import type { Run, ToolCategory } from '@/data/types';
@@ -130,12 +129,12 @@ export function tokenSeries(kind: TokenKind): SeriesSpec {
   return spec(kind, info.label, info.label, info.color);
 }
 
-/** A Recharts strokeDasharray for an agent's line style. */
+/** An SVG strokeDasharray for an agent's line style (legend keys, end labels). */
 export function dashArray(line: AgentLine): string | undefined {
   return line === 'dashed' ? '6 4' : line === 'dotted' ? '1.5 3' : undefined;
 }
 
-/** A Recharts Scatter shape for an agent's point shape. */
+/** A Recharts Scatter shape for an agent's point shape (the legacy kit; XYChart uses `symbol`). */
 export function scatterShape(symbol: AgentSymbol): 'circle' | 'square' | 'diamond' | 'triangle' | 'wye' {
   return (
     {

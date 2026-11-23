@@ -1,5 +1,6 @@
 /**
- * Legends in the shadcn chart look (centred row under the chart, small keys), bound to the URL:
+ * Legends in lab's chart legend look (MultiLine's: one wrapping row of small keys, each a quiet
+ * button), centred under the chart and bound to the URL:
  * given `legend` (useLegend), a click hides or shows a series (`hide=`, or clears an isolation) and
  * a double click isolates it (`focus=`). Hovering a key hovers its series across the page (lib/hover).
  *
@@ -8,10 +9,9 @@
  *   <KeyLegend items={[{ label: 'Not finished', hollow: true }]} />  // plain keys
  */
 
-import type { ReactNode } from 'react';
-import { cn } from '@/lib/utils';
-import { Tip } from '@/components/bits';
-import { Button } from '@/components/ui/button';
+import type { JSX, ReactNode } from 'react';
+import clsx from 'clsx';
+import { Tooltip } from '@/components/Overlays/Tooltip';
 import { hoverProps, useHover } from '@/lib/hover';
 import type { LegendState } from '@/lib/legend';
 import type { SeriesSpec } from '@/lib/chartSeries';
@@ -51,14 +51,14 @@ const SHAPES: Record<AgentSymbol, string> = {
 
 const LINE: Record<AgentLine, string> = { solid: 'border-solid', dashed: 'border-dashed', dotted: 'border-dotted' };
 
-function Key({ item }: { item: LegendItem }) {
+function Key({ item }: { item: LegendItem }): JSX.Element | null {
   if (item.colors) {
     return (
       <span aria-hidden className="flex">
         {item.colors.map(color => (
           <span
             key={color.token}
-            className={cn('h-2 w-1.5 first:rounded-l-[2px] last:rounded-r-[2px]', color.swatchClassName)}
+            className={clsx('h-2 w-1.5 first:rounded-l-xs last:rounded-r-xs', color.swatchClassName)}
           />
         ))}
       </span>
@@ -66,7 +66,7 @@ function Key({ item }: { item: LegendItem }) {
   }
   if (item.symbol && item.color) {
     return (
-      <svg aria-hidden viewBox="0 0 10 10" className={cn('size-2.5 shrink-0', item.color.fillClassName)}>
+      <svg aria-hidden viewBox="0 0 10 10" className={clsx('size-2.5 shrink-0', item.color.fillClassName)}>
         <path d={SHAPES[item.symbol]} />
       </svg>
     );
@@ -75,27 +75,20 @@ function Key({ item }: { item: LegendItem }) {
     return (
       <span
         aria-hidden
-        className={cn(
-          'w-4 shrink-0 border-t-2',
-          LINE[item.line],
-          item.color?.borderClassName ?? 'border-muted-foreground'
-        )}
+        className={clsx('w-4 shrink-0 border-t-2', LINE[item.line], item.color?.borderClassName ?? 'border-muted')}
       />
     );
   if (item.hollow)
     return (
       <span
         aria-hidden
-        className={cn(
-          'size-2.5 shrink-0 rounded-full border-2',
-          item.color?.borderClassName ?? 'border-muted-foreground'
-        )}
+        className={clsx('size-2.5 shrink-0 rounded-full border-2', item.color?.borderClassName ?? 'border-muted')}
       />
     );
   if (item.swatchClassName)
-    return <span aria-hidden className={cn('h-2 w-3 shrink-0 rounded-[2px]', item.swatchClassName)} />;
+    return <span aria-hidden className={clsx('h-2 w-3 shrink-0 rounded-xs', item.swatchClassName)} />;
   if (item.color)
-    return <span aria-hidden className={cn('size-2 shrink-0 rounded-[2px]', item.color.swatchClassName)} />;
+    return <span aria-hidden className={clsx('size-2 shrink-0 rounded-xs', item.color.swatchClassName)} />;
   return null;
 }
 
@@ -108,10 +101,10 @@ export function KeyLegend({
   items: LegendItem[];
   legend?: LegendState;
   className?: string;
-}) {
+}): JSX.Element {
   const hover = useHover();
   return (
-    <ul className={cn('flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 pt-3 text-xs', className)}>
+    <ul className={clsx('flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pt-3 text-xs', className)}>
       {items.map((item, i) => {
         const content = (
           <>
@@ -136,25 +129,25 @@ export function KeyLegend({
         const shown = legend.visible(id);
         return (
           <li key={key} className="transition-opacity" style={{ opacity: hover.opacity(id) }}>
-            <Tip
+            <Tooltip
               content={
                 legend.focus === id ? 'Click to show every series' : 'Click to hide; double-click to show only this'
               }
             >
-              <Button
-                variant="ghost"
+              {/* lab's chart legend key (MultiLine): a quiet button the size of its text */}
+              <button
+                type="button"
                 {...hoverProps(id)}
                 aria-pressed={shown}
                 aria-label={item.name}
                 onClick={event => (event.detail >= 2 ? legend.isolate(id) : legend.toggle(id))}
-                className={cn(
-                  'h-auto gap-1.5 rounded-sm border-0 p-0 text-xs font-normal hover:bg-transparent active:not-aria-[haspopup]:translate-y-0',
-                  !shown && 'opacity-40'
-                )}
+                className="flex cursor-pointer items-center gap-1.5 rounded-xs px-1.5 py-0.5 text-xs/5 transition-colors hover:bg-muted-10"
               >
-                {content}
-              </Button>
-            </Tip>
+                <span className={clsx('flex items-center gap-1.5 transition-opacity', !shown && 'opacity-40')}>
+                  {content}
+                </span>
+              </button>
+            </Tooltip>
           </li>
         );
       })}
@@ -176,7 +169,7 @@ export function SeriesLegend({
   legend?: LegendState;
   kind?: 'line' | 'symbol' | 'swatch';
   className?: string;
-}) {
+}): JSX.Element {
   return (
     <KeyLegend
       legend={legend}

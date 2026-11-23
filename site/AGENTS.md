@@ -47,7 +47,7 @@ Every page has the same skeleton, and nothing on a page invents its own.
   size and spacing, never scattered.
 - **Never a card inside a card.** Controls that drive several cards live in the toolbar, not
   repeated on each card.
-- **Every chart is a `ChartFrame`** (`@/components/charts`) at `lead` or `compact` height, or
+- **Every chart is a `ChartFrame`** (`@/components/Charts`) at `lead` or `compact` height, or
   `rows` for one row per group. Never size a chart by hand; y axes keep the fixed default width so
   stacked charts line up.
 - **Space comes from the library and the theme:** the layout's gap between cards, the card's own
@@ -239,8 +239,8 @@ does.
 `Tab`, `ScrollableTabs`, `ProgressBar`), Overlays (`Popover`, `Dialog`, `Tooltip`), Feedback
 (`Alert`, `InfoBox`), `DataTable` and `Lists/Table`. Every chart is ECharts with lab's chrome
 (`Charts/chartChrome.ts`, `useThemeColors`, `utils/dataVizColors.ts`, the ECharts theme and shared
-crosshairs), through the core charts in `src/components/Charts/` (MultiLine, ScatterAndLine, Bar,
-StackedBar, Heatmap) and `ChartFrame`. Use their default spacing, sizes and structure; a page
+crosshairs), through `XYChart` (lines, bands, areas, points, bars; `src/components/Charts/`) or a
+lab core chart there (Heatmap, Bar, StackedBar), in a `ChartFrame`. Use their default spacing, sizes and structure; a page
 composes them and never re-styles their padding, radius or type. When a lab component almost fits,
 use it as is; change the file in `src/components/<Category>/` only to change the whole site's look,
 never for one page. The only custom-drawn component is the world map.
@@ -362,14 +362,17 @@ its components or add a look of our own.
 
 ## Charts
 
-- ECharts with lab's chrome: lab's core charts or ECharts options built with `chartChrome.ts`
-  (axes, split lines, tooltip, axis numbers), colours from `src/lib/series.ts` resolved through
-  `useThemeColors`, inside a `ChartFrame`. No hand-made chart chrome.
-- Lines 1.5–2px, not smoothed. Counts, scores and CDFs are step lines (`type="stepAfter"`).
+- ECharts with lab's chrome: `XYChart` (typed props: series specs from `src/lib/chartSeries.ts`,
+  colours resolved per theme by `useChartColors`, lab's axes, split lines and tooltip from
+  `chartChrome.ts`) or a lab core chart, inside a `ChartFrame`. What canvas draws badly (end labels
+  and row labels with marks, sprites, rules, point labels) is HTML over the plot, placed with the
+  chart's `Plot`. No hand-made chart chrome.
+- Lines 1.5–2px, not smoothed. Counts, scores and CDFs are step lines (XYChart's default `step`).
 - Series are named and labelled with their marks: legends and line-end labels carry the logo.
   Legends toggle series (`hide=`) and isolate one on a second click (`focus=`).
 - Charts on one page that share an x axis share the x measure control and a synced crosshair
-  (lab's `syncGroup`, through `SharedCrosshairsProvider`).
+  (XYChart's `sync`, matched by x value, so the charts' x values need not coincide; give them the
+  same x domain, and `endLabels={[]}` on one without labels under one with them so their plots line up).
 - Ticks are round (0, 10K, 20K; whole minutes; 1-2-5 dollars), from `src/lib/ticks.ts` and
   `src/lib/logAxis.ts`, and one axis never mixes "5,000" with "10K".
 - End labels are the vendor mark, the short model name and the thinking level; the harness is
