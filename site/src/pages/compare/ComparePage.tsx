@@ -6,7 +6,7 @@
  * any number of pairings; hiding or isolating one drops its runs from the ranking.
  */
 
-import { useMemo } from 'react';
+import { useMemo, type JSX } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
@@ -21,8 +21,7 @@ import { useLegend } from '@/lib/legend';
 import { inScope, useDocumentTitle, useEffort, useScope, useScopeUpdate, useSearchUpdate } from '@/lib/search';
 import { PairingFilters } from '@/components/PairingFilters';
 import { bestLevelKeys, blendedScores } from '@/lib/score';
-import { variantKey } from '@/lib/series';
-import { modelInfo, vendorOf } from '@/lib/series';
+import { modelInfo, variantKey, vendorOf } from '@/lib/series';
 import { median } from '@/lib/stats';
 import { StripChart, ToolMixChart, type MixGroup, type RankedGroup } from './charts';
 import { groupRuns, type GroupBy } from './groups';
@@ -44,7 +43,7 @@ const BY_OPTIONS: { value: GroupBy; label: string }[] = [
   { value: 'variant', label: 'Pairing' },
 ];
 
-export function ComparePage() {
+export function ComparePage(): JSX.Element {
   useDocumentTitle('Compare');
   const { data } = useSuspenseQuery(indexQuery);
   const search = route.useSearch();
@@ -70,10 +69,10 @@ export function ComparePage() {
   const choices = oneEval ? evals.filter(e => !metric.applies || metric.applies(e)) : evals;
   const chosen = choices.find(e => e.id === search.eval);
   // Without a choice, the eval with the most runs: the one with the most to compare
-  const runsOf = (id: string) => scoped.filter(r => r.eval === id).length;
+  const runsOf = (id: string): number => scoped.filter(r => r.eval === id).length;
   const evalShown: Eval | undefined =
     chosen ?? (oneEval ? [...choices].sort((a, b) => runsOf(b.id) - runsOf(a.id))[0] : undefined);
-  const runs = useMemo(() => scoped.filter(r => !evalShown || r.eval === evalShown.id), [scoped, evalShown]);
+  const runs = scoped.filter(r => !evalShown || r.eval === evalShown.id);
 
   const log = metric.log && (search.scale ?? metric.scale) === 'log';
 
@@ -92,7 +91,7 @@ export function ComparePage() {
   const { hidden, focus } = legend;
   const ranked = useMemo<RankedGroup[]>(() => {
     // A run is shown unless its model or harness is hidden, or, with one isolated, when it is that one
-    const shown = (run: Run) =>
+    const shown = (run: Run): boolean =>
       focus ? focus === run.model || focus === run.agent : !hidden.includes(run.model) && !hidden.includes(run.agent);
     const values = new Map(valued.map(p => [p.run, p.value]));
     const groups = groupRuns(valued.map(p => p.run).filter(shown), search.by).map(g => {
@@ -164,16 +163,9 @@ export function ComparePage() {
             onChange={id => update({ eval: id })}
           />
           <PairingFilters runs={data.runs} thinking={scope.thinking} agent={scope.agent} onChange={setScope}>
-            <Segmented
-              size="default"
-              label="Group by"
-              value={search.by}
-              options={BY_OPTIONS}
-              onChange={by => update({ by })}
-            />
+            <Segmented label="Group by" value={search.by} options={BY_OPTIONS} onChange={by => update({ by })} />
             {search.tab === 'measure' && metric.log && (
               <Segmented
-                size="default"
                 label="Scale"
                 value={log ? 'log' : 'linear'}
                 options={SCALE_OPTIONS}
@@ -242,7 +234,7 @@ const SCALE_OPTIONS: { value: 'linear' | 'log'; label: string }[] = [
   { value: 'log', label: 'Log' },
 ];
 
-const usd = (v: number) => `$${v < 1 ? v.toFixed(3).replace(/0$/, '') : v.toFixed(2)}`;
+const usd = (v: number): string => `$${v < 1 ? v.toFixed(3).replace(/0$/, '') : v.toFixed(2)}`;
 const priceCol = createColumnHelper<Price & { model: string }>();
 
 const PRICE_COLUMNS = [

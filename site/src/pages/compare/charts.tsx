@@ -24,7 +24,8 @@ import type { LegendState } from '@/lib/legend';
 import { roundCeil, roundTicks } from '@/lib/ticks';
 import { TOOL_CATEGORIES } from '@/lib/tools';
 import { useWidth } from '@/lib/useWidth';
-import { GroupLabel, groupName, type GroupBy } from './groups';
+import { GroupLabel } from './GroupLabel';
+import { groupName, type GroupBy } from './groups';
 import type { Metric } from './metrics';
 
 export interface RankedGroup {
