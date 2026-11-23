@@ -67,12 +67,14 @@ Every page has the same skeleton, and nothing on a page invents its own.
 
 No description line (the sidebar names the product). A toolbar with the Filters button, then the
 Leaderboard. The blended score is the hero: the card's description names the leading pairing, its
-score and its lead over the next; each row's score is a large number over a bar of its 100. Rank,
+score and its lead over the next; each row's score is a large number over a bar of its 100 in the
+model's colour. Rank,
 pairing, its score, every pairing that ran every eval ranked above any that didn't, whose partial
 score is muted (a thinking-level sweep runs two evals), with "How it's scored" in the card's action.
 The per-eval results are secondary: a small muted number per eval that more than one pairing ran
 (no tint), headed by the eval's sprite with its name on hover, each opening that model's runs of that
-eval; ten rows a page, `?page=`; on a phone the eval numbers sit under the pairing's name and the featured eval (a Select of the evals heads the card,
+eval; fifty rows a page, so every pairing shows at once, `?page=`; on a phone the eval numbers sit
+under the pairing's name. Then the featured eval (a Select of the evals heads the card,
 `?eval=` as the eval's slug; its best run's last moment and every pairing's median progress,
 compact, keyed by the leaderboard). The featured eval sits under the leaderboard, its still beside
 its chart, and beside the leaderboard (eight and four of twelve columns) from 2xl.
@@ -85,10 +87,9 @@ are read (varps, save files) is the README's business, never the site's. Then ta
 (`Centerpiece`: the standings, the eval's one ranked list, beside every run together in the game
 on one playhead; then `Progress`, the eval's measure over time, starting on the first screen at
 1440), **Cost** (cost against result, finished within a budget, attempts), **Behaviour** (time and
-tool mix, where they went), **Runs** (the table: every run's sentence whole under its pairing, and
-under it its chapters as one thin bar in the model's colour on the eval's time scale, a segment per
-chapter naming it on hover and opening the run there, so the runs compare at a glance;
-`components/RunStory.tsx`, the same on `/runs` on each run's own scale; a phone keeps the sentences). An eval about items or skills has a tab for what
+tool mix, where they went), **Runs** (the table: every run's sentence under its pairing, muted, at most
+two lines, the whole sentence and its chapters' titles on hover; `components/RunStory.tsx`, the same
+on `/runs`). An eval about items or skills has a tab for what
 the runs ended with, after Race (`eval/Held.tsx`): **Items** (collection, team wealth: the items most
 runs ended holding, then each run's items as the game's sprites) or **Skills** (total level: each
 run's level in every trained skill). The toolbar beside the tabs holds the open view's
@@ -109,8 +110,8 @@ model's page on this eval at its level and harness), races its run (the pairing'
 the better of two middle runs, or its best, or every run, from `agg`) along a track with the
 eval's quest stages as ticks and its newest quest as a sprite, and holds its result and median
 cost as fixed columns; the track opens the run, and what the agent was doing at the playhead in
-its own words is the track's tooltip (`centerpiece/lanes.ts`). Under each row, the run's chapter at
-the playhead (`summarize.py`): its title and text, two lines, whole on hover, opening the run there,
+its own words is the track's tooltip (`centerpiece/lanes.ts`). Under each row, the title of the run's
+chapter at the playhead (`summarize.py`), one muted line, its text on hover, opening the run there,
 so the race reads as what every run is doing at that moment. Values of an eval without a target are
 compact ("1.9M"), exact on hover. The playhead reads game time and the
 race plays on open (under reduced motion it opens at the end). The map's view is fitted once to where every run of the eval went (the middle
@@ -150,7 +151,8 @@ beside the game (`run/Held.tsx`): the followed account's inventory, worn items, 
 the playhead, as the game's own sprites and stack counts, the tab in `?panel=` (skills on total
 level, else the inventory). A run told by `summarize.py` has its sentence as the header's
 description, its chapters as segments under the playback track and as headings in the transcript,
-and the chapter at the playhead heads the transcript card (its title, its text, which of how many),
+and the chapter at the playhead heads the transcript card (its title, its text, which of how many)
+and sits again above the map in the column that stays on screen beside the lanes (`run/NowCard.tsx`),
 so the run reads in the summary's words first and the calls under it are the detail; clicking a
 chapter seeks the playhead there. Then the timeline: a toolbar
 (the x measure, the lanes menu) over a card per lane, every lane shown unless `?lanes=` names some,
@@ -348,10 +350,10 @@ named on hover; the game and the map follow one account at a time (`acct`).
 ## Layout
 
 - dashboard-01's inset `Sidebar` (a sheet on small screens, icons only when collapsed, its state
-  kept in the `sidebar_state` cookie across reloads): Home and the evals (every eval the project
-  runs, the most runs first, one without runs yet too: its page says so in one sentence), then
-  Runs and Compare, all with lucide icons, then a Models group (`Collapsible`, closed at first)
-  with the makers' marks. The header has `SidebarTrigger`, a separator and the `Breadcrumb`, which
+  kept in the `sidebar_state` cookie across reloads), in shadcn's labelled groups: Home, Runs and
+  Compare; then **Evals** (every eval the project runs, the most runs first, each with its own
+  lucide icon; one without runs yet too: its page says so in one sentence); then **Models**, a
+  collapsible item per maker with its mark, opening to its models (open when one is the page). The header has `SidebarTrigger`, a separator and the `Breadcrumb`, which
   never loses its last crumb, and the theme toggle.
 - One page container with the library's spacing; sections are `Card`s in grids with one gap size.
 - Tables are shadcn `Table` driven by TanStack Table: numbers right-aligned, headers on one line,

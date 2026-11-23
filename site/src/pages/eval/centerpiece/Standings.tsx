@@ -4,8 +4,8 @@
  * (opening the model's page on this eval at its level and harness), its track (opening the run)
  * runs to its pin as far as the run has got at the playhead, with the eval's quest stages as ticks,
  * the newest quest it finished as a sprite, and what the agent was doing at the playhead as the
- * track's tooltip, and under the row the run's chapter at the playhead in the summary's words
- * (site/summarize.py), opening the run there. The fixed columns carry the answer: the median result (or how many finished and
+ * track's tooltip, and under the row the title of the run's chapter at the playhead
+ * (site/summarize.py), its text on hover, opening the run there. The fixed columns carry the answer: the median result (or how many finished and
  * their median time to finish, in game time) and the median cost. The rows key the map: each row's
  * pin is the run's pin there.
  */
@@ -186,17 +186,17 @@ export function Standings({ e, rows, max, perRun, lit, stages }: { e: Eval; rows
                 {track && <TableCell className="text-right tabular-nums">{formatCost(perRun ? run.cost : median(p.runs.map(r => r.cost)))}</TableCell>}
               </TableRow>
               {row.chapter && (
-                // The run's chapter at the playhead, in the summary's words, under its row
+                // The run's chapter at the playhead, its title only (its text on hover), under its row
                 <TableRow className={cn('transition-opacity duration-150 hover:bg-transparent', fade)} {...hover}>
-                  <TableCell colSpan={columns} className="pt-0 whitespace-normal">
+                  <TableCell colSpan={columns} className="pt-0">
                     <Link
                       to="/runs/$runId"
                       params={{ runId: run.id }}
                       search={{ t: row.chapter.from_tick } as never}
                       title={`${row.chapter.title}. ${row.chapter.text}`}
-                      className="line-clamp-2 rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                      className="block truncate rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
                     >
-                      <span className="font-medium text-foreground">{row.chapter.title}.</span> {row.chapter.text}
+                      {row.chapter.title}
                     </Link>
                   </TableCell>
                 </TableRow>

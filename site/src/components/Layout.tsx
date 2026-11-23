@@ -5,7 +5,21 @@
  */
 
 import { useEffect, type CSSProperties, type ReactNode } from 'react';
-import { ChartBarIcon, ChevronDownIcon, FlaskConicalIcon, LayoutDashboardIcon, ListIcon, MoonIcon, SunIcon, SwordsIcon } from 'lucide-react';
+import {
+  ChartBarIcon,
+  ChevronRightIcon,
+  CoinsIcon,
+  FlaskConicalIcon,
+  LayoutDashboardIcon,
+  ListIcon,
+  MoonIcon,
+  PackageIcon,
+  ScrollTextIcon,
+  ShieldIcon,
+  SunIcon,
+  SwordsIcon,
+  TrendingUpIcon,
+} from 'lucide-react';
 import { Link, useRouter, useRouterState } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { indexQuery } from '@/data/queries';
@@ -30,6 +44,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
   SidebarTrigger,
   useSidebar,
@@ -60,12 +77,62 @@ function NavItem({ to, path, params, icon, children }: { to: string; path: strin
   );
 }
 
+/** A lucide mark for each eval in the sidebar (the shell keeps game art out); a new eval gets the flask. */
+const EVAL_ICONS: Record<string, ReactNode> = {
+  quest_points: <ScrollTextIcon />,
+  dragon_slayer: <ShieldIcon />,
+  collection: <PackageIcon />,
+  team_wealth: <CoinsIcon />,
+  total_level: <TrendingUpIcon />,
+};
+
+/** A maker in the Models group: its mark, opening to its models; open when one of them is the page. */
+function MakerItem({ name, slug, models }: { name: string; slug: string; models: string[] }) {
+  const pathname = useRouterState({ select: st => st.location.pathname });
+  const here = models.some(m => pathname === `/models/${modelSlug(m)}` || pathname.endsWith(`/${modelSlug(m)}`));
+  return (
+    <Collapsible asChild defaultOpen={here} className="group/maker">
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton tooltip={name}>
+            <BrandMark slug={slug} size={16} />
+            <span>{name}</span>
+            <ChevronRightIcon className="ml-auto transition-transform duration-200 group-data-[state=open]/maker:rotate-90" />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {models.map(m => (
+              <SidebarMenuSubItem key={m}>
+                <SidebarMenuSubButton asChild isActive={pathname === `/models/${modelSlug(m)}`}>
+                  <Link to="/models/$model" params={{ model: modelSlug(m) }}>
+                    <span>{modelInfo(m).short}</span>
+                  </Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+}
+
 function AppSidebar() {
   const { data } = useQuery(indexQuery);
   // The evals with the most runs first; one without runs yet last (its page says so)
   const runsOf = (id: string) => (data?.runs ?? []).filter(r => r.eval === id).length;
   const evals = siteEvals(data?.evals ?? []).sort((a, b) => runsOf(b.id) - runsOf(a.id));
-  const models = [...new Set((data?.runs ?? []).map(r => r.model))].sort((a, b) => modelInfo(a).name.localeCompare(modelInfo(b).name));
+  // The models by maker, the makers by name, each maker's models by name
+  const makers = new Map<string, { name: string; slug: string; models: string[] }>();
+  for (const m of [...new Set((data?.runs ?? []).map(r => r.model))]) {
+    const v = modelInfo(m).vendor;
+    const maker = makers.get(v.slug) ?? { name: v.name, slug: v.slug, models: [] };
+    maker.models.push(m);
+    makers.set(v.slug, maker);
+  }
+  const byMaker = [...makers.values()].sort((a, b) => a.name.localeCompare(b.name));
+  for (const mk of byMaker) mk.models.sort((a, b) => modelInfo(a).name.localeCompare(modelInfo(b).name));
   return (
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader>
@@ -81,24 +148,13 @@ function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        {/* Home, then the evals (where the game is), then the archive; the models are a click away on Home */}
+        {/* The main pages, then the evals, then the models by maker: shadcn's labelled groups */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
               <NavItem to="/" path="/" icon={<LayoutDashboardIcon />}>
                 Home
               </NavItem>
-              {evals.map(e => (
-                <NavItem key={e.id} to="/evals/$evalId" path={`/evals/${evalSlug(e.id)}`} params={{ evalId: evalSlug(e.id) }} icon={<FlaskConicalIcon />}>
-                  {e.title}
-                </NavItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
               <NavItem to="/runs" path="/runs" icon={<ListIcon />}>
                 Runs
               </NavItem>
@@ -108,27 +164,28 @@ function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <Collapsible className="group/collapsible">
-          <SidebarGroup>
-            <SidebarGroupLabel asChild>
-              <CollapsibleTrigger>
-                Models
-                <ChevronDownIcon className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
-              </CollapsibleTrigger>
-            </SidebarGroupLabel>
-            <CollapsibleContent>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {models.map(m => (
-                    <NavItem key={m} to="/models/$model" path={`/models/${modelSlug(m)}`} params={{ model: modelSlug(m) }} icon={<BrandMark slug={modelInfo(m).vendor.slug} size={16} />}>
-                      {modelInfo(m).name}
-                    </NavItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </CollapsibleContent>
-          </SidebarGroup>
-        </Collapsible>
+        <SidebarGroup>
+          <SidebarGroupLabel>Evals</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {evals.map(e => (
+                <NavItem key={e.id} to="/evals/$evalId" path={`/evals/${evalSlug(e.id)}`} params={{ evalId: evalSlug(e.id) }} icon={EVAL_ICONS[e.id] ?? <FlaskConicalIcon />}>
+                  {e.title}
+                </NavItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Models</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {byMaker.map(mk => (
+                <MakerItem key={mk.slug} {...mk} />
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
     </Sidebar>
   );

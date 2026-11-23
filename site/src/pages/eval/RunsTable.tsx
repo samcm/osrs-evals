@@ -45,7 +45,7 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
       cell: ({ row }) => (
         <span className="flex min-w-0 flex-col gap-0.5">
           <VariantLabel run={row.original} compact />
-          <RunStory run={row.original} span={maxTick} />
+          <RunStory run={row.original} />
         </span>
       ),
     }),

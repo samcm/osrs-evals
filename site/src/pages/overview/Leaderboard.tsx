@@ -1,7 +1,7 @@
 /**
  * The overview's lead and its one ranked list: every pairing (a model in a harness) by its blended
  * score out of 100, then a heat cell per eval so coverage shows as it is (a blank cell is an eval it
- * didn't run), ten to a page. An eval only one pairing ran has no column: one cell compares nothing.
+ * didn't run), fifty to a page. An eval only one pairing ran has no column: one cell compares nothing.
  * On a phone the eval cells sit under the pairing's name, so the score stays in view beside it.
  * Sorting by any column is `?sort=`, the page `?page=`; a row opens the model's page, filtered to
  * the row's level and harness, and an eval's cell that model's runs of that eval.
@@ -175,7 +175,7 @@ export function Leaderboard({
     <PageSection title="Leaderboard" description={description} actions={<Scoring evals={every} />} className="2xl:col-span-8">
       <DataTable
         page={page}
-        pageSize={10}
+        pageSize={50}
         onPageChange={onPageChange}
         data={rows}
         columns={columns}
