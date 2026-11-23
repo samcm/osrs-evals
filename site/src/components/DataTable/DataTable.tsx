@@ -47,6 +47,7 @@ export function DataTable<TData>({
   onRowClick,
   getRowId,
   getRowClassName,
+  getRowProps,
   renderExpandedRow,
   // Manual mode
   manualPagination = false,
@@ -63,6 +64,8 @@ export function DataTable<TData>({
   hideColumnVisibility = false,
   // Pagination position
   paginationPosition = 'bottom',
+  hidePageSize = false,
+  footer,
   density = 'compact',
 }: DataTableProps<TData>): JSX.Element {
   const comfortable = density === 'comfortable';
@@ -173,6 +176,8 @@ export function DataTable<TData>({
     manualPagination,
     manualFiltering,
     manualSorting,
+    // A caller that owns the page (such as one kept in the URL) also decides when it resets
+    autoResetPageIndex: onPaginationChange ? false : undefined,
     pageCount: controlledPageCount,
     // Row ID
     getRowId: getRowId as ((row: TData, index: number) => string) | undefined,
@@ -244,6 +249,7 @@ export function DataTable<TData>({
               hideColumnVisibility={hideColumnVisibility}
               position="top"
               hasNextPage={hasNextPage}
+              hidePageSize={hidePageSize}
             />
           )}
         <div className="overflow-x-auto">
@@ -255,14 +261,17 @@ export function DataTable<TData>({
                   {headerGroup.headers.map((header, headerIndex) => {
                     const canSort = header.column.getCanSort();
                     const isSorted = header.column.getIsSorted();
+                    const numeric = (header.column.columnDef.meta as DataTableColumnMeta | undefined)?.numeric;
 
                     return (
                       <th
                         key={header.id}
                         scope="col"
+                        aria-sort={isSorted === 'asc' ? 'ascending' : isSorted === 'desc' ? 'descending' : undefined}
                         style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
                         className={clsx(
-                          'text-left text-xs font-medium whitespace-nowrap text-muted',
+                          'text-xs font-medium whitespace-nowrap text-muted',
+                          numeric ? 'text-right' : 'text-left',
                           comfortable ? 'py-2.5' : 'py-1.5',
                           headerIndex === 0
                             ? `${gap.right} pl-table-inset`
@@ -274,12 +283,13 @@ export function DataTable<TData>({
                       >
                         <div className="flex flex-col gap-2">
                           {/* Header content with sort */}
-                          <div className="flex items-center gap-2">
+                          <div className={clsx('flex items-center gap-2', numeric && 'justify-end')}>
                             {canSort ? (
                               <button
                                 onClick={header.column.getToggleSortingHandler()}
                                 className={clsx(
                                   'group flex items-center gap-1 transition-colors select-none hover:text-foreground',
+                                  numeric && 'flex-row-reverse',
                                   isSorted && 'text-foreground'
                                 )}
                               >
@@ -327,21 +337,25 @@ export function DataTable<TData>({
                 // Empty state
                 <tr>
                   <td colSpan={columns.length} className="py-12 text-center">
-                    <p className="text-sm text-muted">{emptyMessage}</p>
+                    <div className="text-sm text-muted">{emptyMessage}</div>
                   </td>
                 </tr>
               ) : (
                 // Data rows
                 table.getRowModel().rows.map(row => {
                   const expanded = renderExpandedRow?.(row.original, row.id) ?? null;
+                  const rowProps = getRowProps?.(row.original, row.id);
                   return (
                     <Fragment key={row.id}>
                       <tr
                         onClick={() => onRowClick?.(row.original)}
+                        {...rowProps}
                         className={clsx(
-                          'transition-colors',
+                          // Colours on hover, and opacity for a row a caller fades
+                          'transition',
                           onRowClick && 'cursor-pointer hover:bg-background',
-                          getRowClassName?.(row.original, row.id)
+                          getRowClassName?.(row.original, row.id),
+                          rowProps?.className
                         )}
                       >
                         {row.getVisibleCells().map((cell, cellIndex) => (
@@ -349,13 +363,17 @@ export function DataTable<TData>({
                             key={cell.id}
                             style={{ width: cell.column.getSize() !== 150 ? cell.column.getSize() : undefined }}
                             className={clsx(
-                              'whitespace-nowrap tabular-nums',
+                              'tabular-nums',
+                              (cell.column.columnDef.meta as DataTableColumnMeta | undefined)?.wrap
+                                ? 'whitespace-normal'
+                                : 'whitespace-nowrap',
                               comfortable ? 'py-2.5 text-sm' : 'py-1.5 text-xs',
                               cellIndex === 0
                                 ? `${gap.right} pl-table-inset`
                                 : cellIndex === row.getVisibleCells().length - 1
                                   ? `pr-table-inset ${gap.left}`
                                   : gap.both,
+                              (cell.column.columnDef.meta as DataTableColumnMeta | undefined)?.numeric && 'text-right',
                               (cell.column.columnDef.meta as DataTableColumnMeta | undefined)?.cellClassName ||
                                 'text-muted',
                               (cell.column.columnDef.meta as DataTableColumnMeta | undefined)?.columnClassName
@@ -383,12 +401,15 @@ export function DataTable<TData>({
         {/* Unified toolbar (bottom) - columns + pagination */}
         {!isLoading &&
           table.getRowModel().rows.length > 0 &&
-          (paginationPosition === 'bottom' || paginationPosition === 'both') && (
+          (paginationPosition === 'bottom' || paginationPosition === 'both' || footer != null) && (
             <TableToolbar
               table={table}
               hideColumnVisibility={hideColumnVisibility}
               position="bottom"
               hasNextPage={hasNextPage}
+              hidePageSize={hidePageSize}
+              showPagination={paginationPosition === 'bottom' || paginationPosition === 'both'}
+              footer={footer}
             />
           )}
       </div>

@@ -1,19 +1,15 @@
-import * as React from 'react';
+import { useSyncExternalStore } from 'react';
 
-const MOBILE_BREAKPOINT = 768;
+/** Below md (48rem), where pages lay out for a phone */
+const MOBILE_QUERY = '(max-width: 47.99rem)';
 
-export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined);
+function subscribe(onChange: () => void): () => void {
+  const mql = window.matchMedia(MOBILE_QUERY);
+  mql.addEventListener('change', onChange);
+  return () => mql.removeEventListener('change', onChange);
+}
 
-  React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    };
-    mql.addEventListener('change', onChange);
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    return () => mql.removeEventListener('change', onChange);
-  }, []);
-
-  return !!isMobile;
+/** Whether the window is phone-wide (under 768px), kept current as it resizes. */
+export function useIsMobile(): boolean {
+  return useSyncExternalStore(subscribe, () => window.matchMedia(MOBILE_QUERY).matches);
 }

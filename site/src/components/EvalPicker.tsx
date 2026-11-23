@@ -1,14 +1,16 @@
 /**
- * Pick one eval by its sprite and title, as a shadcn ToggleGroup; with `allLabel`, a first option
- * for every eval (undefined). The selected option takes the accent.
+ * Pick one eval by its sprite and title, as lab's SegmentedControl; with `allLabel`, a first option
+ * for every eval (undefined). The selected option takes the primary tint.
  *
  *   <EvalPicker evals={data.evals} value={search.eval} allLabel="All evals" onChange={e => update({ eval: e }, { resetPage: true })} />
  */
 
+import type { JSX } from 'react';
 import type { Eval } from '@/data/types';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { EvalMark } from './marks';
+import { SegmentedControl } from '@/components/Forms/SegmentedControl';
+import { EvalMark } from '@/components/marks';
 
+/** The value that stands for every eval */
 const ALL = '__all__';
 
 export function EvalPicker({
@@ -23,24 +25,24 @@ export function EvalPicker({
   onChange: (value: string | undefined) => void;
   allLabel?: string;
   label?: string;
-}) {
+}): JSX.Element {
   return (
-    <ToggleGroup
-      type="single"
-      variant="outline"
-      size="sm"
-      aria-label={label}
+    <SegmentedControl
+      ariaLabel={label}
       value={value ?? (allLabel != null ? ALL : '')}
-      onValueChange={next => next && onChange(next === ALL ? undefined : next)}
-      className="flex-wrap"
-    >
-      {allLabel != null && <ToggleGroupItem value={ALL}>{allLabel}</ToggleGroupItem>}
-      {evals.map(e => (
-        <ToggleGroupItem key={e.id} value={e.id}>
-          <EvalMark evalId={e.id} size={16} title="" />
-          {e.title}
-        </ToggleGroupItem>
-      ))}
-    </ToggleGroup>
+      onChange={next => onChange(next === ALL ? undefined : next)}
+      options={[
+        ...(allLabel != null ? [{ value: ALL, label: allLabel }] : []),
+        ...evals.map(e => ({
+          value: e.id,
+          label: (
+            <span className="inline-flex items-center gap-1.5">
+              <EvalMark evalId={e.id} size={16} title="" />
+              {e.title}
+            </span>
+          ),
+        })),
+      ]}
+    />
   );
 }

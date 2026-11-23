@@ -1,4 +1,4 @@
-import { type JSX } from 'react';
+import { type JSX, type ReactNode } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon, ViewColumnsIcon } from '@heroicons/react/20/solid';
 import { Menu, MenuButton, MenuItems } from '@headlessui/react';
 import clsx from 'clsx';
@@ -12,6 +12,12 @@ interface TableToolbarProps<TData> {
   position?: 'top' | 'bottom';
   /** For cursor-based pagination when total count is unknown */
   hasNextPage?: boolean;
+  /** No Rows menu: the caller keeps the page size */
+  hidePageSize?: boolean;
+  /** The page navigation; off for a toolbar that only carries the footer */
+  showPagination?: boolean;
+  /** In place of the rows shown, such as a count */
+  footer?: ReactNode;
 }
 
 const PAGE_SIZE_OPTIONS = [
@@ -29,6 +35,9 @@ export function TableToolbar<TData>({
   hideColumnVisibility = false,
   position = 'top',
   hasNextPage,
+  hidePageSize = false,
+  showPagination = true,
+  footer,
 }: TableToolbarProps<TData>): JSX.Element {
   const currentPage = table.getState().pagination.pageIndex;
   const pageSize = table.getState().pagination.pageSize;
@@ -129,60 +138,71 @@ export function TableToolbar<TData>({
           </Menu>
         )}
 
+        {/* The caller's footer, such as a count */}
+        {footer != null && <div className="text-xs text-muted">{footer}</div>}
+
         {/* Results info */}
-        <div className="text-xs text-muted">
-          {currentPageRows > 0 ? (
-            <>
-              <span className="font-medium text-foreground">{startRow}</span>
-              <span className="mx-0.5">-</span>
-              <span className="font-medium text-foreground">{endRow}</span>
-            </>
-          ) : (
-            'No results'
-          )}
-        </div>
+        {showPagination && (
+          <div className="text-xs text-muted">
+            {currentPageRows > 0 ? (
+              <>
+                <span className="font-medium text-foreground">{startRow}</span>
+                <span className="mx-0.5">-</span>
+                <span className="font-medium text-foreground">{endRow}</span>
+              </>
+            ) : (
+              'No results'
+            )}
+          </div>
+        )}
       </div>
 
       {/* Right side: Page size + Navigation */}
-      <div className="flex items-center gap-3">
-        {/* Page size selector */}
-        <div className="flex items-center gap-1.5">
-          <span className="hidden text-xs text-muted sm:inline">Rows:</span>
-          <SelectMenu
-            value={pageSize}
-            onChange={(value: number) => table.setPageSize(value)}
-            options={PAGE_SIZE_OPTIONS}
-            expandToFit
-            rounded
-          />
-        </div>
+      {showPagination && (
+        <div className="flex items-center gap-3">
+          {/* Page size selector */}
+          {!hidePageSize && (
+            <div className="flex items-center gap-1.5">
+              <span className="hidden text-xs text-muted sm:inline">Rows:</span>
+              <SelectMenu
+                value={pageSize}
+                onChange={(value: number) => table.setPageSize(value)}
+                options={PAGE_SIZE_OPTIONS}
+                expandToFit
+                rounded
+              />
+            </div>
+          )}
 
-        {/* Navigation buttons */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => table.previousPage()}
-            disabled={!canPreviousPage}
-            aria-label="Previous page"
-            className={clsx(
-              'flex items-center justify-center rounded-sm p-1 transition-colors',
-              canPreviousPage ? 'text-muted hover:bg-primary-10 hover:text-primary' : 'cursor-not-allowed text-muted-30'
-            )}
-          >
-            <ChevronLeftIcon className="size-4" />
-          </button>
-          <button
-            onClick={() => table.nextPage()}
-            disabled={!canNextPage}
-            aria-label="Next page"
-            className={clsx(
-              'flex items-center justify-center rounded-sm p-1 transition-colors',
-              canNextPage ? 'text-muted hover:bg-primary-10 hover:text-primary' : 'cursor-not-allowed text-muted-30'
-            )}
-          >
-            <ChevronRightIcon className="size-4" />
-          </button>
+          {/* Navigation buttons */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => table.previousPage()}
+              disabled={!canPreviousPage}
+              aria-label="Previous page"
+              className={clsx(
+                'flex items-center justify-center rounded-sm p-1 transition-colors',
+                canPreviousPage
+                  ? 'text-muted hover:bg-primary-10 hover:text-primary'
+                  : 'cursor-not-allowed text-muted-30'
+              )}
+            >
+              <ChevronLeftIcon className="size-4" />
+            </button>
+            <button
+              onClick={() => table.nextPage()}
+              disabled={!canNextPage}
+              aria-label="Next page"
+              className={clsx(
+                'flex items-center justify-center rounded-sm p-1 transition-colors',
+                canNextPage ? 'text-muted hover:bg-primary-10 hover:text-primary' : 'cursor-not-allowed text-muted-30'
+              )}
+            >
+              <ChevronRightIcon className="size-4" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

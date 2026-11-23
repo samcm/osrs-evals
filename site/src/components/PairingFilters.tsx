@@ -5,10 +5,9 @@
  * page to page); the model page binds them to its own.
  */
 
-import type { ReactNode } from 'react';
-import { ListFilterIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { JSX, ReactNode } from 'react';
+import { FunnelIcon } from '@heroicons/react/20/solid';
+import { Popover, PopoverButton, PopoverPanel } from '@/components/Overlays/Popover';
 import { Segmented } from '@/components/bits';
 import { FacetFilter } from '@/components/FacetFilter';
 import { BrandMark } from '@/components/marks';
@@ -26,19 +25,19 @@ const EFFORT_OPTIONS = [
  * one row and a first-time visitor sees the view, not the knobs. `active` counts the filters set,
  * shown on the button.
  */
-export function FiltersFold({ active = 0, children }: { active?: number; children: ReactNode }) {
+export function FiltersFold({ active = 0, children }: { active?: number; children: ReactNode }): JSX.Element {
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm">
-          <ListFilterIcon />
-          Filters
-          {active > 0 && <span className="text-muted-foreground tabular-nums">{active}</span>}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="flex flex-wrap gap-2">
+      <PopoverButton variant="secondary" size="sm" leadingIcon={<FunnelIcon />} nowrap>
+        Filters
+        {active > 0 && <span className="font-normal text-muted tabular-nums">{active}</span>}
+      </PopoverButton>
+      <PopoverPanel
+        anchor={{ to: 'bottom start', gap: 4, padding: 8 }}
+        className="flex max-w-vw-less-4 flex-wrap gap-2 p-3 shadow-lg"
+      >
         {children}
-      </PopoverContent>
+      </PopoverPanel>
     </Popover>
   );
 }
@@ -69,7 +68,7 @@ export function PairingFilters({
   levels?: string[] | null;
   /** The page's other view controls, folded with the filters on a phone */
   children?: ReactNode;
-}) {
+}): JSX.Element {
   const cut = useEffort();
   const update = useSearchUpdate<{ effort: EffortCut }>();
   const level = (r: Run): string => r.thinking;

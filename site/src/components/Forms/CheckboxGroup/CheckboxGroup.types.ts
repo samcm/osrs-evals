@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 interface CheckboxOption {
   /**
    * Unique identifier for the checkbox
@@ -10,7 +12,7 @@ interface CheckboxOption {
   /**
    * Label text
    */
-  label: string;
+  label: ReactNode;
   /**
    * Description text (block or inline depending on variant)
    */
@@ -37,7 +39,7 @@ interface CheckboxOption {
   onChange?: (checked: boolean) => void;
 }
 
-type CheckboxGroupVariant = 'list' | 'list-inline' | 'list-right' | 'simple';
+type CheckboxGroupVariant = 'list' | 'list-inline' | 'list-right' | 'simple' | 'menu';
 
 export interface CheckboxGroupProps {
   /**

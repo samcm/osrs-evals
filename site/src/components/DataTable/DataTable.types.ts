@@ -1,5 +1,5 @@
 import type { ColumnDef, ColumnFiltersState, SortingState, VisibilityState } from '@tanstack/react-table';
-import type { ReactNode } from 'react';
+import type { HTMLAttributes, ReactNode } from 'react';
 
 type FilterType = 'text' | 'select' | 'multi-select' | 'number-range' | 'date-range';
 
@@ -15,6 +15,10 @@ export interface DataTableColumnMeta {
   filterPlaceholder?: string;
   headerIcon?: ReactNode;
   cellClassName?: string;
+  /** Numbers: the header and cells align right, the sort mark on the header's left */
+  numeric?: boolean;
+  /** Let the cells wrap instead of keeping one line */
+  wrap?: boolean;
   /** Classes on the column's header and body cells alike, such as `hidden sm:table-cell` */
   columnClassName?: string;
   enableHiding?: boolean;
@@ -49,6 +53,8 @@ export interface DataTableProps<TData> {
   onRowClick?: (row: TData) => void;
   getRowId?: (row: TData) => string;
   getRowClassName?: (row: TData, rowId: string) => string | undefined;
+  /** More props for a row, such as hover handlers, an inline style computed at runtime or keyboard access */
+  getRowProps?: (row: TData, rowId: string) => HTMLAttributes<HTMLTableRowElement>;
   /** Content for a full-width row under a row, such as its details once expanded; null shows none */
   renderExpandedRow?: (row: TData, rowId: string) => ReactNode | null;
   // Manual mode (server-side)
@@ -58,14 +64,18 @@ export interface DataTableProps<TData> {
   // For cursor-based pagination (when total count is unknown)
   hasNextPage?: boolean;
   // Appearance
-  emptyMessage?: string;
+  emptyMessage?: ReactNode;
   title?: string;
   description?: string;
   // Toolbar options
   hideGlobalFilter?: boolean;
   hideColumnVisibility?: boolean;
   // Pagination position
-  paginationPosition?: 'top' | 'bottom' | 'both';
+  paginationPosition?: 'top' | 'bottom' | 'both' | 'none';
+  /** Keep the page size the caller set: no Rows menu in the pagination toolbar */
+  hidePageSize?: boolean;
+  /** At the start of the bottom toolbar, in place of the rows shown (such as a count); shown even without pagination */
+  footer?: ReactNode;
   /**
    * Row spacing and type size. `comfortable` matches the `Table` recipe (40px rows, text-sm) for short
    * record lists; `compact` keeps wide, many-column tables on screen.

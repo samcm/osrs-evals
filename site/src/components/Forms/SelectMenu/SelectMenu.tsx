@@ -43,10 +43,15 @@ export function SelectMenu<T>({
   rounded = true,
 }: SelectMenuProps<T>): JSX.Element {
   const selectedOption = options.find(opt => opt.value === value);
+  // Ungrouped options first, then each group in the order it first appears
+  const groups = [...new Set(options.map(opt => opt.group))].sort((a, b) => (a == null ? -1 : b == null ? 1 : 0));
 
   return (
     <Listbox value={value} onChange={onChange} disabled={disabled}>
-      {showLabel && label && <Label className="block text-sm/6 font-medium text-foreground">{label}</Label>}
+      {label && (
+        // A hidden label still names the menu for screen readers
+        <Label className={showLabel ? 'block text-sm/6 font-medium text-foreground' : 'sr-only'}>{label}</Label>
+      )}
       <div className={clsx('relative', showLabel && 'mt-2', className)}>
         <ListboxButton
           className={clsx(
@@ -77,18 +82,35 @@ export function SelectMenu<T>({
             expandToFit ? 'w-max' : 'w-button'
           )}
         >
-          {options.map(option => (
-            <ListboxOption
-              key={String(option.value)}
-              value={option.value}
-              className="relative cursor-pointer py-1.5 pr-9 pl-2.5 text-sm text-foreground transition-colors select-none data-focus:bg-primary-10 data-focus:text-primary data-selected:text-primary"
-            >
-              <span className="flex items-center gap-2">
-                {option.icon && <span className="flex size-5 shrink-0 items-center justify-center">{option.icon}</span>}
-                <span className={clsx('block', expandToFit ? 'whitespace-nowrap' : 'truncate')}>{option.label}</span>
-              </span>
-            </ListboxOption>
-          ))}
+          {groups.map(group => [
+            group != null && (
+              <div
+                key={`group-${group}`}
+                role="presentation"
+                className="px-2.5 pt-2 pb-1 text-2xs font-semibold tracking-wider text-muted-60 uppercase"
+              >
+                {group}
+              </div>
+            ),
+            ...options
+              .filter(option => option.group === group)
+              .map(option => (
+                <ListboxOption
+                  key={String(option.value)}
+                  value={option.value}
+                  className="relative cursor-pointer py-1.5 pr-9 pl-2.5 text-sm text-foreground transition-colors select-none data-focus:bg-primary-10 data-focus:text-primary data-selected:text-primary"
+                >
+                  <span className="flex items-center gap-2">
+                    {option.icon && (
+                      <span className="flex size-5 shrink-0 items-center justify-center">{option.icon}</span>
+                    )}
+                    <span className={clsx('block', expandToFit ? 'whitespace-nowrap' : 'truncate')}>
+                      {option.label}
+                    </span>
+                  </span>
+                </ListboxOption>
+              )),
+          ])}
         </ListboxOptions>
       </div>
     </Listbox>

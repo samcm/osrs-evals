@@ -5,6 +5,8 @@ interface SegmentedControlOption<T extends string> {
   label: ReactNode;
   /** Shown but not selectable, e.g. a filter with no matching rows */
   disabled?: boolean;
+  /** Said on hover and read as the option's name, for a label that is a mark or a short word */
+  title?: string;
 }
 
 export interface SegmentedControlProps<T extends string> {

@@ -4,6 +4,8 @@ export interface SelectMenuOption<T> {
   value: T;
   label: string;
   icon?: ReactNode;
+  /** Options with a group are listed under its name, groups in first-seen order */
+  group?: string;
 }
 
 export interface SelectMenuProps<T> {

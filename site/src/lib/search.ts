@@ -34,6 +34,7 @@ export type ParamValues<P extends Record<string, Param<unknown>>> = { [K in keyo
 export interface SearchSchema<V extends object> {
   validate: (input: Partial<V> & SearchSchemaInput) => V;
   /** Strips defaults from every URL the route builds (typed loosely: the route's full search includes the root's) */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any route's search, as the router types its middlewares
   middlewares: SearchMiddleware<any>[];
   defaults: V;
 }
@@ -122,6 +123,7 @@ function equal(a: unknown, b: unknown): boolean {
 }
 
 /** Declare a route's params. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- params of any value type; ParamValues keeps each one's
 export function defineSearch<P extends Record<string, Param<any>>>(params: P): SearchSchema<ParamValues<P>> {
   type V = ParamValues<P>;
   const defaults = Object.fromEntries(Object.entries(params).map(([k, p]) => [k, p.fallback])) as V;
@@ -132,6 +134,7 @@ export function defineSearch<P extends Record<string, Param<any>>>(params: P): S
       Object.fromEntries(
         Object.entries(params).map(([k, p]) => [k, p.parse((input as Record<string, unknown>)[k]) ?? p.fallback])
       ) as V,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- as SearchSchema's middlewares
     middlewares: [stripSearchParams(strippable as never) as SearchMiddleware<any>],
   };
 }
@@ -180,7 +183,7 @@ export const scopeParams = { model: list(), agent: list(), vendor: list(), think
 /** The root route's params: scope plus a theme override for shared links. */
 export const rootSearch = defineSearch({
   ...scopeParams,
-  theme: oneOf(['light', 'dark'], undefined),
+  theme: oneOf(['light', 'dark', 'star'], undefined),
   /** EthIQ's cut: every thinking level of each model in each harness, or only its best one. A view
    * param on every page, not carried from page to page */
   effort: oneOf(['all', 'best'], 'all'),

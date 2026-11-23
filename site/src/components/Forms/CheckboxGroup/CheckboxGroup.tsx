@@ -105,6 +105,36 @@ export function CheckboxGroup({
           </Field>
         );
 
+      case 'menu':
+        // A menu's checklist: a compact row per option, the whole row its label, the description
+        // (such as a count) at its end
+        return (
+          <Field
+            as={ListItem}
+            key={option.id}
+            className="flex cursor-pointer items-center gap-2.5 rounded-xs px-2 py-1.5! transition-colors hover:bg-muted-10"
+          >
+            <Checkbox
+              id={option.id}
+              name={option.name}
+              checked={option.checked}
+              defaultChecked={option.defaultChecked}
+              onChange={option.onChange}
+              disabled={option.disabled}
+              indeterminate={option.indeterminate}
+              rounded={rounded}
+            />
+            <Label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-sm text-foreground select-none">
+              {option.label}
+            </Label>
+            {option.description && (
+              <Description as="span" className="text-xs text-muted tabular-nums">
+                {option.description}
+              </Description>
+            )}
+          </Field>
+        );
+
       default:
         return (
           <ListItem key={option.id}>
@@ -149,6 +179,12 @@ export function CheckboxGroup({
           withDividers: true,
           compact: true,
           className: 'mt-4 border-t border-b border-border',
+        };
+      case 'menu':
+        return {
+          variant: 'simple' as const,
+          withDividers: false,
+          compact: true,
         };
       default:
         return {

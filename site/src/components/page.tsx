@@ -1,28 +1,27 @@
 /**
- * Page structure, as shadcn's own dashboard: the app header names the page (breadcrumb), and the
- * content is a column of Cards. Nothing here invents its own look; these are thin compositions of
- * the library so every page is built the same way.
+ * Page structure, as lab's pages: the breadcrumb bar names the page, and the content is a column of
+ * lab Cards. These are thin compositions of lab's components so every page is built the same way.
  *
  *   PageHeader   the page's one-line description, its facts and actions (never its name: the
- *                header bar has it)
- *   PageTabs     the page's views (`?tab=`)
+ *                breadcrumb bar has it)
+ *   PageHero     a detail page's opening card: its mark, lead, detail and facts
+ *   PageTabs     the page's views (`?tab=`), lab's Tab in a ScrollableTabs strip
  *   PageToolbar  a row of controls that drive the cards below
- *   PageSection  a Card: CardHeader (CardTitle, CardDescription, CardAction) and CardContent
+ *   PageSection  a lab Card: title, subtitle and actions in its header, the content in its body
  */
 
-import type { ReactNode } from 'react';
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { JSX, ReactNode } from 'react';
+import { TabGroup } from '@headlessui/react';
+import clsx from 'clsx';
+import { Card } from '@/components/Layout/Card';
+import { Tab } from '@/components/Navigation/Tab';
+import { ScrollableTabs } from '@/components/Navigation/ScrollableTabs';
 import { useSearchUpdate } from '@/lib/search';
-import { cn } from '@/lib/utils';
 
 export interface MetaItem {
   term: string;
   value: ReactNode;
 }
-
-/** Kept for pages that still import it; the page's name lives in the header bar. */
-export const pageTitleClassName = 'min-w-0 text-base font-medium';
 
 export function PageHeader({
   mark,
@@ -33,27 +32,27 @@ export function PageHeader({
 }: {
   /** The page's sprite or logo at 40, beside the description and facts */
   mark?: ReactNode;
-  /** Ignored: the header bar names the page */
+  /** Ignored: the breadcrumb bar names the page */
   title?: ReactNode;
   description?: ReactNode;
   meta?: MetaItem[];
   actions?: ReactNode;
   className?: string;
-}) {
+}): JSX.Element | null {
   if (!description && !(meta && meta.length) && !actions) return null;
   return (
-    <header className={cn('flex flex-col gap-3 md:flex-row md:items-center md:justify-between', className)}>
+    <header className={clsx('flex flex-col gap-3 md:flex-row md:items-center md:justify-between', className)}>
       <div className="flex min-w-0 items-center gap-3">
         {mark}
         {/* One line where it fits: the description, then each fact */}
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
-          {description && <p className="max-w-prose text-pretty text-muted-foreground">{description}</p>}
+          {description && <p className="max-w-2xl text-pretty text-muted">{description}</p>}
           {meta && meta.length > 0 && (
             <dl className="contents">
               {meta.map(m => (
                 <div key={m.term} className="flex min-w-0 items-baseline gap-2">
-                  <dt className="whitespace-nowrap text-muted-foreground">{m.term}</dt>
-                  <dd className="min-w-0 tabular-nums **:font-normal">{m.value}</dd>
+                  <dt className="whitespace-nowrap text-muted">{m.term}</dt>
+                  <dd className="min-w-0 text-foreground tabular-nums">{m.value}</dd>
                 </div>
               ))}
             </dl>
@@ -68,7 +67,8 @@ export function PageHeader({
 /**
  * A page's opening card: its sprite on a tile, the lead (an eval's goal, or what a run did) at full
  * strength with any detail under it (what the eval counts and what makes it hard), then the facts
- * as terms over values, with actions on the right. `children` go under it, inside the card (the eval's Setup).
+ * as terms over values, with actions on the right. `children` go under it inside the card, edge to
+ * edge (the eval's note and Setup): give each section `border-t border-border px-card-inset py-3`.
  */
 export function PageHero({
   mark,
@@ -84,30 +84,32 @@ export function PageHero({
   meta: MetaItem[];
   actions?: ReactNode;
   children?: ReactNode;
-}) {
+}): JSX.Element {
   return (
-    <Card className="gap-0 py-0">
-      <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-start">
-        {mark && <span className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-muted">{mark}</span>}
+    <Card>
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+        {mark && (
+          <span className="flex size-16 shrink-0 items-center justify-center rounded-sm bg-muted-10">{mark}</span>
+        )}
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           {(lead || detail) && (
             <div className="flex max-w-3xl flex-col gap-1.5">
-              {lead && <p className="text-base font-medium text-pretty">{lead}</p>}
-              {detail && <p className="text-pretty text-muted-foreground">{detail}</p>}
+              {lead && <p className="text-base font-medium text-pretty text-foreground">{lead}</p>}
+              {detail && <p className="text-sm text-pretty text-muted">{detail}</p>}
             </div>
           )}
-          <dl className="flex flex-wrap gap-x-8 gap-y-3 text-sm">
+          <dl className="flex flex-wrap gap-x-8 gap-y-3">
             {meta.map(m => (
               <div key={m.term} className="flex min-w-0 flex-col gap-0.5">
-                <dt className="text-muted-foreground">{m.term}</dt>
-                <dd className="tabular-nums **:font-normal">{m.value}</dd>
+                <dt className="text-xs text-muted">{m.term}</dt>
+                <dd className="text-sm text-foreground tabular-nums">{m.value}</dd>
               </div>
             ))}
           </dl>
         </div>
         {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
-      {children}
+      {children && <div className="mx-card-bleed mt-4 mb-card-bleed sm:mt-5">{children}</div>}
     </Card>
   );
 }
@@ -121,15 +123,15 @@ export function PageToolbar({
   label: string;
   children: ReactNode;
   className?: string;
-}) {
+}): JSX.Element {
   return (
-    <div role="toolbar" aria-label={label} className={cn('flex flex-wrap items-center gap-2', className)}>
+    <div role="toolbar" aria-label={label} className={clsx('flex flex-wrap items-center gap-2', className)}>
       {children}
     </div>
   );
 }
 
-/** A section of a page: a shadcn Card. Tables inside run to the card's edges. */
+/** A section of a page: a lab Card. Tables inside run to the card's edges. */
 export function PageSection({
   title,
   description,
@@ -144,17 +146,16 @@ export function PageSection({
   lead?: boolean;
   className?: string;
   children: ReactNode;
-}) {
+}): JSX.Element {
+  const header = title != null || description != null || actions != null;
   return (
-    <Card className={cn('min-w-0', className)}>
-      {(title || description || actions) && (
-        <CardHeader>
-          {title && <CardTitle className="flex min-w-0 items-center gap-2">{title}</CardTitle>}
-          {description && <CardDescription>{description}</CardDescription>}
-          {actions && <CardAction className="flex flex-wrap items-center gap-2">{actions}</CardAction>}
-        </CardHeader>
-      )}
-      <CardContent className="flex min-w-0 flex-col gap-4 has-data-[slot=table-container]:px-0">{children}</CardContent>
+    <Card
+      title={header ? <span className="flex min-w-0 items-center gap-2">{title}</span> : undefined}
+      subtitle={description}
+      actions={actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      className={clsx('min-w-0', className)}
+    >
+      <div className="flex min-w-0 flex-col gap-4">{children}</div>
     </Card>
   );
 }
@@ -165,24 +166,27 @@ export interface PageTab<T extends string> {
 }
 
 /**
- * The page's views, bound to `?tab=`; the first tab is the default and leaves the URL clean. The
- * underline starts flush with the cards below, and a row of tabs too wide for a phone scrolls
- * sideways inside itself instead of widening the page.
+ * The page's views, bound to `?tab=`; the first tab is the default and leaves the URL clean. A
+ * strip of tabs too wide for a phone scrolls sideways inside itself instead of widening the page.
+ * The tabs only choose the view: the page draws the open one under them.
  */
-export function PageTabs<T extends string>({ value, tabs }: { value: T; tabs: PageTab<T>[] }) {
+export function PageTabs<T extends string>({ value, tabs }: { value: T; tabs: PageTab<T>[] }): JSX.Element {
   const update = useSearchUpdate();
+  const selected = Math.max(
+    0,
+    tabs.findIndex(t => t.value === value)
+  );
   return (
-    <Tabs value={value} onValueChange={v => update({ tab: v === tabs[0].value ? undefined : v })} className="min-w-0">
-      {/* Room under the list for the active underline, which overflow would otherwise clip */}
-      <div className="overflow-x-auto pb-1.5">
-        <TabsList variant="line" className="px-0">
-          {tabs.map(t => (
-            <TabsTrigger key={t.value} value={t.value}>
-              {t.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </div>
-    </Tabs>
+    <TabGroup
+      selectedIndex={selected}
+      onChange={index => update({ tab: index === 0 ? undefined : tabs[index]?.value })}
+      className="min-w-0"
+    >
+      <ScrollableTabs>
+        {tabs.map(t => (
+          <Tab key={t.value}>{t.label}</Tab>
+        ))}
+      </ScrollableTabs>
+    </TabGroup>
   );
 }

@@ -1,58 +1,56 @@
 /**
- * Small shared pieces on shadcn/ui: a tooltip on any element (Tip), segmented controls (ToggleGroup, optionally bound to a URL
- * param), a disclosure (Collapsible), code, empty states (Empty), the page title. Identity marks are in
- * marks.tsx.
+ * Small shared pieces on lab's components: a tooltip on any element (Tip), segmented controls
+ * (SegmentedControl, optionally bound to a URL param), a disclosure, code, empty states and a run's
+ * outcome. Identity marks are in marks.tsx.
  */
 
-import { useState, type ReactElement, type ReactNode } from 'react';
-import { ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import type { JSX, ReactElement, ReactNode } from 'react';
+import clsx from 'clsx';
 import type { Run } from '@/data/types';
 import { outcomeWord } from '@/lib/evals';
 import { useSearchUpdate } from '@/lib/search';
-import { PageHeader } from './page';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Empty as EmptyRoot, EmptyDescription } from '@/components/ui/empty';
+import { Tooltip } from '@/components/Overlays/Tooltip';
+import { SegmentedControl } from '@/components/Forms/SegmentedControl';
+import { Disclosure as LabDisclosure } from '@/components/Layout/Disclosure';
 
 /**
- * A shadcn Tooltip on an element, the element itself its trigger: the one way to say more on hover
+ * The Tooltip on an element, the element itself its trigger: the one way to say more on hover
  * (never the browser's own `title`). Without content it is just the element.
  */
 export function Tip({
   content,
   children,
   side,
+  className,
 }: {
   content: ReactNode;
   children: ReactElement;
   side?: 'top' | 'right' | 'bottom' | 'left';
-}) {
-  if (content == null || content === '' || content === false) return children;
+  /** Classes for the tooltip's panel, such as a wider `max-w-*` */
+  className?: string;
+}): JSX.Element {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side={side}>{content}</TooltipContent>
+    <Tooltip content={content} side={side} className={className}>
+      {children}
     </Tooltip>
   );
 }
 
 /** A run's outcome: a mark and a word. Finished is a filled dot, not finished a hollow ring. */
-export function Outcome({ run }: { run: Pick<Run, 'success'> }) {
+export function Outcome({ run }: { run: Pick<Run, 'success'> }): JSX.Element {
   const word = outcomeWord(run);
   return (
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
       <span
         aria-hidden
-        className={cn(
+        className={clsx(
           'size-2 shrink-0 rounded-full',
           word === 'Finished' && 'bg-success',
-          word === 'Not finished' && 'border-2 border-destructive',
-          word === 'Scored' && 'bg-muted-foreground/50'
+          word === 'Not finished' && 'border-2 border-danger',
+          word === 'Scored' && 'bg-muted-50'
         )}
       />
-      <span className={cn(word === 'Finished' && 'text-success', word === 'Not finished' && 'text-destructive')}>
+      <span className={clsx(word === 'Finished' && 'text-success', word === 'Not finished' && 'text-danger')}>
         {word}
       </span>
     </span>
@@ -62,17 +60,16 @@ export function Outcome({ run }: { run: Pick<Run, 'success'> }) {
 export interface SegmentedOption<T extends string> {
   value: T;
   label: ReactNode;
-  /** Accessible name when the label is not plain text */
+  /** Said on hover and read as the option's name, when the label is a mark or a short word */
   title?: string;
 }
 
-/** One choice of a few, as a shadcn ToggleGroup (single, outline, small); the selected option takes the accent. */
+/** One choice of a few, as lab's SegmentedControl; the selected option takes the primary tint. */
 export function Segmented<T extends string>({
   options,
   value,
   onChange,
   label,
-  size = 'sm',
   className,
 }: {
   options: SegmentedOption<T>[];
@@ -80,30 +77,12 @@ export function Segmented<T extends string>({
   onChange: (value: T) => void;
   /** The group's accessible name */
   label: string;
-  /** `default` matches a Select's height, for a toolbar that mixes them */
+  /** Ignored: lab's controls share one height (a SelectMenu's and a Button's) */
   size?: 'sm' | 'default';
   className?: string;
-}) {
+}): JSX.Element {
   return (
-    <ToggleGroup
-      type="single"
-      variant="outline"
-      size={size}
-      spacing={0}
-      aria-label={label}
-      value={value}
-      // Radix lets a single group be emptied by clicking the selected item: keep the choice
-      onValueChange={next => next && onChange(next as T)}
-      className={className}
-    >
-      {options.map(option => (
-        <Tip key={option.value} content={option.title}>
-          <ToggleGroupItem value={option.value} aria-label={option.title}>
-            {option.label}
-          </ToggleGroupItem>
-        </Tip>
-      ))}
-    </ToggleGroup>
+    <SegmentedControl ariaLabel={label} value={value} options={options} onChange={onChange} className={className} />
   );
 }
 
@@ -127,7 +106,7 @@ export function ParamSegmented<T extends string>({
   /** Changing this param also returns the page to the first */
   resetPage?: boolean;
   className?: string;
-}) {
+}): JSX.Element {
   const update = useSearchUpdate();
   return (
     <Segmented
@@ -140,7 +119,7 @@ export function ParamSegmented<T extends string>({
   );
 }
 
-/** A collapsed block of content behind a one-line trigger (shadcn Collapsible). */
+/** A collapsed block of content behind a one-line trigger: lab's Disclosure, `meta` at its right. */
 export function Disclosure({
   title,
   meta,
@@ -151,17 +130,16 @@ export function Disclosure({
   meta?: ReactNode;
   children: ReactNode;
   defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
+}): JSX.Element {
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
-      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md py-1 text-left text-xs font-medium text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
-        <ChevronRight aria-hidden className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-90')} />
-        <span>{title}</span>
-        {meta && <span className="font-normal">{meta}</span>}
-      </CollapsibleTrigger>
-      <CollapsibleContent className="mt-1">{children}</CollapsibleContent>
-    </Collapsible>
+    <LabDisclosure
+      title={title}
+      rightContent={meta && <span className="text-xs text-muted">{meta}</span>}
+      defaultOpen={defaultOpen}
+      className="min-w-0"
+    >
+      {children}
+    </LabDisclosure>
   );
 }
 
@@ -174,12 +152,12 @@ export function CodeBlock({
   children: ReactNode;
   tone?: 'default' | 'danger';
   className?: string;
-}) {
+}): JSX.Element {
   return (
     <pre
-      className={cn(
-        'max-h-96 overflow-auto rounded-md border px-3 py-2 font-mono text-xs/5 wrap-break-word whitespace-pre-wrap',
-        tone === 'danger' ? 'border-destructive/20 bg-destructive/5 text-destructive' : 'bg-muted/50 text-foreground',
+      className={clsx(
+        'max-h-96 overflow-auto rounded-sm border px-3 py-2 font-mono text-xs/5 wrap-break-word whitespace-pre-wrap',
+        tone === 'danger' ? 'border-danger-20 bg-danger-5 text-danger' : 'border-border bg-well text-foreground',
         className
       )}
     >
@@ -188,21 +166,9 @@ export function CodeBlock({
   );
 }
 
-/** What is missing, in one short sentence: shadcn's Empty, its description alone. */
-export function Empty({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <EmptyRoot className={cn('p-6', className)}>
-      <EmptyDescription>{children}</EmptyDescription>
-    </EmptyRoot>
-  );
-}
-
-/**
- * The page's one H1, with optional controls beside it.
- * @deprecated Use PageHeader, which this now draws, so the title has one look everywhere.
- */
-export function PageTitle({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
-  return <PageHeader title={children} actions={aside} />;
+/** What is missing, in one short sentence, as lab's tables say it: a muted line. */
+export function Empty({ children, className }: { children: ReactNode; className?: string }): JSX.Element {
+  return <p className={clsx('py-12 text-center text-sm text-muted', className)}>{children}</p>;
 }
 
 /** Text that reads as a link, for in-table links and inline links. */

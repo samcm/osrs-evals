@@ -88,7 +88,8 @@ function FloatingTooltip({ content, children, side, className }: TooltipProps): 
   const delay = group.delay === 0 ? { open: OPEN_DELAY, close: 0 } : group.delay;
   const hover = useHover(context, { delay, move: false });
   const focus = useFocus(context);
-  const dismiss = useDismiss(context);
+  // A click on the element closes its tooltip, as it does a native one
+  const dismiss = useDismiss(context, { referencePress: true });
   const role = useRole(context, { role: 'tooltip' });
   const { getReferenceProps, getFloatingProps } = useInteractions([hover, focus, dismiss, role]);
   const { isMounted, styles } = useTransitionStyles(context, {
