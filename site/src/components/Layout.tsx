@@ -9,6 +9,7 @@ import {
   ChartBarIcon,
   ChevronRightIcon,
   CoinsIcon,
+  CrownIcon,
   FlaskConicalIcon,
   LayoutDashboardIcon,
   ListIcon,
@@ -81,6 +82,7 @@ function NavItem({ to, path, params, icon, children }: { to: string; path: strin
 const EVAL_ICONS: Record<string, ReactNode> = {
   quest_points: <ScrollTextIcon />,
   dragon_slayer: <ShieldIcon />,
+  heros_quest: <CrownIcon />,
   collection: <PackageIcon />,
   team_wealth: <CoinsIcon />,
   total_level: <TrendingUpIcon />,

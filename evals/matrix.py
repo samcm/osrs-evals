@@ -13,6 +13,7 @@ from inspect_ai import task, task_with
 
 from collection import collection
 from dragon_slayer import dragon_slayer
+from heros_quest import heros_quest
 from omp import omp
 from quest_points import quest_points
 from team_wealth import team_wealth
@@ -44,3 +45,8 @@ def collection_omp(thinking: str = "high"):
 @task
 def team_wealth_omp(thinking: str = "high"):
     return task_with(team_wealth(), solver=omp(thinking=thinking), epochs=EPOCHS)
+
+
+@task
+def hq_omp(thinking: str = "high"):
+    return task_with(heros_quest(), solver=omp(thinking=thinking), epochs=EPOCHS)

@@ -224,8 +224,8 @@ environment where you run `inspect`.
 ## Comparing agents and models
 
 A set of runs is a file of tasks, one per variant, and Inspect's `eval-set`. `evals/matrix.py` has
-quest points, Dragon Slayer, total level, collection and team wealth, each played by omp, two epochs
-each. The models and omp's thinking level are given at run time, so the same file compares models
+quest points, Dragon Slayer, Hero's Quest, total level, collection and team wealth, each played by
+omp, two epochs each. The models and omp's thinking level are given at run time, so the same file compares models
 (`--model a,b`) and thinking levels (one `-T thinking=<level>` per run, into the same log dir):
 
 ```sh
@@ -251,6 +251,7 @@ setting), recorded as such.
 | Dragon Slayer | `evals/dragon_slayer.py` | Ticks to complete Dragon Slayer from a new character, within four hours of game time (288,000 ticks). It needs 32 quest points to start and a level-83 dragon to finish; how to get there is up to the agent. The shell agent compacts its history (Inspect's `CompactionAuto`). |
 | Total level | `evals/total_level.py` | The sum of every skill's level after 36,000 ticks (30 minutes) from a new character, each level from the skill's saved xp on rs-sdk's xp curve. |
 | Collection | `evals/collection.py` | Distinct items held in the inventory, bank and worn equipment after 72,000 ticks (1 hour) from a new character. A noted item counts as the item it notes, by the game's own cert link. |
+| Hero's Quest | `evals/heros_quest.py` | Ticks to complete Hero's Quest on either of two new characters, within eight hours of game time (576,000 ticks). Achietties starts it only for 55 quest points with Shield of Arrav, Lost City, Merlin's Crystal and Dragon Slayer done, and its master thief armband takes a Phoenix Gang member and a Black Arm Gang member working together (they kill Grip and loot Scarface Pete's candlesticks), so both accounts need those quests; the feather and the eel need 53 Fishing and Cooking, 25 Herblore and 50 Mining. A run that does not finish is scored with each account's quest stage, gang, quest points, the four quests and the four skill levels in the score's metadata. |
 | Team wealth | `evals/team_wealth.py` | Four new characters in Lumbridge, 72,000 ticks: the total store value (the item config's `cost`, coins at face value) of everything the four hold in their inventories, banks and worn equipment. |
 | Gold | `evals/gold.py` | Four accounts, 100,000 coins between them. |
 

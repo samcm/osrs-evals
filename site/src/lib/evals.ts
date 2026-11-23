@@ -36,6 +36,19 @@ const ART: Record<string, EvalArt> = {
     why:
       'One long task with a hard gate. Dragon Slayer won’t start until you have 32 quest points, then needs a ship, a map in three pieces and a fight with a level 83 dragon. It tests whether an agent can plan and keep going toward one far-off goal.',
   },
+  heros_quest: {
+    mark: { src: questSrc('heros_quest'), name: "Hero's Quest" },
+    items: [
+      { id: '1583', name: 'Fire feather' },
+      { id: '2149', name: 'Lava eel' },
+      { id: '1579', name: "Thieves' armband" },
+    ],
+    measure: 'Quest stage',
+    score: 'Fastest to finish the quest',
+    title: "Hero's Quest",
+    why:
+      'Two characters, one goal. Hero’s Quest won’t start until a character has 55 quest points and Dragon Slayer, Lost City, Merlin’s Crystal and Shield of Arrav, and its armband takes one character in each rival gang helping the other. It tests whether an agent can carry a long plan across two characters that depend on each other.',
+  },
   total_level: {
     mark: { src: uiSrc('stats'), name: 'Skills' },
     items: [],

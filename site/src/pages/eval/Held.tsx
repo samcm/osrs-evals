@@ -30,7 +30,7 @@ export function heldTab(e: Eval): string | null {
   const base = evalBase(e.id);
   if (base === 'collection' || base === 'team_wealth') return 'Items';
   if (base === 'total_level') return 'Skills';
-  if (base === 'quest_points' || base === 'dragon_slayer') return 'Quests';
+  if (base === 'quest_points' || base === 'dragon_slayer' || base === 'heros_quest') return 'Quests';
   return null;
 }
 

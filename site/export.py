@@ -33,10 +33,10 @@ from inspect_ai.log import list_eval_logs, read_eval_log
 SITE = Path(__file__).resolve().parent
 QUESTS = SITE / "game" / "quests.json"  # written by site/game/quests.py from rs-sdk's content
 ITEMS = SITE / "game" / "items.json"  # every item's name, store value and note link: site/game/art.ts
-EVAL_NAMES = {"quest_points": "Quest points", "dragon_slayer": "Dragon Slayer", "total_level": "Total level", "collection": "Collection", "team_wealth": "Team wealth", "coins": "Coins", "gold": "Gold"}
-MEASURES = {"quest_points": "Quest points", "dragon_slayer": "Quest stage", "total_level": "Total level", "collection": "Different items", "team_wealth": "Wealth", "coins": "Coins", "gold": "Coins"}
+EVAL_NAMES = {"quest_points": "Quest points", "dragon_slayer": "Dragon Slayer", "total_level": "Total level", "collection": "Collection", "team_wealth": "Team wealth", "coins": "Coins", "gold": "Gold", "heros_quest": "Hero's Quest"}
+MEASURES = {"quest_points": "Quest points", "dragon_slayer": "Quest stage", "total_level": "Total level", "collection": "Different items", "team_wealth": "Wealth", "coins": "Coins", "gold": "Coins", "heros_quest": "Quest stage"}
 # Short task names in the batch files (evals/matrix.py names a task <eval>_<agent>)
-EVAL_ALIASES = {"qp": "quest_points", "ds": "dragon_slayer"}
+EVAL_ALIASES = {"qp": "quest_points", "ds": "dragon_slayer", "hq": "heros_quest"}
 
 # Each eval's own events, read from the accounts' saved states: the steps of a quest from its varp
 # (rs-sdk content/scripts/quests/quest_dragon/configs/quest_dragon.constant) and the quest points
@@ -48,6 +48,22 @@ EVAL_STEPS = {
         "varp": "176",
         "stages": {1: "Spoke to the Guildmaster", 2: "Spoke to Oziach", 3: "Bought the ship", 7: "Repaired the ship", 8: "Gave Ned the map", 9: "Sailed to Crandor"},  # 10, done, is the quest itself
         "qp": 32,
+    },
+    # quest_hero.constant: the Phoenix Gang's way to the armband is 2-6, the Black Arm Gang's 7-13
+    # (an account takes one), so a stage counts as reached only on its own gang's way
+    "heros_quest": {
+        "quest": "heros_quest",
+        "varp": "188",
+        "stages": {
+            1: "Spoke to Achietties",
+            2: "Phoenix: spoke to Straven", 3: "Phoenix: gave Alfonse the password", 4: "Phoenix: spoke to Charlie the cook",
+            5: "Phoenix: killed Grip", 6: "Phoenix: got the master thief armband",
+            7: "Black Arm: spoke to Katrine", 8: "Black Arm: gave Grubor the password", 9: "Black Arm: got Hartigen's ID papers",
+            10: "Black Arm: got into Scarface Pete's mansion", 11: "Black Arm: gave Grip the ID papers",
+            12: "Black Arm: looted the candlesticks", 13: "Black Arm: got the master thief armband",
+        },
+        "ways": [range(2, 7), range(7, 14)],
+        "qp": 55,
     },
 }
 
@@ -896,6 +912,15 @@ def quests_of(base: str, timeline: list[dict], states: list[dict], world: dict |
     return done
 
 
+def reached(spec: dict, stage: int, n: int) -> bool:
+    """Whether an account at this stage of the quest has been through step n. On a quest with ways
+    (one per gang), a step on one way is passed only by a later stage on the same way."""
+    if stage < n:
+        return False
+    way = next((w for w in spec.get("ways", []) if n in w), None)
+    return way is None or stage in way
+
+
 def steps_of(base: str, states: list[dict]) -> list[dict]:
     """The eval's own events from the saved states (EVAL_STEPS): each quest stage the first time the
     quest's varp reaches it, and the first time the quest points reach what the quest needs. A
@@ -908,13 +933,13 @@ def steps_of(base: str, states: list[dict]) -> list[dict]:
     for i, r in enumerate(states):
         if i and r.get("attempt") != states[i - 1].get("attempt"):
             seen = set()
-        stage = max(int(s["varps"].get(spec["varp"], 0)) for s in r["accounts"].values())
+        stages = [int(s["varps"].get(spec["varp"], 0)) for s in r["accounts"].values()]
         qp = max(int(s["varps"].get(QP_VARP, 0)) for s in r["accounts"].values())
         if qp >= spec["qp"] and "qp" not in seen:
             seen.add("qp")
-            out.append({"tick": r["tick"], "seconds": r["seconds"], "kind": "qp", "qp": spec["qp"]})
+            out.append({"tick": r["tick"], "seconds": r["seconds"], "kind": "qp", "qp": spec["qp"], "quest": spec["quest"]})
         for n, name in spec["stages"].items():
-            if stage >= n and n not in seen:
+            if any(reached(spec, stage, n) for stage in stages) and n not in seen:
                 seen.add(n)
                 out.append({"tick": r["tick"], "seconds": r["seconds"], "kind": "stage", "quest": spec["quest"], "stage": n, "name": name})
     return out

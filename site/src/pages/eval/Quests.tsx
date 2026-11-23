@@ -1,10 +1,10 @@
 /**
- * The quests across an eval about quests (quest points, Dragon Slayer), in its Quests tab: first the
- * usual order (every quest and step some run reached, by the median game time runs reached it, and
- * how many did), then each run's quests in the order it finished them, in the leaderboard's order.
- * On Dragon Slayer the quest's own steps and the 32 quest points its guild asks for are part of the
- * order, so the route to the requirement and through the quest reads in one line. Read from the eval
- * file's `quests` (export.py).
+ * The quests across an eval about quests (quest points, Dragon Slayer, Hero's Quest), in its Quests
+ * tab: first the usual order (every quest and step some run reached, by the median game time runs
+ * reached it, and how many did), then each run's quests in the order it finished them, in the
+ * leaderboard's order. On Dragon Slayer and Hero's Quest the quest's own steps and the quest points
+ * it asks for (32, 55) are part of the order, so the route to the requirement and through the quest
+ * reads in one line. Read from the eval file's `quests` (export.py).
  */
 
 import { Link } from '@tanstack/react-router';
@@ -25,7 +25,7 @@ type Step = NonNullable<EvalRuns['runs'][string]['quests']>[number];
 
 /** One step's key across runs, its label and its icon. */
 function stepOf(s: Step): { key: string; label: string; quest: string; badge?: string } {
-  if (s.kind === 'qp') return { key: `qp-${s.qp}`, label: `${formatInt(s.qp ?? 0)} quest points`, quest: 'dragon_slayer', badge: 'QP' };
+  if (s.kind === 'qp') return { key: `qp-${s.qp}`, label: `${formatInt(s.qp ?? 0)} quest points`, quest: s.quest ?? 'dragon_slayer', badge: 'QP' };
   if (s.kind === 'stage') return { key: `${s.quest}-${s.stage}`, label: s.name ?? `Stage ${s.stage}`, quest: s.quest ?? 'dragon_slayer', badge: String(s.stage) };
   return { key: s.quest ?? s.name ?? '', label: s.name ?? s.quest ?? '', quest: s.quest ?? '' };
 }
