@@ -10,6 +10,13 @@ export interface RangeInputProps {
   label: string;
 
   /**
+   * Keep the label (and its value) for screen readers only, when the slider's surroundings
+   * already say what it is and where it is, as a playback scrubber beside its time
+   * @default false
+   */
+  hideLabel?: boolean;
+
+  /**
    * The current value of the slider
    */
   value: number;
