@@ -170,7 +170,8 @@ export function ParetoChart({
           y={{
             domain: [0, yMax],
             ticks: target ? [0, 0.25, 0.5, 0.75, 1] : roundTicks(yMax),
-            format: target ? v => `${Math.round(v * 100)}%` : formatInt,
+            format: target ? v => `${Math.round(v * 100)}%` : v => formatTick(v, 'count'),
+            formatValue: target ? undefined : formatInt,
           }}
           points={shown.map(
             (p): ChartPoints => ({ series: p.spec, points: [{ x: p.x, y: p.y, key: p.spec.key, data: p }] })
