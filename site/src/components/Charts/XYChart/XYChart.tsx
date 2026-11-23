@@ -15,7 +15,7 @@
  *   </ChartFrame>
  */
 
-import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type JSX } from 'react';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
 import type { EChartsInstance } from 'echarts-for-react/lib';
 import * as echarts from 'echarts/core';
@@ -57,6 +57,9 @@ function useSize(): [(node: HTMLElement | null) => (() => void) | undefined, { w
   }, []);
   return [ref, size];
 }
+
+/** Each chart's crosshair x, by its id, set as ECharts moves it and read by its tooltip */
+const crosshairs = new Map<string, number | null>();
 
 /** Room right of the plot for each row's value (`ChartRow.value`). */
 const ROW_VALUE_WIDTH = 64;
@@ -139,8 +142,11 @@ export function XYChart(props: XYChartProps): JSX.Element {
     ...chartGrid({ left: rows ? rowLabelWidth : Y_AXIS_WIDTH, endLabels: labels, xName: !!x.name, yName: !!y?.name }),
     ...(rowValues ? { right: ROW_VALUE_WIDTH } : {}),
   };
+  // Where the crosshair is (the pointer's x, here or in a synced chart), for the axis tooltip
+  const chartId = useId();
+  useEffect(() => () => void crosshairs.delete(chartId), [chartId]);
   // Rebuilt each render: the props are new each time, and the build is cheap next to ECharts' own update
-  const { option, hits } = buildOption(props, grid, colors, lit);
+  const { option, hits } = buildOption(props, grid, colors, lit, () => crosshairs.get(chartId) ?? null);
   const plot = plotOf(size, grid, x, rows ? { rows: rows.length } : y!);
   const strength = (id: string | undefined): number => (lit != null && id != null && !lit.has(id) ? FADED_OPACITY : 1);
 
@@ -177,22 +183,32 @@ export function XYChart(props: XYChartProps): JSX.Element {
       instance.dispatchAction({ type: 'showTip', ...(itemRef.current ?? pointerRef.current) });
   }, [litKey]);
 
-  const ready = useCallback((instance: EChartsInstance) => {
-    chartRef.current = instance;
-    const zr = instance.getZr();
-    zr.on('mousemove', (e: { offsetX: number; offsetY: number }) => {
-      pointerRef.current = { x: e.offsetX, y: e.offsetY };
-      if (syncRef.current) {
-        const inside = instance.containPixel({ gridIndex: 0 }, [e.offsetX, e.offsetY]);
-        const at = inside ? (instance.convertFromPixel({ gridIndex: 0 }, [e.offsetX, e.offsetY]) as number[])[0] : null;
-        publishSync(syncRef.current, at, instance);
-      }
-    });
-    zr.on('globalout', () => {
-      pointerRef.current = null;
-      if (syncRef.current) publishSync(syncRef.current, null, instance);
-    });
-  }, []);
+  const ready = useCallback(
+    (instance: EChartsInstance) => {
+      chartRef.current = instance;
+      // Sent before the tooltip draws, with the crosshair's unsnapped x
+      instance.on('updateAxisPointer', (e: unknown) => {
+        const { axesInfo } = e as { axesInfo?: { axisDim: string; value: number }[] };
+        crosshairs.set(chartId, axesInfo?.find(a => a.axisDim === 'x')?.value ?? null);
+      });
+      const zr = instance.getZr();
+      zr.on('mousemove', (e: { offsetX: number; offsetY: number }) => {
+        pointerRef.current = { x: e.offsetX, y: e.offsetY };
+        if (syncRef.current) {
+          const inside = instance.containPixel({ gridIndex: 0 }, [e.offsetX, e.offsetY]);
+          const at = inside
+            ? (instance.convertFromPixel({ gridIndex: 0 }, [e.offsetX, e.offsetY]) as number[])[0]
+            : null;
+          publishSync(syncRef.current, at, instance);
+        }
+      });
+      zr.on('globalout', () => {
+        pointerRef.current = null;
+        if (syncRef.current) publishSync(syncRef.current, null, instance);
+      });
+    },
+    [chartId]
+  );
 
   // The group's crosshair: show this chart's at the x another chart of the group is pointing at
   useEffect(() => {

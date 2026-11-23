@@ -23,6 +23,7 @@
 
 export { ChartFrame, type ChartHeight } from './ChartFrame';
 export { XYChart } from './XYChart';
+export { subscribeSync } from './XYChart/sync';
 export type {
   ChartArea,
   ChartBand,
