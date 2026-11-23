@@ -5,6 +5,7 @@
  *   <SeriesLabel series={variantSeries(run)} size={14} />
  */
 
+import type { JSX } from 'react';
 import { cn } from '@/lib/utils';
 import type { SeriesSpec } from '@/lib/chartSeries';
 import { BrandMark, Sprite, ThinkingLevel, type BrandSize } from '@/components/marks';
@@ -17,7 +18,7 @@ export function SeriesLabel({
   series: SeriesSpec;
   size?: BrandSize;
   className?: string;
-}) {
+}): JSX.Element {
   return (
     <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
       {series.sprite ? (
