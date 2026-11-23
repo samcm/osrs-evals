@@ -40,12 +40,17 @@ export interface HoverState {
 
 export function useHover(): HoverState {
   const id = useSyncExternalStore(subscribe, () => current);
-  const faded = (other: string) => id != null && id !== other;
+  const faded = (other: string): boolean => id != null && id !== other;
   return { id, faded, opacity: other => (faded(other) ? FADED_OPACITY : 1) };
 }
 
 /** Handlers that make an element hover (and, focused, highlight) an id. */
-export function hoverProps(id: string) {
+export function hoverProps(id: string): {
+  onPointerEnter: () => void;
+  onPointerLeave: () => void;
+  onFocus: () => void;
+  onBlur: () => void;
+} {
   return {
     onPointerEnter: () => setHovered(id),
     onPointerLeave: () => setHovered(undefined),

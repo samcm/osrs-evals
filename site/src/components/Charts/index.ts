@@ -1,42 +1,54 @@
 /**
- * The chart kit: small pieces to compose shadcn charts (ChartContainer and ChartTooltip from
- * `@/components/ui/chart`, over Recharts). Series specs come from `@/lib/chartSeries`.
+ * The chart kit, on ECharts with lab's chart chrome. Every chart is a ChartFrame (lead, compact or
+ * rows) holding an XYChart (lines, bands, areas, points, bars) or a lab core chart (Heatmap, Bar,
+ * StackedBar, in their own folders here). Series specs come from `@/lib/chartSeries`; which series
+ * show is `useLegend` (`hide=`, `focus=`); the page's hover is `@/lib/hover`.
  *
- *   const series = variants.map(variantSeries);
- *   const shown = series.filter(s => legend.visible(s.id));
- *   const [ref, width] = useWidth();               // @/lib/useWidth
- *   const labels = showEndLabels(width);           // no end labels on a phone: the legend names the lines
- *   <div ref={ref}><ChartFrame config={seriesConfig(series)} height="lead" loading={!data} legend={<SeriesLegend series={series} legend={legend} />}>
- *     <LineChart data={rows} margin={chartMargin({ endLabels: labels })} {...syncProps('eval')}>
- *       <CartesianGrid {...gridProps} />
- *       <XAxis {...xAxisProps({ dataKey: 'tick', domain: [0, budget] })} />
- *       <YAxis {...yAxisProps()} />
- *       <ChartTooltip cursor={crosshairCursor} content={<SeriesTooltip series={shown} />} />
- *       {series.map(s => <Line key={s.key} {...lineProps(s, { hidden: !legend.visible(s.id), faded: hover.faded(s.id) })} />)}
- *       {labels && <EndLabels items={shown.map(s => ({ series: s, value: last(s) }))} />}
- *       <SpriteMarkers markers={…} />
- *     </LineChart>
- *   </ChartFrame></div>
+ *   const specs = ranked.map(r => variantSeries(r.variant));
+ *   const legend = useLegend();
+ *   <ChartFrame height="lead" legend={<SeriesLegend series={specs} legend={legend} />}>
+ *     <XYChart
+ *       x={{ domain: [0, budget], ticks: roundTicks(budget), format: formatTickX }}
+ *       y={{ domain: [0, yMax], ticks: roundTicks(yMax) }}
+ *       lines={specs.filter(s => legend.visible(s.id)).map(s => ({ series: s, points: medians.get(s.id) }))}
+ *       bands={lit ? [{ series: specs.find(s => s.id === lit), points: spread }] : []}
+ *       endLabels={shown.map(s => ({ series: s, value: last(s) }))}
+ *       markers={finishes.map(f => ({ id: f.run, x: f.tick, y: target, src: CHECK, title: 'Finished' }))}
+ *       sync="eval-x"
+ *     />
+ *   </ChartFrame>
+ *
+ * Pages not ported yet import the Recharts kit from `./legacy`, which goes with Recharts.
  */
 
-export { seriesConfig, seriesColor } from './config';
-export { CHART_HEIGHTS, ChartFrame, ROW_HEIGHT, type ChartHeight } from './ChartFrame';
+export { ChartFrame, type ChartHeight } from './ChartFrame';
+export { XYChart } from './XYChart';
+export type {
+  ChartArea,
+  ChartBand,
+  ChartBar,
+  ChartLine,
+  ChartPoint,
+  ChartPoints,
+  ChartRow,
+  ChartRule,
+  XYChartProps,
+} from './XYChart';
 export {
-  chartMargin,
-  crosshairCursor,
+  chartGrid,
   END_LABEL_WIDTH,
-  gridProps,
-  lineProps,
-  logAxisProps,
-  NAMED_Y_AXIS_WIDTH,
+  logAxis,
+  ROW_HEIGHT,
   showEndLabels,
-  syncProps,
-  xAxisProps,
   Y_AXIS_WIDTH,
-  yAxisProps,
+  type AxisSpec,
+  type ChartGrid,
 } from './axes';
-export { SeriesTooltip } from './SeriesTooltip';
+export type { Plot } from './plot';
+export { useChartColors, type ChartColors } from './useChartColors';
+export { heatGradient } from './heat';
+export type { TooltipContent, TooltipRow } from './tooltip';
 export { SeriesLabel } from './SeriesLabel';
 export { KeyLegend, SeriesLegend, type LegendItem } from './Legend';
-export { EndLabels, type EndLabelItem } from './EndLabels';
-export { SpriteMarkers, type SpriteMarker } from './SpriteMarkers';
+export type { EndLabelItem } from './EndLabels';
+export type { SpriteMarker, SpriteMarkerSize } from './SpriteMarkers';

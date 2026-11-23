@@ -8,7 +8,7 @@
 
 import type { ChartConfig } from '@/components/ui/chart';
 import type { SeriesSpec } from '@/lib/chartSeries';
-import { SeriesLabel } from './SeriesLabel';
+import { SeriesLabel } from '@/components/Charts/SeriesLabel';
 
 export function seriesConfig(series: SeriesSpec[]): ChartConfig {
   return Object.fromEntries(series.map(s => [s.key, { label: <SeriesLabel series={s} />, color: s.color }]));
