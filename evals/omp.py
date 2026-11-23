@@ -49,6 +49,9 @@ def omp(thinking: str = "high", version: str = VERSION, model: str | None = None
     model; the bridge serves every request with --model whatever it names.
     """
 
+    # Inspect parses -T/-S values as YAML, so an unquoted `thinking=off` arrives as False
+    thinking = "off" if thinking is False else thinking
+
     async def solve(state, generate):
         sb = sandbox()
         inspect_provider, model_name = str(get_model()).split("/", 1)
@@ -87,7 +90,7 @@ def omp(thinking: str = "high", version: str = VERSION, model: str | None = None
         ]
         env = {"HOME": HOME, "PATH": "/usr/local/bin:/usr/bin:/bin", "PI_OPENAI_STATEFUL": "0"}
         # omp's own generation settings (its thinking level, output cap) reach --model as it sent them
-        async with sandbox_agent_bridge(forward_generation_config=True, filter=one_try):
+        async with sandbox_agent_bridge(forward_generation_config=True, filter=one_try(thinking)):
             result = await sb.exec(concurrency=False, cmd=cmd, user="agent", cwd="/work", env=env)
         output = (result.stdout + result.stderr)[-6000:]
         state.metadata["omp"] = {"version": version, "model": name, "thinking": thinking, "exit": result.returncode, "output": output}
@@ -99,18 +102,28 @@ def omp(thinking: str = "high", version: str = VERSION, model: str | None = None
     return solve
 
 
-async def one_try(model: Model, messages, tools, tool_choice, config: GenerateConfig):
-    """Every model call is sent once: Inspect retries a failed call (429, 5xx) without limit by default.
+def one_try(thinking: str):
+    """The bridge's filter for a run at this thinking level: every model call is sent once (Inspect
+    retries a failed call, 429 or 5xx, without limit by default), and its thinking is the level's."""
 
-    omp asks some models for a thinking budget (it speaks Anthropic's API to them, as for Qwen on
-    OpenCode Go), and Inspect's OpenAI provider drops budgets: send it the level the budget stands for."""
-    client = getattr(model.api, "client", None)
-    if client is not None and hasattr(client, "max_retries"):
-        client.max_retries = 0  # the provider's SDK client (OpenAI's, Anthropic's) retries twice by default
-    update: dict = {"max_retries": 0}
-    if str(model).startswith("openai/") and config.reasoning_tokens and not config.reasoning_effort:
-        update |= {"reasoning_effort": BUDGET_LEVELS.get(config.reasoning_tokens, "high"), "reasoning_tokens": None}
-    return GenerateInput(messages, tools, tool_choice, config.model_copy(update=update))
+    async def filter(model: Model, messages, tools, tool_choice, config: GenerateConfig):
+        """Every model call is sent once: Inspect retries a failed call (429, 5xx) without limit by default.
+
+        omp asks some models for a thinking budget (it speaks Anthropic's API to them, as for Qwen on
+        OpenCode Go), and Inspect's OpenAI provider drops budgets: send it the level the budget stands for."""
+        client = getattr(model.api, "client", None)
+        if client is not None and hasattr(client, "max_retries"):
+            client.max_retries = 0  # the provider's SDK client (OpenAI's, Anthropic's) retries twice by default
+        update: dict = {"max_retries": 0}
+        if str(model).startswith("openai/") and config.reasoning_tokens and not config.reasoning_effort:
+            update |= {"reasoning_effort": BUDGET_LEVELS.get(config.reasoning_tokens, "high"), "reasoning_tokens": None}
+        # omp's "off" reaches the Anthropic bridge as a thinking type it doesn't map (between_tools,
+        # disabled), so Inspect sent no setting and the model thought at its default effort: say none
+        if thinking == "off" and not config.reasoning_tokens and not config.reasoning_effort:
+            update |= {"reasoning_effort": "none"}
+        return GenerateInput(messages, tools, tool_choice, config.model_copy(update=update))
+
+    return filter
 
 
 _echo_tool_choice = responses_impl.responses_tool_choice_param_to_tool_choice
