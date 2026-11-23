@@ -7,13 +7,13 @@
  * once to where all the eval's runs went. On a phone the standings come first, the map under them.
  */
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Slider } from '@/components/ui/slider';
-import { runQuery } from '@/data/queries';
+import { runQuery, runSummaryQuery } from '@/data/queries';
 import type { Eval, EvalRuns, PathPoint, Run } from '@/data/types';
 import { formatInt } from '@/lib/format';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -32,8 +32,10 @@ import { gameTime, Standings, type Lane } from './centerpiece/Standings';
 
 /** Runs whose detail (fine path, events, turns) is loaded; past this the eval's coarse paths do. */
 const DETAILED = 24;
-/** The race card's height beside the map: the map fits the runs' shape up to it */
+/** The race card's least height beside the map; it grows to fill the screen under it */
 const RACE_HEIGHT = 420;
+/** Kept free under the race card, so the eval's progress chart starts on the first screen */
+const BELOW = 96;
 
 export function Centerpiece({
   e,
@@ -90,6 +92,9 @@ export function Centerpiece({
 
   const ordered = useMemo(() => rows.map(r => r.curve), [rows]);
   const details = useQueries({ queries: ordered.slice(0, DETAILED).map(cv => runQuery(cv.run.id)) });
+  // Each raced run's chapters (site/summarize.py): the standings show the one at the playhead
+  const told = useQueries({ queries: ordered.map(cv => ({ ...runSummaryQuery(cv.run.id), enabled: Boolean(cv.run.summary) })) });
+  const toldKey = told.map(q => (q.data ? '1' : '0')).join('');
   const loadedKey = details.map(d => (d.data ? '1' : '0')).join('');
   const base = useMemo(
     () =>
@@ -112,17 +117,28 @@ export function Centerpiece({
   const tracks = useMemo<Track[]>(() => base.map(b => ({ ...b, rank: b.row.place - 1 })), [base]);
   const lanes = useMemo<Lane[]>(
     () =>
-      base.map(b => ({
+      base.map((b, i) => ({
         ...b.row,
         value: valueAt(b.curve, 'ticks', head.tick) ?? 0,
         mark: b.events.filter(m => m.tick <= head.tick).at(-1) ?? null,
         status: statusAt(b.detail, head.tick),
+        chapter: told[i]?.data?.chapters.findLast(c => c.from_tick <= head.tick) ?? null,
       })),
-    [base, head.tick]
+    // told is a new array every render; what is loaded is what matters
+    [base, head.tick, toldKey]
   );
   const target = e.target;
   const top = target ?? niceMax(Math.max(1, ...runners.map(cv => Math.max(...cv.points.map(p => p.value)))));
-  const height = mobile ? Math.min(RACE_HEIGHT, Math.max(240, Math.round(width * 0.75))) : RACE_HEIGHT;
+  // Beside the standings the card fills the screen below its top, never less than RACE_HEIGHT
+  const [cardTop, setCardTop] = useState(0);
+  const [viewport, setViewport] = useState(() => window.innerHeight);
+  useEffect(() => {
+    const onResize = () => setViewport(window.innerHeight);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const tall = Math.max(RACE_HEIGHT, viewport - cardTop - BELOW);
+  const height = mobile ? Math.min(RACE_HEIGHT, Math.max(240, Math.round(width * 0.75))) : tall;
 
   /** The pin under the pointer lights its pairing everywhere. */
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>): void => {
@@ -140,8 +156,15 @@ export function Centerpiece({
     // A media card: the map runs to the card's edges, as an image-first shadcn card does. Beside the
     // map, the standings take the height they need, up to the card's, and scroll inside it past that;
     // the map, fitted to the runs' shape, is never shorter than they are
-    <Card ref={ref} className="gap-0 overflow-hidden py-0 lg:grid lg:grid-cols-12" aria-label="Every run in the game">
-      <div ref={standingsRef} className="relative flex min-w-0 flex-col gap-2 py-4 lg:col-span-5 lg:self-start 3xl:col-span-4" style={beside ? { maxHeight: RACE_HEIGHT } : undefined}>
+    <Card
+      ref={node => {
+        ref(node);
+        if (node) setCardTop(node.getBoundingClientRect().top + window.scrollY);
+      }}
+      className="gap-0 overflow-hidden py-0 lg:grid lg:grid-cols-12"
+      aria-label="Every run in the game"
+    >
+      <div ref={standingsRef} className="relative flex min-w-0 flex-col gap-2 py-4 lg:col-span-5 lg:self-start 3xl:col-span-4" style={beside ? { maxHeight: height } : undefined}>
         <CardContent className="flex shrink-0 items-center gap-3">
           <Button
             variant="outline"

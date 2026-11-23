@@ -95,16 +95,20 @@ Behaviour's rows run in the leaderboard's order; a narrow card shows one effort 
 Cost tab's Pareto points are labelled where they fit (the frontier always) with no legend, and a
 narrow chart has a legend and no labels. Files: `src/pages/eval/`.
 
-The race card is at most about 420 px tall: the standings in five of twelve columns, as tall as
-their rows (scrolling past 420 px), and the map in seven at `fitHeight`, never shorter than the
-standings beside it; the standings first on a phone. The standings rank the pairings by the eval's score,
+The race card fills the screen below its top (at least 420 px), leaving the start of the progress
+chart on the first screen: the standings in five of twelve columns (four from 1800 px), as tall as
+their rows (scrolling past the card's height), and the map in seven (eight) at `fitHeight`, never
+shorter than the standings beside it; the standings first on a phone. The standings rank the pairings by the eval's score,
 the same as every leaderboard (median result; or how many finished, then the median time to finish
 in game time), in their final order from the first frame. Each row names its pairing (opening the
 model's page on this eval at its level and harness), races its run (the pairing's median run,
 the better of two middle runs, or its best, or every run, from `agg`) along a track with the
 eval's quest stages as ticks and its newest quest as a sprite, and holds its result and median
 cost as fixed columns; the track opens the run, and what the agent was doing at the playhead in
-its own words is the track's tooltip (`centerpiece/lanes.ts`). The playhead reads game time and the
+its own words is the track's tooltip (`centerpiece/lanes.ts`). Under each row, the run's chapter at
+the playhead (`summarize.py`): its title and text, two lines, whole on hover, opening the run there,
+so the race reads as what every run is doing at that moment. Values of an eval without a target are
+compact ("1.9M"), exact on hover. The playhead reads game time and the
 race plays on open (under reduced motion it opens at the end). The map's view is fitted once to where every run of the eval went (the middle
 99% of their positions, so a stray far-off point doesn't widen it) and never follows the pins.
 
