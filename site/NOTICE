@@ -4,7 +4,8 @@ Ethereum-specific parts removed, osrs-evals' navigation, crumbs and data colours
 
 - src/styles/tokens.css, src/styles/base.css, src/styles/utilities.css and the shape of
   src/index.css
-- src/components/Elements, Forms, Layout, Navigation, Overlays, Feedback, DataTable and
+- src/components/Elements, Forms, Layout, Navigation, Overlays (but Overlays/Tooltip, written here in
+  their style), Feedback, DataTable and
   Lists/Table
 - src/components/Charts/chartChrome.ts and the chart folders in src/components/Charts
   (MultiLine, ScatterAndLine, Bar, StackedBar, Heatmap)
