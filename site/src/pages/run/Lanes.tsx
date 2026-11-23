@@ -9,7 +9,7 @@
  * above the lanes; the map is a card beside them.
  */
 
-import { memo, useMemo, useRef, type ReactNode, type RefObject } from 'react';
+import { memo, useMemo, useRef, type JSX, type ReactNode, type RefObject } from 'react';
 import {
   Area,
   CartesianGrid,
@@ -36,14 +36,11 @@ import {
   type LegendItem,
 } from '@/components/Charts';
 import { Sprite } from '@/components/marks';
-import { Button } from '@/components/ui/button';
+import { ChevronDownIcon } from '@heroicons/react/20/solid';
+import clsx from 'clsx';
 import { PageSection, PageToolbar } from '@/components/page';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Popover, PopoverButton, PopoverPanel } from '@/components/Overlays/Popover';
+import { CheckboxGroup } from '@/components/Forms/CheckboxGroup/CheckboxGroup';
 import { ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import type { Price, RunDetail, RunEvent, ToolCategory, Turn } from '@/data/types';
 import { skillSrc } from '@/lib/assets';
@@ -56,7 +53,6 @@ import { useSearchUpdate } from '@/lib/search';
 import { hashColor } from '@/lib/series';
 import { SDK_OUTCOMES, TOKEN_KINDS, type TokenKind } from '@/lib/tokens';
 import { TOOL_CATEGORY } from '@/lib/tools';
-import { cn } from '@/lib/utils';
 import {
   animationName,
   formatCompact,
@@ -229,7 +225,7 @@ function progressLane(ctx: Ctx): Lane {
 }
 
 /** Each call's x on the measure: when it was sent, when the model answered. */
-function callXs(ctx: Ctx) {
+function callXs(ctx: Ctx): { start: number[]; end: number[] } {
   const { run, clock, measure } = ctx;
   const calls = run.series.calls;
   const at = (seconds: number, tick: number | null): number =>
@@ -639,8 +635,9 @@ function wealthLane(ctx: Ctx): Lane | null {
   const max = Math.max(1, ...visible.flatMap(a => wealth[a].map(p => p[1])));
   return {
     id: 'wealth',
-    title: 'Wealth',
-    description: 'Store value of what each account holds',
+    // The progress lane is the team's wealth, so this one names its cut
+    title: 'Wealth by account',
+    description: 'Store value',
     config: Object.fromEntries(accounts.map(a => [seriesKey(a), { label: a, color: cssColor(hashColor(a)) }])),
     rows,
     yTicks: niceTicks(max, 3),
@@ -738,7 +735,7 @@ function xpLane(ctx: Ctx): Lane | null {
  * (scrubbing or playing, else `?t=`, else the end). A jump glides over the page's 150 ms; a drag or
  * playing moves it as it goes.
  */
-function PlayheadLine({ run, clock, measure }: { run: RunDetail; clock: Clock; measure: XMeasure }) {
+function PlayheadLine({ run, clock, measure }: { run: RunDetail; clock: Clock; measure: XMeasure }): JSX.Element {
   const [committed] = useCommitted(run, clock);
   const head = usePlayhead(clock, committed);
   const maxX = measure === 'ticks' ? clock.maxTicks : clock.maxSeconds;
@@ -746,9 +743,9 @@ function PlayheadLine({ run, clock, measure }: { run: RunDetail; clock: Clock; m
   return (
     <div
       aria-hidden
-      className={cn(
+      className={clsx(
         'pointer-events-none absolute w-0.5 -translate-x-1/2 bg-primary',
-        !head.playing && head.scrub == null && 'transition-[left]'
+        !head.playing && head.scrub == null && 'transition-all'
       )}
       style={{ top: TOP, bottom: X_AXIS, left: `calc(${Y_WIDTH}px + (100% - ${Y_WIDTH + RIGHT}px) * ${share})` }}
     />
@@ -770,7 +767,7 @@ function availableLanes(run: RunDetail): { id: LaneId; label: string }[] {
   };
   const labels: Record<LaneId, string> = {
     progress: evalArt(run.eval).measure,
-    wealth: 'Wealth',
+    wealth: 'Wealth by account',
     calls: 'Model calls',
     sdk: 'SDK actions',
     activity: 'Activity',
@@ -781,7 +778,14 @@ function availableLanes(run: RunDetail): { id: LaneId; label: string }[] {
   return LANE_IDS.filter(id => has[id]).map(id => ({ id, label: labels[id] }));
 }
 
-function LanesMenu({ available, shown }: { available: { id: LaneId; label: string }[]; shown: readonly LaneId[] }) {
+/** The lanes menu: a checklist of the lanes this run has, in a lab Popover; the last lane shown can't be hidden. */
+function LanesMenu({
+  available,
+  shown,
+}: {
+  available: { id: LaneId; label: string }[];
+  shown: readonly LaneId[];
+}): JSX.Element {
   const update = useSearchUpdate(runSearch);
   const toggle = (id: LaneId, on: boolean): void => {
     const next = LANE_IDS.filter(l => (l === id ? on : shown.includes(l)));
@@ -789,26 +793,26 @@ function LanesMenu({ available, shown }: { available: { id: LaneId; label: strin
     update({ lanes: isDefault ? [] : next });
   };
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm">
-          Lanes
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-auto">
-        {available.map(l => (
-          <DropdownMenuCheckboxItem
-            key={l.id}
-            checked={shown.includes(l.id)}
-            disabled={shown.length === 1 && shown.includes(l.id)}
-            onSelect={e => e.preventDefault()}
-            onCheckedChange={on => toggle(l.id, on)}
-          >
-            {l.label}
-          </DropdownMenuCheckboxItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Popover>
+      <PopoverButton variant="secondary" size="sm" trailingIcon={<ChevronDownIcon />} nowrap>
+        Lanes
+      </PopoverButton>
+      <PopoverPanel anchor={{ to: 'bottom end', gap: 4, padding: 8 }} className="w-48 p-1.5 shadow-lg">
+        <CheckboxGroup
+          legend="Lanes"
+          srOnlyLegend
+          variant="menu"
+          options={available.map(l => ({
+            id: `lane-${l.id}`,
+            name: 'lanes',
+            label: l.label,
+            checked: shown.includes(l.id),
+            disabled: shown.length === 1 && shown.includes(l.id),
+            onChange: on => toggle(l.id, on),
+          }))}
+        />
+      </PopoverPanel>
+    </Popover>
   );
 }
 
@@ -828,8 +832,8 @@ export const Lanes = memo(function Lanes({
   const update = useSearchUpdate(runSearch);
   const settle = useSettle();
   const legend = useLegend();
-  const hover = useHover();
-  const hovered = useRef<string | null>(null);
+  const hoverId = useHover().id;
+  const hoveredRef = useRef<string | null>(null);
   const measure = search.x;
   const maxX = measure === 'ticks' ? clock.maxTicks : clock.maxSeconds;
   const { visible } = legend;
@@ -851,7 +855,7 @@ export const Lanes = memo(function Lanes({
       visible,
       tools: [],
       errorsOnly: false,
-      faded: hover.faded,
+      faded: other => hoverId != null && hoverId !== other,
     };
     const build: Record<LaneId, () => Lane | null> = {
       progress: () => progressLane(ctx),
@@ -865,7 +869,7 @@ export const Lanes = memo(function Lanes({
     };
     const lanes = (shownKey.split(',') as LaneId[]).map(id => build[id]()).filter((l): l is Lane => l != null);
     return { lanes, ticks };
-  }, [run, clock, measure, maxX, visible, search.cost, search.sdk, search.act, shownKey, price, hover.id]);
+  }, [run, clock, measure, maxX, visible, search.cost, search.sdk, search.act, shownKey, price, hoverId]);
 
   const xTicks = useMemo(() => ticksWithin(maxX, measure), [maxX, measure]);
   const attemptXs = useMemo(
@@ -894,7 +898,7 @@ export const Lanes = memo(function Lanes({
       <div
         className="flex min-w-0 flex-col gap-gutter select-none xl:col-span-3"
         onMouseLeave={() => {
-          hovered.current = null;
+          hoveredRef.current = null;
           setMoment({ hover: null });
         }}
       >
@@ -909,7 +913,7 @@ export const Lanes = memo(function Lanes({
             xTicks={xTicks}
             attempts={attemptXs}
             legend={legend}
-            hovered={hovered}
+            hoveredRef={hoveredRef}
             onHover={i => setMoment({ hover: Math.round(ticks[i]) })}
             onSelect={i => settle(ticks[i])}
             gridSize={ticks.length}
@@ -918,7 +922,7 @@ export const Lanes = memo(function Lanes({
       </div>
       {/* Beside the lanes on wide screens, under the site header and the gutter (top-header is
           3rem, the gutter 1.5rem at xl) while the lanes scroll past */}
-      {aside && <div className="order-first min-w-0 xl:sticky xl:top-18 xl:order-none xl:col-span-2">{aside}</div>}
+      {aside && <div className="order-first min-w-0 xl:sticky xl:top-18 xl:order-0 xl:col-span-2">{aside}</div>}
     </div>
   );
 });
@@ -932,7 +936,7 @@ function LaneChart({
   xTicks,
   attempts,
   legend,
-  hovered,
+  hoveredRef,
   onHover,
   onSelect,
   gridSize,
@@ -945,7 +949,7 @@ function LaneChart({
   xTicks: number[];
   attempts: { attempt: number; x: number }[];
   legend: LegendState;
-  hovered: RefObject<string | null>;
+  hoveredRef: RefObject<string | null>;
   onHover: (i: number) => void;
   onSelect: (i: number) => void;
   gridSize: number;
@@ -966,7 +970,7 @@ function LaneChart({
             {...syncProps(SYNC)}
             margin={{ top: TOP, right: RIGHT, bottom: 0, left: 0 }}
             onMouseMove={state => {
-              hovered.current = lane.id;
+              hoveredRef.current = lane.id;
               const i = index(state);
               if (i != null) onHover(i);
             }}
@@ -1005,7 +1009,7 @@ function LaneChart({
               isAnimationActive={false}
               content={(props: TooltipContentProps<ValueType, NameType>) => {
                 // Every lane follows the crosshair; only the lane under the pointer shows its values
-                if (hovered.current !== lane.id || !props.active) return null;
+                if (hoveredRef.current !== lane.id || !props.active) return null;
                 const i = Number(props.activeIndex ?? -1);
                 if (!Number.isInteger(i) || i < 0 || i >= gridSize) return null;
                 const tip = lane.tip(i);

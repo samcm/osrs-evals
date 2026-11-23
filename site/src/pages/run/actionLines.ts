@@ -249,7 +249,7 @@ function shellStep(argv: string[]): { kind: Kind; targets: string[] } | { kind: 
   const sub = argv[at - 1]?.match(/^\w+=\$\((.+)$/);
   const [cmd, ...args] = sub ? [sub[1], ...argv.slice(at)] : argv.slice(at);
   if (!cmd || QUIET.has(cmd)) return null;
-  const files = (list: string[]) =>
+  const files = (list: string[]): string[] =>
     list
       .filter(f => f && f !== '-' && f !== '.' && !f.includes('*') && !f.startsWith('$'))
       .flatMap(f => expand(baseName(f)));
