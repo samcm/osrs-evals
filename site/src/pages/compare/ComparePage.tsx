@@ -16,6 +16,7 @@ import { Empty, Segmented } from '@/components/bits';
 import { EvalMark, ModelLabel } from '@/components/marks';
 import { PageSection, PageTabs, PageToolbar } from '@/components/page';
 import { indexQuery } from '@/data/queries';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { Eval, Price, Run } from '@/data/types';
 import { useLegend } from '@/lib/legend';
 import { inScope, useDocumentTitle, useEffort, useScope, useScopeUpdate, useSearchUpdate } from '@/lib/search';
@@ -52,6 +53,7 @@ export function ComparePage(): JSX.Element {
   const setScope = useScopeUpdate();
   const effort = useEffort();
   const legend = useLegend();
+  const phone = useIsMobile();
 
   // EthIQ's cut: every thinking level, or each model in each harness at its best blended score
   const scoped = useMemo(() => {
@@ -137,34 +139,49 @@ export function ComparePage(): JSX.Element {
     mark: <EvalMark evalId={e.id} size={16} title="" />,
   }));
 
+  // The toolbar's selects: on a phone one row, the open view's main select beside the Filters
+  // button and the other folded into its popover
+  const measureSelect = (className: string): JSX.Element => (
+    <SelectField
+      label="Measure"
+      hideLabel
+      className={className}
+      value={metric.id}
+      options={offered.map(m => ({ value: m.id, label: m.label, group: m.group }))}
+      onChange={v => v && update({ metric: v as MetricId, scale: undefined })}
+    />
+  );
+  const evalSelect = (className: string): JSX.Element => (
+    <SelectField
+      label="Eval"
+      hideLabel
+      className={className}
+      value={evalShown?.id}
+      allLabel={oneEval ? undefined : 'All evals'}
+      options={evalOptions}
+      onChange={id => update({ eval: id })}
+    />
+  );
+  const measureTab = search.tab === 'measure';
+
   return (
     <>
       <PageTabs value={search.tab} tabs={[...TABS]} />
 
       {search.tab !== 'prices' && (
         <PageToolbar label="Measure, eval and grouping">
-          {search.tab === 'measure' && (
-            <SelectField
-              label="Measure"
-              hideLabel
-              className="w-full sm:w-64"
-              value={metric.id}
-              options={offered.map(m => ({ value: m.id, label: m.label, group: m.group }))}
-              onChange={v => v && update({ metric: v as MetricId, scale: undefined })}
-            />
+          {phone ? (
+            (measureTab ? measureSelect : evalSelect)('min-w-0 flex-1')
+          ) : (
+            <>
+              {measureTab && measureSelect('w-64')}
+              {evalSelect('w-64')}
+            </>
           )}
-          <SelectField
-            label="Eval"
-            hideLabel
-            className="w-full sm:w-64"
-            value={evalShown?.id}
-            allLabel={oneEval ? undefined : 'All evals'}
-            options={evalOptions}
-            onChange={id => update({ eval: id })}
-          />
           <PairingFilters runs={data.runs} thinking={scope.thinking} agent={scope.agent} onChange={setScope}>
+            {phone && measureTab && evalSelect('w-full')}
             <Segmented label="Group by" value={search.by} options={BY_OPTIONS} onChange={by => update({ by })} />
-            {search.tab === 'measure' && metric.log && (
+            {measureTab && metric.log && (
               <Segmented
                 label="Scale"
                 value={log ? 'log' : 'linear'}
@@ -176,7 +193,7 @@ export function ComparePage(): JSX.Element {
         </PageToolbar>
       )}
 
-      {search.tab === 'measure' ? (
+      {measureTab ? (
         <PageSection
           title={
             <>

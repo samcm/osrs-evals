@@ -70,7 +70,7 @@ function HeatCell({ pairing, e, mark }: { pairing: Pairing; e: Eval; mark?: bool
 function Scoring({ evals }: { evals: Eval[] }): JSX.Element {
   return (
     <Popover>
-      <PopoverButton variant="blank" size="sm" nowrap>
+      <PopoverButton variant="soft" size="sm" nowrap>
         How it's scored
       </PopoverButton>
       <PopoverPanel

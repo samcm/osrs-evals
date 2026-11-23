@@ -138,7 +138,9 @@ export function RunsPage(): JSX.Element {
             <Input.Leading>
               <MagnifyingGlassIcon />
             </Input.Leading>
+            {/* At a Button's and a SelectMenu's height (h-8), so the toolbar's controls line up */}
             <Input.Field
+              className="h-8"
               type="search"
               aria-label="Search runs"
               placeholder="Search runs"
