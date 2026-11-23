@@ -267,6 +267,19 @@ export function buildOption(
           ...getChartTooltipChrome(chrome),
           trigger: 'axis',
           transitionDuration: 0.15,
+          // Beside the crosshair, on the side with room, so it never covers the values it lists
+          position: (
+            point: number[],
+            _params: unknown,
+            _dom: unknown,
+            _rect: unknown,
+            size: { contentSize: number[]; viewSize: number[] }
+          ): number[] => {
+            const [w, h] = size.contentSize;
+            const [viewW, viewH] = size.viewSize;
+            const x = point[0] + 16 + w <= viewW ? point[0] + 16 : point[0] - 16 - w;
+            return [x, Math.max(0, Math.min(point[1] - h / 2, viewH - h))];
+          },
           axisPointer: {
             type: 'line',
             snap: false,

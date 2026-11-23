@@ -1,6 +1,6 @@
 /** The race's data: which runs race, and how far along each one is at a tick. */
 
-import { resultValue, type RankedVariant, type RunCurve } from '../model';
+import { resultValue, type RankedVariant, type RunCurve } from '@/pages/eval/model';
 
 /** Each pairing's median or best run, or every run (the page's `agg`) */
 export type Pick = 'median' | 'best' | 'runs';

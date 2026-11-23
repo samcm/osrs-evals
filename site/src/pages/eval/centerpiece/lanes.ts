@@ -4,9 +4,13 @@
  * doing at the playhead, in its own words.
  */
 
-import type { RunDetail, RunEvent, Turn } from '@/data/types';
+import type { Eval, RunDetail, RunEvent, Turn } from '@/data/types';
+import { formatClock } from '@/lib/format';
 import { questSrc, uiSrc } from '@/lib/assets';
-import { actionClauses } from '../../run/actionLines';
+import { actionClauses } from '@/pages/run/actionLines';
+
+/** Game time of a tick count at the eval's tick rate. */
+export const gameTime = (e: Eval, ticks: number): string => formatClock((ticks * e.tick_ms) / 1000);
 
 /** An event drawn as a sprite in a lane. */
 export interface LaneMark {
