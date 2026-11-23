@@ -82,10 +82,11 @@ its chart, and beside the leaderboard (eight and four of twelve columns) from 2x
 
 ### Eval page
 
-A header card (`eval/EvalHero.tsx`, on `PageHero`), the human version first: the eval's sprite on a
-muted tile and why the project runs it (`why` in `lib/evals.ts`, what it tests in plain words) in
-full-strength text, then the goal and its facts as terms over values (the budget as game time, its
-ticks on hover; a team's characters; how many runs). Under it, in the card, a **Setup** section
+A header card (`eval/EvalHero.tsx`, on `PageHero`): the eval's sprite on a muted tile, the goal
+(the agents' words) first in full-strength text, then under it, muted, what counts and what makes it
+hard (`why` in `lib/evals.ts`: plain facts about the eval, never "It tests…" or other filler; Sam
+called that slop), then its facts as terms over values (the budget as game time, its ticks on hover;
+a team's characters; how many runs). Under it, in the card, a **Setup** section
 (closed unless `?setup=1`): the exact prompt every run got (the goal and the harness's note on the
 machine, from the export's `prompt`) and the settings (start, accounts, budget in ticks, attempts,
 score, game, agent, the thinking levels run, a link to the eval's file). No run's picture goes up

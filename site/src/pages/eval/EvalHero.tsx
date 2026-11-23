@@ -1,6 +1,6 @@
 /**
- * The eval's header: the human version first (its sprite, why the project runs it, the goal and its
- * facts), then a Setup section, closed unless `?setup=1`, with the exact prompt every agent got and
+ * The eval's header: the goal first, as the agents got it, then what counts and what makes it hard,
+ * then its facts, then a Setup section, closed unless `?setup=1`, with the exact prompt every agent got and
  * the eval's settings.
  */
 
@@ -20,7 +20,7 @@ const SOURCE = 'https://github.com/samcm/osrs-evals/blob/main/evals';
 export function EvalHero({ e, runs, meta, setup, onSetup }: { e: Eval; runs: Run[]; meta: MetaItem[]; setup: boolean; onSetup: (open: boolean) => void }) {
   const art = evalArt(e.id);
   return (
-    <PageHero mark={<EvalMark evalId={e.id} size={40} />} lead={art.why} meta={[{ term: 'Goal', value: e.goal }, ...meta]}>
+    <PageHero mark={<EvalMark evalId={e.id} size={40} />} lead={e.goal} detail={art.why} meta={meta}>
       <Collapsible open={setup} onOpenChange={onSetup}>
         <CollapsibleTrigger className="group flex w-full items-center gap-2 border-t px-6 py-3 text-left text-sm font-medium transition-colors hover:bg-muted/50">
           <ChevronRight className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />

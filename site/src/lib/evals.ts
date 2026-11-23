@@ -12,7 +12,7 @@ interface EvalArt {
   measure: string;
   /** What wins, in a player's terms: the eval page's header and the scoring explainers say it */
   score?: string;
-  /** Why the project runs this eval, in plain words: what it tests that the others don't. The eval page's lead */
+  /** What counts and what makes the eval hard, as plain facts (no "It tests…"): under the goal in the eval page's header */
   why?: string;
   /** The eval's name, for one the site lists before it has runs (the evals the project runs now) */
   title?: string;
@@ -25,7 +25,7 @@ const ART: Record<string, EvalArt> = {
     measure: 'Quest points',
     score: 'Most quest points',
     why:
-      'Quests are the game’s puzzles: long chains of errands that send you across the map to talk to people, fetch items and beat monsters. It tests whether an agent can work out what each quest needs and get through as many as it can.',
+      'Every quest finished adds its quest points. A quest is a chain of errands: talk to someone, fetch what they want, fight what’s in the way. Nothing tells the agent which quests are quick.',
   },
   dragon_slayer: {
     mark: { src: questSrc('dragon_slayer'), name: 'Dragon Slayer' },
@@ -34,7 +34,7 @@ const ART: Record<string, EvalArt> = {
     score: 'Fastest to finish the quest',
     title: 'Dragon Slayer',
     why:
-      'One long task with a hard gate. Dragon Slayer won’t start until you have 32 quest points, then needs a ship, a map in three pieces and a fight with a level 83 dragon. It tests whether an agent can plan and keep going toward one far-off goal.',
+      'The big quest of the early game. It won’t start until you have 32 quest points, so most of the run is other quests first. Then a ship, a map in three pieces, and a level 83 dragon.',
   },
   heros_quest: {
     mark: { src: questSrc('heros_quest'), name: "Hero's Quest" },
@@ -47,7 +47,7 @@ const ART: Record<string, EvalArt> = {
     score: 'Fastest to finish the quest',
     title: "Hero's Quest",
     why:
-      'Two characters, one goal. Hero’s Quest won’t start until a character has 55 quest points and Dragon Slayer, Lost City, Merlin’s Crystal and Shield of Arrav, and its armband takes one character in each rival gang helping the other. It tests whether an agent can carry a long plan across two characters that depend on each other.',
+      'Hero’s Quest won’t start until a character has 55 quest points and has finished Dragon Slayer, Lost City, Merlin’s Crystal and Shield of Arrav. Its armband needs one character in each rival gang, each helping the other.',
   },
   total_level: {
     mark: { src: uiSrc('stats'), name: 'Skills' },
@@ -56,7 +56,7 @@ const ART: Record<string, EvalArt> = {
     score: 'Highest total level',
     title: 'Total level',
     why:
-      'Every skill counts, so there is no single right answer: the agent has to choose what to train, get the tools for it and keep training without stalling. It tests open-ended grinding.',
+      'All 19 skill levels added up. A new character starts at 28. Any skill counts, so the score is how much training gets done in half an hour.',
   },
   collection: {
     mark: { src: uiSrc('inventory'), name: 'Inventory' },
@@ -64,7 +64,7 @@ const ART: Record<string, EvalArt> = {
     measure: 'Different items',
     score: 'Most different items',
     why:
-      'Each new kind of item counts once, so repeating one trick stops paying almost at once. It rewards exploring the world: shops, drops, gathering and making things.',
+      'Each kind of item held counts once. A second of anything adds nothing, so the agent has to keep finding new things: shops, drops, things it gathers or makes.',
   },
   team_wealth: {
     mark: { src: itemSrc('995-10000'), name: 'Coins' },
@@ -73,7 +73,7 @@ const ART: Record<string, EvalArt> = {
     score: 'Richest team',
     title: 'Team wealth',
     why:
-      'Four characters share one score, so the agent has to run several at once instead of one. It tests whether an agent can find a way to make money, spread it across a team and keep it running.',
+      'Four characters, one score: the value of everything they hold between them, at the game’s own prices.',
   },
   coins: { mark: { src: itemSrc(995), name: 'Coins' }, items: [{ id: '995', name: 'Coins' }], measure: 'Coins' },
   gold: { mark: { src: itemSrc('995-10000'), name: 'Coins' }, items: [{ id: '995-10000', name: 'Coins' }], measure: 'Coins' },
