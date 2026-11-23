@@ -1,6 +1,6 @@
 /**
- * The eval's one ranked list, raced: a row per pairing (or per run, for every run) in the order
- * its run is in at the playhead, so the order changes as the race plays and ends as the eval's score. Each row names its pairing
+ * The eval's one ranked list, raced: a row per pairing (or per run, for every run) in the order of
+ * the eval's score, the same order from the first frame to the last. Each row names its pairing
  * (opening the model's page on this eval at its level and harness), its track (opening the run)
  * runs to its pin as far as the run has got at the playhead, with the eval's quest stages as ticks,
  * the newest quest it finished as a sprite, and what the agent was doing at the playhead as the
@@ -108,9 +108,11 @@ export function Standings({ e, rows, max, perRun, lit, stages }: { e: Eval; rows
           const times = p.runs.filter(r => r.success && r.ticks != null).map(r => r.ticks!);
           const hover = { onMouseEnter: () => setHovered(variant.key), onMouseLeave: () => setHovered(undefined) };
           const fade = faded(lit, variant.key) && 'opacity-30';
+          // A run with a summary has a chapter line, from the first frame
+          const told = Boolean(run.summary);
           return (
             <Fragment key={run.id}>
-              <TableRow className={cn('transition-opacity duration-150', fade, row.chapter && 'border-b-0')} {...hover}>
+              <TableRow className={cn('transition-opacity duration-150', fade, told && 'border-b-0')} {...hover}>
                 <TableCell>
                   <Link
                     to="/evals/$evalId/$model"
@@ -185,18 +187,19 @@ export function Standings({ e, rows, max, perRun, lit, stages }: { e: Eval; rows
                 </TableCell>
                 {track && <TableCell className="text-right tabular-nums">{formatCost(perRun ? run.cost : median(p.runs.map(r => r.cost)))}</TableCell>}
               </TableRow>
-              {row.chapter && (
+              {told && (
                 // The run's chapter at the playhead, its title only (its text on hover), under its row
                 <TableRow className={cn('transition-opacity duration-150 hover:bg-transparent', fade)} {...hover}>
                   <TableCell colSpan={columns} className="pt-0">
+                    {/* The line is held while the chapters load, so the rows never jump */}
                     <Link
                       to="/runs/$runId"
                       params={{ runId: run.id }}
-                      search={{ t: row.chapter.from_tick } as never}
-                      title={`${row.chapter.title}. ${row.chapter.text}`}
+                      search={(row.chapter ? { t: row.chapter.from_tick } : {}) as never}
+                      title={row.chapter ? `${row.chapter.title}. ${row.chapter.text}` : undefined}
                       className="block truncate rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
                     >
-                      {row.chapter.title}
+                      {row.chapter?.title ?? '\u00a0'}
                     </Link>
                   </TableCell>
                 </TableRow>

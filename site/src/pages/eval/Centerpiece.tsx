@@ -1,7 +1,7 @@
 /**
  * The eval's centrepiece at the top of the race: every run together in the game on one playhead,
  * and the eval's one ranked list beside it. The standings (five of twelve columns, four on a wide screen) rank the pairings
- * by where their runs are at the playhead (at the end, the eval's ranking), each row racing its run (the pairing's median or best
+ * by the eval's score from the first frame, each row racing its run (the pairing's median or best
  * run, or every run, from the page's `agg`) along its track as the playhead moves; the world map
  * (seven columns, eight on a wide screen, fitted to the runs' shape) holds a pin and trail per racing run in a view fitted
  * once to where all the eval's runs went. On a phone the standings come first, the map under them.
@@ -128,14 +128,6 @@ export function Centerpiece({
     [base, head.tick, toldKey]
   );
   const target = e.target;
-  // The standings rank the runs where they are at the playhead, as a race does: a run that has
-  // finished ahead of one that hasn't (the sooner first), then the further on; ties keep the eval's
-  // ranking, which is also the order at the end
-  const standing = useMemo(() => {
-    const finishedAt = (l: Lane): number =>
-      target != null && l.value >= target ? (l.curve.points.find(pt => pt.value >= target)?.tick ?? Infinity) : Infinity;
-    return [...lanes].sort((a, b) => finishedAt(a) - finishedAt(b) || b.value - a.value || a.place - b.place);
-  }, [lanes, target]);
   const top = target ?? niceMax(Math.max(1, ...runners.map(cv => Math.max(...cv.points.map(p => p.value)))));
   // Beside the standings the card fills the screen below its top, never less than RACE_HEIGHT
   const [cardTop, setCardTop] = useState(0);
@@ -203,7 +195,7 @@ export function Centerpiece({
           </span>
         </CardContent>
         <CardContent className="min-h-0 overflow-y-auto">
-          <Standings e={e} rows={standing} max={top} perRun={agg === 'runs'} lit={lit} stages={target != null ? stages : []} />
+          <Standings e={e} rows={lanes} max={top} perRun={agg === 'runs'} lit={lit} stages={target != null ? stages : []} />
         </CardContent>
       </div>
       <div className="relative min-w-0 border-t lg:col-span-7 lg:border-t-0 3xl:col-span-8 lg:border-l" onPointerMove={onPointerMove} onPointerLeave={() => setHovered(undefined)}>

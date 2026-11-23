@@ -23,7 +23,6 @@ import { Player } from './Player';
 import { Playback } from './Playback';
 import { RunMap } from './RunMap';
 import { runSearch } from './search';
-import { NowCard } from './NowCard';
 import { Transcript } from './Transcript';
 import { Held } from './Held';
 
@@ -241,19 +240,6 @@ export function RunPage() {
   const held = run.held != null && Object.keys(run.held).length > 0;
   // Its chapters and summary from site/summarize.py, when it has them
   const { data: told } = useQuery(runSummaryQuery(runId));
-  // Beside the lanes, on screen as they scroll: what the run is doing now (its chapter), then the map.
-  // Memoised so the lanes don't redraw at every tick; both read the playhead themselves.
-  const aside = useMemo(
-    () => (
-      <div className="flex flex-col gap-gutter">
-        {told && told.chapters.length > 0 && <NowCard run={run} clock={clock} chapters={told.chapters} />}
-        <Card className="py-0">
-          <RunMap run={run} account={account} clock={clock} view={search.map} zoom={search.mz} height={420} />
-        </Card>
-      </div>
-    ),
-    [run, clock, told, account, search.map, search.mz]
-  );
 
   /*
    * The debugger, on one playhead. The lead band is the main screen: the game with its playback bar
@@ -304,7 +290,11 @@ export function RunPage() {
         clock={clock}
         search={search}
         price={index.prices[run.model]}
-        aside={aside}
+        aside={
+          <Card className="py-0">
+            <RunMap run={run} account={account} clock={clock} view={search.map} zoom={search.mz} height={420} />
+          </Card>
+        }
       />
     </>
   );

@@ -104,14 +104,15 @@ chart on the first screen: the standings in five of twelve columns (four from 18
 their rows (scrolling past the card's height), and the map in seven (eight) at `fitHeight`, never
 shorter than the standings beside it; the standings first on a phone. The standings rank the pairings by the eval's score,
 the same as every leaderboard (median result; or how many finished, then the median time to finish
-in game time), re-ranked as the race plays by where each raced run is at the playhead (a finished
-run ahead of an unfinished one, the sooner first; then the further on), ending in the eval's order. Each row names its pairing (opening the
+in game time), in their final order from the first frame (Sam tried re-ranking as the race plays
+and asked for it back: rows moving under the pointer aren't usable). Each row names its pairing (opening the
 model's page on this eval at its level and harness), races its run (the pairing's median run,
 the better of two middle runs, or its best, or every run, from `agg`) along a track with the
 eval's quest stages as ticks and its newest quest as a sprite, and holds its result and median
 cost as fixed columns; the track opens the run, and what the agent was doing at the playhead in
 its own words is the track's tooltip (`centerpiece/lanes.ts`). Under each row, the title of the run's
-chapter at the playhead (`summarize.py`), one muted line, its text on hover, opening the run there,
+chapter at the playhead (`summarize.py`), one muted line held from the first frame for a run with a
+summary (so rows never jump as chapters load), its text on hover, opening the run there,
 so the race reads as what every run is doing at that moment. Values of an eval without a target are
 compact ("1.9M"), exact on hover. The playhead reads game time and the
 race plays on open (under reduced motion it opens at the end). The map's view is fitted once to where every run of the eval went (the middle
@@ -151,10 +152,9 @@ beside the game (`run/Held.tsx`): the followed account's inventory, worn items, 
 the playhead, as the game's own sprites and stack counts, the tab in `?panel=` (skills on total
 level, else the inventory). A run told by `summarize.py` has its sentence as the header's
 description, its chapters as segments under the playback track and as headings in the transcript,
-and the chapter at the playhead heads the transcript card (its title, its text, which of how many)
-and sits again above the map in the column that stays on screen beside the lanes (`run/NowCard.tsx`),
-so the run reads in the summary's words first and the calls under it are the detail; clicking a
-chapter seeks the playhead there. Then the timeline: a toolbar
+and the transcript is grouped by them: each chapter wraps its calls, the one at the playhead open
+with its header (title, text, which of how many) pinned to the top of the feed as it scrolls, the
+others folded to their title; clicking a chapter seeks the playhead there. Shown once, there. Then the timeline: a toolbar
 (the x measure, the lanes menu) over a card per lane, every lane shown unless `?lanes=` names some,
 each with its title, its unit as the description, its cut in the card's action, its key under the
 chart and the playhead in it; the map is a media card beside the lanes (first on a phone). Every

@@ -4,14 +4,18 @@
  * actions.ts", "Waited"; actionLines.ts), with the game steps its script takes on the right ("walk,
  * talk"). No code, output or token counts: those live in the log. A line's dot is its tool
  * category's colour; the same line repeated across calls folds into one with a count. The call at the playhead is marked and kept in view inside the feed's own
- * scroll; clicking a message or a line puts the playhead at its call (`?t=`, `?turn=`).
+ * scroll; clicking a message or a line puts the playhead at its call (`?t=`, `?turn=`). A run told in
+ * chapters (site/summarize.py) groups the feed by them: the chapter at the playhead is open, its
+ * header (title, text, which of how many) pinned to the top of the feed; the others fold to their
+ * title, and clicking one starts it.
  */
 
 import { memo, useEffect, useMemo, useRef, type ReactElement, type ReactNode } from 'react';
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock, linkClassName } from '@/components/bits';
-import { Card, CardAction, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChevronRightIcon } from 'lucide-react';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { RunDetail, RunSummary, ToolCategory } from '@/data/types';
 import { formatInt } from '@/lib/format';
 import { TOOL_CATEGORY } from '@/lib/tools';
@@ -122,58 +126,74 @@ export const Transcript = memo(function Transcript({
 }) {
   const settle = useSettle();
   const chapterIndex = chapters ? chapters.findLastIndex(c => c.from_tick <= tick) : -1;
-  const now = chapterIndex >= 0 ? chapters![chapterIndex] : null;
   const list = useRef<HTMLOListElement>(null);
   const current = currentTurn(run.turns, clock, tick, search.turn);
   const rows = useMemo(() => feedRows(run), [run]);
 
-  // Each chapter's heading goes before the first row whose call is at or after its start
-  const headings = useMemo(() => {
-    const at = new Map<number, NonNullable<typeof chapters>[number]>();
-    for (const c of chapters ?? []) {
-      const n = rows.findIndex(r => turnTick(run.turns[r.first], clock) >= c.from_tick);
-      if (n >= 0 && !at.has(n)) at.set(n, c);
-    }
-    return at;
+  // The feed in chapters: each chapter wraps the rows from the first call at or after its start up
+  // to the next chapter's; without chapters, one untitled group holds every row
+  const groups = useMemo(() => {
+    const starts = (chapters ?? []).map(c => ({ chapter: c, at: rows.findIndex(r => turnTick(run.turns[r.first], clock) >= c.from_tick) })).filter(g => g.at >= 0);
+    if (starts.length === 0) return [{ chapter: null, index: -1, from: 0, to: rows.length }];
+    if (starts[0].at > 0) starts[0].at = 0;
+    return starts.map((g, i) => ({ chapter: g.chapter, index: (chapters ?? []).indexOf(g.chapter), from: g.at, to: starts[i + 1]?.at ?? rows.length }));
   }, [chapters, rows, run.turns, clock]);
+
+  const rowItem = (row: (typeof rows)[number], n: number) => {
+    const state = current >= row.first && current <= row.last ? 'current' : row.first > current ? 'future' : 'past';
+    return (
+      <li key={n} data-current={state === 'current' || undefined} aria-current={state === 'current' ? 'step' : undefined} className={cn(row.kind === 'said' && 'pt-2')}>
+        <button
+          type="button"
+          onClick={() => settle(turnTick(run.turns[row.first], clock), row.first + 1)}
+          className={cn(
+            'flex w-full min-w-0 border-l-2 border-transparent px-4 text-left transition-colors outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset',
+            row.kind === 'said' ? 'py-1.5' : 'py-0.5',
+            state === 'current' && 'border-primary bg-muted/50',
+            state === 'future' && 'opacity-50'
+          )}
+        >
+          {row.kind === 'said' && <Prose text={row.text} />}
+          {row.kind === 'error' && <span className="min-w-0 truncate text-destructive">{row.text}</span>}
+          {row.kind === 'did' && <Line row={row} />}
+        </button>
+      </li>
+    );
+  };
 
   const body = useMemo(
     () =>
-      rows.flatMap((row, n) => {
-        const state = current >= row.first && current <= row.last ? 'current' : row.first > current ? 'future' : 'past';
-        const chapter = headings.get(n);
-        return [
-          chapter && (
-            <li key={`chapter-${chapter.from_tick}`} className={cn('px-4', n > 0 && 'pt-3')}>
-              <button
-                type="button"
-                onClick={() => settle(chapter.from_tick)}
-                title={chapter.text}
-                className="flex w-full min-w-0 items-start rounded-md border-b pb-1.5 text-left font-medium outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                {chapter.title}
-              </button>
-            </li>
-          ),
-          <li key={n} data-current={state === 'current' || undefined} aria-current={state === 'current' ? 'step' : undefined} className={cn(row.kind === 'said' && n > 0 && 'pt-2')}>
+      groups.map(g => {
+        if (!g.chapter) return rows.slice(g.from, g.to).map((row, k) => rowItem(row, g.from + k));
+        // The chapter at the playhead is open, its header pinned to the top of the feed as it
+        // scrolls; the others fold to their header, and clicking one starts it
+        const open = g.index === chapterIndex;
+        const done = g.index < chapterIndex;
+        return (
+          <li key={`chapter-${g.chapter.from_tick}`} className="border-b last:border-b-0">
             <button
               type="button"
-              onClick={() => settle(turnTick(run.turns[row.first], clock), row.first + 1)}
+              onClick={() => settle(g.chapter!.from_tick)}
+              aria-expanded={open}
               className={cn(
-                'flex w-full min-w-0 border-l-2 border-transparent px-4 text-left transition-colors outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset',
-                row.kind === 'said' ? 'py-1.5' : 'py-0.5',
-                state === 'current' && 'border-primary bg-muted/50',
-                state === 'future' && 'opacity-50'
+                'flex w-full min-w-0 flex-col items-start gap-0.5 bg-card px-4 py-2 text-left outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset',
+                open && 'sticky top-0 z-10 border-b'
               )}
             >
-              {row.kind === 'said' && <Prose text={row.text} />}
-              {row.kind === 'error' && <span className="min-w-0 truncate text-destructive">{row.text}</span>}
-              {row.kind === 'did' && <Line row={row} />}
+              <span className="flex w-full min-w-0 items-center gap-2">
+                <ChevronRightIcon aria-hidden className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')} />
+                <span className={cn('min-w-0 flex-1 truncate font-medium', !open && !done && 'text-muted-foreground')}>{g.chapter.title}</span>
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                  {formatInt(g.index + 1)} of {formatInt(chapters!.length)}
+                </span>
+              </span>
+              {open && <span className="pl-6 text-xs text-pretty text-muted-foreground">{g.chapter.text}</span>}
             </button>
-          </li>,
-        ];
+            {open && <ol className="pb-2">{rows.slice(g.from, g.to).map((row, k) => rowItem(row, g.from + k))}</ol>}
+          </li>
+        );
       }),
-    [rows, current, clock, settle, run.turns, headings]
+    [groups, rows, current, clock, settle, run.turns, chapterIndex, chapters]
   );
 
   useEffect(() => {
@@ -193,22 +213,11 @@ export const Transcript = memo(function Transcript({
   return (
     // The feed runs to the card's bottom edge and scrolls inside it
     <Card className="h-full pb-0">
-      {/* The chapter at the playhead (site/summarize.py) heads the feed, in its own words; the calls under it are the detail */}
-      {now ? (
-        <CardHeader>
-          <CardTitle>{now.title}</CardTitle>
-          <CardDescription className="text-pretty">{now.text}</CardDescription>
-          <CardAction className="text-muted-foreground tabular-nums">
-            {formatInt(chapterIndex + 1)} of {formatInt(chapters!.length)}
-          </CardAction>
-        </CardHeader>
-      ) : (
-        <CardHeader>
-          <CardTitle>Transcript</CardTitle>
-          <CardDescription>{formatInt(run.turns.length)} model calls</CardDescription>
-        </CardHeader>
-      )}
-      <ol ref={list} aria-label="What the agent was doing" className="relative min-h-0 flex-1 overflow-y-auto pb-3">
+      <CardHeader>
+        <CardTitle>Transcript</CardTitle>
+        <CardDescription>{formatInt(run.turns.length)} model calls</CardDescription>
+      </CardHeader>
+      <ol ref={list} aria-label="What the agent was doing" className="relative min-h-0 flex-1 overflow-y-auto border-t pb-3">
         {body}
         {run.answer && (
           <li className="mx-4 mt-3 border-t pt-3">
