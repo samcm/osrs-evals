@@ -1,7 +1,7 @@
 /** Grouping runs by model, vendor, agent or variant, and each group's name. */
 
 import type { Run } from '@/data/types';
-import { agentInfo, modelInfo, variantOf, vendorOf } from '@/lib/series';
+import { agentInfo, levelName, modelInfo, variantOf, vendorOf } from '@/lib/series';
 
 export type GroupBy = 'model' | 'vendor' | 'agent' | 'variant';
 
@@ -30,10 +30,10 @@ export function groupRuns(runs: Run[], by: GroupBy): Group[] {
   return [...groups.values()];
 }
 
-/** The group's name as text, for tooltips. */
+/** The group's name as text, for tooltips: a pairing as its model and level ("Fable 5.2 high"), as its label reads. */
 export function groupName(sample: Run, by: GroupBy): string {
   if (by === 'model') return modelInfo(sample.model).name;
   if (by === 'vendor') return vendorOf(sample.model).name;
   if (by === 'agent') return agentInfo(sample.agent, sample.agent_name).name;
-  return variantOf(sample).name;
+  return `${modelInfo(sample.model).short} ${levelName(sample.thinking)}`;
 }

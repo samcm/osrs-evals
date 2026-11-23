@@ -7,8 +7,8 @@ import { agentInfo, vendorOf } from '@/lib/series';
 import type { GroupBy } from './groups';
 
 /**
- * The group's marks and short name: vendor mark and model, the harness as a badge. `stacked` puts a
- * variant's badge under its model, for narrow chart labels.
+ * The group's marks and short name: a pairing's vendor mark, model and thinking level; a harness's
+ * mark and name. `stacked` puts a pairing's level under its model, for narrow chart labels.
  */
 export function GroupLabel({
   sample,
@@ -25,7 +25,7 @@ export function GroupLabel({
   if (by === 'agent') return <AgentLabel agent={sample.agent} fallback={sample.agent_name} size={size} />;
   if (by === 'variant' && stacked && agentInfo(sample.agent, sample.agent_name).slug !== 'program') {
     return (
-      <span className="flex flex-col items-end gap-0.5">
+      <span className="flex min-w-0 flex-col items-start gap-0.5">
         <ModelLabel model={sample.model} compact size={size} />
         <ThinkingLevel level={sample.thinking} />
       </span>

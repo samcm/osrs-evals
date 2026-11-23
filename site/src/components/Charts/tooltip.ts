@@ -62,8 +62,12 @@ const MAX_ROWS = 12;
  * The tooltip's HTML; `color` resolves a series colour for its swatch. The lit series' row is
  * emphasised and always listed; past MAX_ROWS the rest are counted.
  */
-export function tooltipHtml(content: TooltipContent, color: (css: string) => string, lit?: string | null): string {
-  const isLit = (row: TooltipRow): boolean => lit != null && row.series?.id === lit;
+export function tooltipHtml(
+  content: TooltipContent,
+  color: (css: string) => string,
+  lit?: ReadonlySet<string> | null
+): string {
+  const isLit = (row: TooltipRow): boolean => lit != null && row.series != null && lit.has(row.series.id);
   let shown = content.rows;
   if (shown.length > MAX_ROWS) {
     const kept = new Set(shown.slice(0, MAX_ROWS - 1));
