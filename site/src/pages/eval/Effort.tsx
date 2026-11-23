@@ -15,12 +15,10 @@ import {
   Y_AXIS_WIDTH,
   type ChartPoints,
   type ChartRow,
-  type Plot,
 } from '@/components/Charts';
 import type { Run } from '@/data/types';
 import { extraLabelWidth, toolSeries, type SeriesSpec } from '@/lib/chartSeries';
-import { FADED_OPACITY } from '@/lib/hover';
-import { faded, useLit } from './lit';
+import { useLit } from './lit';
 import { median } from '@/lib/stats';
 import { TOOL_CATEGORIES } from '@/lib/tools';
 import { useWidth } from '@/lib/useWidth';
@@ -90,29 +88,22 @@ const rowsOf = (groups: Group[], labels: boolean): ChartRow[] =>
 /** The plot's left edge when another column holds the labels: room for the first tick's label. */
 const NO_LABELS = 12;
 
-/** Each group's median: a small upright bar on its row, over its runs' dots. */
-function Medians({
-  medians,
-  plot,
-  lit,
-}: {
-  medians: { x: number; row: number; g: Group }[];
-  plot: Plot;
-  lit: string | null;
-}): JSX.Element {
-  return (
-    <>
-      {medians.map(m => (
-        <div
-          key={m.g.spec.key}
-          aria-hidden
-          className="pointer-events-none absolute h-4 w-0.5 -translate-1/2 rounded-xs bg-foreground"
-          style={{ left: plot.x(m.x), top: plot.y(m.row), opacity: faded(lit, m.g.spec.id) ? FADED_OPACITY : 1 }}
-        />
-      ))}
-    </>
-  );
-}
+/** Each group's median: a tick across its row in the text colour, never faded with the runs (as /compare's strips). */
+const MEDIAN: SeriesSpec = {
+  id: 'median',
+  key: 'median',
+  label: 'Median',
+  name: 'Median',
+  color: 'var(--color-foreground)',
+  swatch: {
+    token: '--color-foreground',
+    swatchClassName: 'bg-foreground',
+    borderClassName: 'border-foreground',
+    fillClassName: 'fill-foreground',
+  },
+  line: 'solid',
+  symbol: 'rect',
+};
 
 function Strip({
   column,
@@ -141,10 +132,14 @@ function Strip({
         }),
       })
     );
-    const medians = groups.flatMap((g, row) => {
-      const m = median(g.runs.map(column.value));
-      return m == null ? [] : [{ x: m, row, g }];
-    });
+    const medians: ChartPoints = {
+      series: MEDIAN,
+      size: [2, 16],
+      points: groups.flatMap((g, row) => {
+        const m = median(g.runs.map(column.value));
+        return m == null ? [] : [{ x: m, y: row, key: g.spec.key, data: g }];
+      }),
+    };
     const top = Math.max(0, ...dots.flatMap(d => d.points.map(p => p.x)));
     return { dots, medians, max: column.measure === 'share' ? 1 : roundMax(Math.max(1, top)) };
   }, [column, groups]);
@@ -162,16 +157,25 @@ function Strip({
           rows={rowsOf(groups, labels)}
           rowLabelWidth={labels ? labelRoom : NO_LABELS}
           x={{ domain: [0, max], ticks, format: v => formatTick(v, column.measure) }}
-          points={dots}
-          lit={lit}
-          pointTooltip={(point, spec) => ({
-            title: `Epoch ${(point.data as Run).epoch}`,
-            rows: [{ series: spec, value: formatX(point.x, column.measure) }],
-          })}
-          onPointClick={point =>
-            point.key && navigate({ to: '/runs/$runId', params: { runId: point.key }, search: {} as never })
+          points={[...dots, medians]}
+          // The medians stay at full strength while a pairing is lit
+          lit={lit == null ? null : [lit, MEDIAN.id]}
+          pointTooltip={(point, spec) =>
+            spec.id === MEDIAN.id
+              ? {
+                  title: 'Median',
+                  rows: [{ series: (point.data as Group).spec, value: formatX(point.x, column.measure) }],
+                }
+              : {
+                  title: `Epoch ${(point.data as Run).epoch}`,
+                  rows: [{ series: spec, value: formatX(point.x, column.measure) }],
+                }
           }
-          overlay={plot => <Medians medians={medians} plot={plot} lit={lit} />}
+          onPointClick={(point, spec) =>
+            spec.id !== MEDIAN.id &&
+            point.key &&
+            navigate({ to: '/runs/$runId', params: { runId: point.key }, search: {} as never })
+          }
         />
       </ChartFrame>
     </div>
