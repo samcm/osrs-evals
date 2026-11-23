@@ -6,11 +6,10 @@
  * level, else the inventory).
  */
 
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tip } from '@/components/bits';
-import { useMemo } from 'react';
+import { useMemo, type JSX } from 'react';
+import { Segmented, Tip } from '@/components/bits';
 import { Sprite } from '@/components/marks';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { ScrollArea } from '@/components/Layout/ScrollArea';
 import type { RunDetail } from '@/data/types';
 import { skillSrc, uiSrc } from '@/lib/assets';
 import { evalBase } from '@/lib/evals';
@@ -21,7 +20,7 @@ import type { Clock } from './model';
 import { useCommitted, usePlayhead } from './playhead';
 import { runSearch, type RunSearch } from './search';
 
-export type PanelTab = 'inv' | 'worn' | 'bank' | 'skills';
+type PanelTab = 'inv' | 'worn' | 'bank' | 'skills';
 
 /** The stats tab's order, row by row, as the 2004 client lays it out. */
 const SKILLS = [
@@ -47,20 +46,36 @@ const SKILLS = [
 ];
 const INVENTORY_SLOTS = 28;
 
-export const defaultPanel = (evalId: string): PanelTab => (evalBase(evalId) === 'total_level' ? 'skills' : 'inv');
+const defaultPanel = (evalId: string): PanelTab => (evalBase(evalId) === 'total_level' ? 'skills' : 'inv');
 
-function Slot({ id, count }: { id?: string; count?: number }) {
+/** One slot of the client's grid: the item's sprite, its stack count over its corner as the game draws it. */
+function Slot({ id, count }: { id?: string; count?: number }): JSX.Element {
   return (
     <Tip content={id ? `${itemName(id)}${count && count > 1 ? `, ${formatInt(count)}` : ''}` : undefined}>
-      <span className="relative flex size-9 items-center justify-center rounded-sm bg-muted/60">
+      <span className="relative flex size-9 items-center justify-center rounded-xs bg-muted-10">
         {id && <Sprite src={itemSprite(id, count)} size={32} alt={itemName(id)} />}
         {id && count != null && count > 1 && (
-          <span className="text-shadow-sm absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums text-shadow-card">
+          <span className="absolute top-0 left-0.5 text-2xs font-medium text-foreground tabular-nums">
             {stackCount(count)}
           </span>
         )}
       </span>
     </Tip>
+  );
+}
+
+/** A grid of slots, four across beside the game and seven across under it on a phone. */
+function Slots({ label, items }: { label: string; items: [string | undefined, number | undefined][] }): JSX.Element {
+  return (
+    <ol className="grid w-max grid-cols-4 gap-1.5 max-md:grid-cols-7" aria-label={label}>
+      {items.map(([id, n], i) => (
+        // A slot is its place in the grid: empty slots and repeated items have nothing else to key them
+        // eslint-disable-next-line @eslint-react/no-array-index-key
+        <li key={i}>
+          <Slot id={id} count={n} />
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -74,7 +89,7 @@ export function Held({
   clock: Clock;
   account: string;
   tab: RunSearch['panel'];
-}) {
+}): JSX.Element {
   const update = useSearchUpdate(runSearch);
   const [committed] = useCommitted(run, clock);
   const head = usePlayhead(clock, committed);
@@ -85,58 +100,38 @@ export function Held({
   const held = useMemo(() => heldAt(changes, tick), [changes, tick]);
 
   // The game's own side-panel icons; the bank has none in the client, so its word
-  const tabs: { value: PanelTab; label: string; icon?: string }[] = [
-    { value: 'inv', label: 'Inventory', icon: uiSrc('inventory') },
-    { value: 'worn', label: 'Worn', icon: uiSrc('equipment') },
+  const tabs = [
+    { value: 'inv', label: <Sprite src={uiSrc('inventory')} size={20} alt="" />, title: 'Inventory' },
+    { value: 'worn', label: <Sprite src={uiSrc('equipment')} size={20} alt="" />, title: 'Worn' },
     { value: 'bank', label: 'Bank' },
-    { value: 'skills', label: 'Skills', icon: uiSrc('stats') },
-  ];
+    { value: 'skills', label: <Sprite src={uiSrc('stats')} size={20} alt="" />, title: 'Skills' },
+  ] satisfies { value: PanelTab; label: JSX.Element | string; title?: string }[];
   const levels = new Map(held.levels);
   const total = SKILLS.reduce((sum, s) => sum + (levels.get(s) ?? 1), 0);
 
   return (
-    <div className="flex min-h-0 flex-col gap-3">
-      <ToggleGroup
-        type="single"
-        size="sm"
-        variant="outline"
-        className="w-full"
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <Segmented
+        label="What it held"
         value={open}
-        onValueChange={v => v && update({ panel: v === defaultPanel(run.eval) ? undefined : (v as PanelTab) })}
-        aria-label="What it held"
-      >
-        {tabs.map(t => (
-          <Tip key={t.value} content={t.label}>
-            <ToggleGroupItem value={t.value} aria-label={t.label} className="flex-1">
-              {t.icon ? <Sprite src={t.icon} size={20} alt="" /> : t.label}
-            </ToggleGroupItem>
-          </Tip>
-        ))}
-      </ToggleGroup>
+        options={tabs}
+        onChange={v => update({ panel: v === defaultPanel(run.eval) ? undefined : v })}
+      />
       <ScrollArea className="min-h-0 flex-1">
         {open === 'inv' && (
-          <ol className="grid w-max grid-cols-4 gap-1.5 max-md:grid-cols-7" aria-label="Inventory">
-            {Array.from({ length: Math.max(INVENTORY_SLOTS, held.inv.length) }, (_, i) => (
-              <li key={i}>
-                <Slot id={held.inv[i]?.[0]} count={held.inv[i]?.[1]} />
-              </li>
-            ))}
-          </ol>
+          <Slots
+            label="Inventory"
+            items={Array.from({ length: Math.max(INVENTORY_SLOTS, held.inv.length) }, (_, i) => [
+              held.inv[i]?.[0],
+              held.inv[i]?.[1],
+            ])}
+          />
         )}
         {(open === 'worn' || open === 'bank') &&
           (held[open].length === 0 ? (
-            <p className="text-sm text-muted-foreground">{open === 'worn' ? 'Nothing worn.' : 'Nothing banked.'}</p>
+            <p className="text-sm text-muted">{open === 'worn' ? 'Nothing worn.' : 'Nothing banked.'}</p>
           ) : (
-            <ol
-              className="grid w-max grid-cols-4 gap-1.5 max-md:grid-cols-7"
-              aria-label={open === 'worn' ? 'Worn' : 'Bank'}
-            >
-              {held[open].map(([id, n]) => (
-                <li key={id}>
-                  <Slot id={id} count={n} />
-                </li>
-              ))}
-            </ol>
+            <Slots label={open === 'worn' ? 'Worn' : 'Bank'} items={held[open]} />
           ))}
         {open === 'skills' && (
           <div className="flex w-max flex-col gap-2">
@@ -150,8 +145,8 @@ export function Held({
                 </Tip>
               ))}
             </ol>
-            <p className="text-sm">
-              <span className="text-muted-foreground">Total level</span>{' '}
+            <p className="flex gap-2 text-sm">
+              <span className="text-muted">Total level</span>
               <span className="tabular-nums">{formatInt(total)}</span>
             </p>
           </div>

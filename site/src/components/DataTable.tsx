@@ -59,8 +59,8 @@ export interface DataTableProps<T> {
   renderExpanded?: (row: T) => ReactNode;
   /** Row click, when rows don't expand */
   onRowClick?: (row: T) => void;
-  /** The series id a row stands for: hovering the row hovers it across the page (lib/hover), and rows fade while another is hovered */
-  hoverId?: (row: T) => string;
+  /** The series id a row stands for: hovering the row hovers it across the page (lib/hover), and rows fade while another is hovered; undefined for a row that stands for none */
+  hoverId?: (row: T) => string | undefined;
   /** Shown in one full-width row when there are no rows */
   empty?: ReactNode;
   /** Left of the pagination, such as a row count; with it the footer shows even on one page */

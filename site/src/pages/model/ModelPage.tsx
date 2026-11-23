@@ -6,22 +6,22 @@
  * cut to each harness's best level by the page's `effort`.
  */
 
-import { Fragment, useMemo } from 'react';
-import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
+import { useMemo, type JSX } from 'react';
+import { getRouteApi, Link, useNavigate, type LinkProps } from '@tanstack/react-router';
+import type { ColumnDef } from '@tanstack/react-table';
+import clsx from 'clsx';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { DataTable } from '@/components/DataTable';
 import { Empty, Tip } from '@/components/bits';
 import { AgentLabel, BrandMark, EvalMark, VariantLabel } from '@/components/marks';
 import { PairingFilters } from '@/components/PairingFilters';
 import { PageHeader, PageSection, PageToolbar, type MetaItem } from '@/components/page';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { indexQuery } from '@/data/queries';
 import type { Eval, Run } from '@/data/types';
 import { evalSlug } from '@/lib/evals';
 import { formatCost, formatDay, formatDuration, formatInt, formatTokens } from '@/lib/format';
-import { setHovered } from '@/lib/hover';
 import { resultValue } from '@/lib/runResult';
-import { bestLevelKeys, blendedScores, modelRank, runScore } from '@/lib/score';
+import { bestLevelKeys, blendedScores, modelRank, runScore, type Pairing } from '@/lib/score';
 import { inScope, useDocumentTitle, useEffort, useScope, useSearchUpdate } from '@/lib/search';
 import {
   compareThinking,
@@ -34,14 +34,17 @@ import {
   variantKey,
 } from '@/lib/series';
 import { median } from '@/lib/stats';
-import { cn } from '@/lib/utils';
-import { runColumns, type Row } from '../RunsPage';
-import { costMeasure, harnessSeries, ThinkingChart, type ThinkingMeasure } from './ThinkingChart';
+import { runColumns, type Row } from '@/pages/RunsPage';
+import { costMeasure, harnessSeries, type ThinkingMeasure } from '@/pages/model/measures';
+import { ThinkingChart } from '@/pages/model/ThinkingChart';
 
 const route = getRouteApi('/models/$model');
 const SECTIONS = 'flex flex-col gap-gutter';
 const PAGE_SIZE = 25;
-const LINE = { solid: 'border-solid', dashed: 'border-dashed', dotted: 'border-dotted' } as const;
+/** A pairing's harness line beside it, as in the charts */
+const lineClasses = { solid: 'border-solid', dashed: 'border-dashed', dotted: 'border-dotted' } as const;
+/** The table's width from which it shows time, cost and runs beside the result */
+const COLUMNS_FROM = 560;
 
 /** "#2 of 7": a place among a field. */
 const place = (rank: number, of: number): string => `#${formatInt(rank)} of ${formatInt(of)}`;
@@ -53,43 +56,137 @@ function bests(evals: Eval[], runs: Run[]): Map<string, number> {
   );
 }
 
-/** A set of runs' result on an eval (how many finished, or the median), median time and cost, and count; a phone keeps the result. */
-function ResultCells({ e, own }: { e: Eval; own: Run[] }) {
-  const target = e.target != null;
-  const finished = own.filter(r => r.success);
+/**
+ * A row of the per-eval table: an eval, or under an eval it ran as several pairings, one of them.
+ * Both carry the runs they stand for; the eval's row its place among the models.
+ */
+interface EvalRow {
+  id: string;
+  e: Eval;
+  own: Run[];
+  rank?: { rank: number; of: number } | null;
+  pairing?: Pairing;
+}
+
+/** A set of runs' result on an eval: how many finished, or the median; a phone keeps the number. */
+function Result({ e, own }: { e: Eval; own: Run[] }): JSX.Element {
+  if (own.length === 0) return <>–</>;
+  if (e.target != null)
+    return (
+      <>
+        {formatInt(own.filter(r => r.success).length)}
+        <span className="text-muted">
+          {' '}
+          of {formatInt(own.length)}
+          <span className="max-md:hidden"> finished</span>
+        </span>
+      </>
+    );
   return (
     <>
-      <TableCell className="text-right tabular-nums">
-        {own.length === 0 ? (
-          '–'
-        ) : target ? (
-          <>
-            {formatInt(finished.length)}
-            <span className="text-muted-foreground">
-              {' '}
-              of {formatInt(own.length)}
-              <span className="max-md:hidden"> finished</span>
-            </span>
-          </>
-        ) : (
-          <>
-            {formatInt(median(own.map(resultValue)))}
-            <span className="text-muted-foreground max-md:hidden"> {e.measure.toLowerCase()}</span>
-          </>
-        )}
-      </TableCell>
-      <TableCell className="text-right tabular-nums max-md:hidden">
-        {formatDuration(target ? median(finished.map(r => r.seconds)) : median(own.map(r => r.game_seconds)))}
-      </TableCell>
-      <TableCell className="text-right tabular-nums max-md:hidden">
-        {formatCost(median(own.map(r => r.cost)))}
-      </TableCell>
-      <TableCell className="text-right tabular-nums max-md:hidden">{formatInt(own.length)}</TableCell>
+      {formatInt(median(own.map(resultValue)))}
+      <span className="text-muted max-md:hidden"> {e.measure.toLowerCase()}</span>
     </>
   );
 }
 
-export function ModelPage() {
+/** Median time per run: to the finish on an eval with a target, else the game time played. */
+const medianTime = ({ e, own }: EvalRow): number | null =>
+  e.target != null ? median(own.filter(r => r.success).map(r => r.seconds)) : median(own.map(r => r.game_seconds));
+
+/** Where the model places, what it got, how long and what it cost, per eval; a phone keeps the first three. */
+function evalColumns(model: string): ColumnDef<EvalRow, unknown>[] {
+  return [
+    {
+      id: 'eval',
+      header: () => <span className="sr-only">Eval</span>,
+      enableSorting: false,
+      cell: ({ row: { original: r } }) =>
+        r.pairing ? (
+          <span className="flex min-w-0 items-center gap-2 pl-7 max-md:pl-2">
+            <span
+              aria-hidden
+              className={clsx(
+                'w-4 shrink-0 border-t-2 max-md:hidden',
+                r.pairing.variant.color.borderClassName,
+                lineClasses[r.pairing.variant.line]
+              )}
+            />
+            <VariantLabel variant={r.pairing.variant} run={r.pairing.sample} compact />
+          </span>
+        ) : (
+          <Link
+            {...evalTarget(model, r)}
+            className="inline-flex max-w-full items-center gap-2 align-middle whitespace-nowrap hover:underline"
+          >
+            <EvalMark evalId={r.e.id} size={20} title="" />
+            {/* A phone keeps the name short, so the place and result stay in view */}
+            <span className="truncate max-md:max-w-28">{r.e.title}</span>
+          </Link>
+        ),
+    },
+    {
+      id: 'place',
+      header: () => (
+        <Tip content="Among the models, by each one's best pairing">
+          <span>Place</span>
+        </Tip>
+      ),
+      enableSorting: false,
+      meta: { numeric: true },
+      cell: ({ row: { original: r } }) => (r.pairing ? null : r.rank ? place(r.rank.rank, r.rank.of) : '–'),
+    },
+    {
+      id: 'result',
+      header: 'Result',
+      enableSorting: false,
+      meta: { numeric: true },
+      cell: ({ row: { original: r } }) => <Result e={r.e} own={r.own} />,
+    },
+    {
+      id: 'time',
+      header: () => (
+        <Tip content="Median per run: to the finish, or played">
+          <span>Time</span>
+        </Tip>
+      ),
+      enableSorting: false,
+      meta: { numeric: true, minWidth: COLUMNS_FROM },
+      cell: ({ row: { original: r } }) => formatDuration(medianTime(r)),
+    },
+    {
+      id: 'cost',
+      header: () => (
+        <Tip content="Median per run">
+          <span>Cost</span>
+        </Tip>
+      ),
+      enableSorting: false,
+      meta: { numeric: true, minWidth: COLUMNS_FROM },
+      cell: ({ row: { original: r } }) => formatCost(median(r.own.map(run => run.cost))),
+    },
+    {
+      id: 'runs',
+      header: 'Runs',
+      enableSorting: false,
+      meta: { numeric: true, minWidth: COLUMNS_FROM },
+      cell: ({ row: { original: r } }) => formatInt(r.own.length),
+    },
+  ];
+}
+
+/** The eval's page for this model, at one pairing's level and harness when the row is a pairing. */
+function evalTarget(model: string, row: EvalRow): LinkProps {
+  return {
+    to: '/evals/$evalId/$model',
+    params: { evalId: evalSlug(row.e.id), model: modelSlug(model) },
+    search: (row.pairing
+      ? { level: [row.pairing.variant.thinking], harness: [row.pairing.variant.agent] }
+      : {}) as never,
+  };
+}
+
+export function ModelPage(): JSX.Element {
   const { model: slug } = route.useParams();
   const search = route.useSearch();
   const update = useSearchUpdate();
@@ -144,10 +241,34 @@ export function ModelPage() {
     }),
     [byEval, best]
   );
-  const evalOf = (r: Run) => byEval.get(r.eval)?.title ?? r.eval;
+  const evalOf = (r: Run): string => byEval.get(r.eval)?.title ?? r.eval;
 
   const rows = useMemo<Row[]>(() => runs.map(r => ({ ...r, e: byEval.get(r.eval) })), [runs, byEval]);
   const columns = useMemo(() => runColumns(undefined), []);
+
+  // Each eval it ran, then each pairing it ran there when there are several
+  const evalRows = useMemo<EvalRow[]>(
+    () =>
+      model == null
+        ? []
+        : evals.flatMap(e => {
+            const own = runs.filter(r => r.eval === e.id);
+            const mine = pairings.filter(p => own.some(r => variantKey(r) === p.variant.key));
+            return [
+              { id: e.id, e, own, rank: modelRank(all, pairings, e, model) },
+              ...(mine.length > 1
+                ? mine.map(p => ({
+                    id: `${e.id}:${p.variant.key}`,
+                    e,
+                    own: own.filter(r => variantKey(r) === p.variant.key),
+                    pairing: p,
+                  }))
+                : []),
+            ];
+          }),
+    [model, evals, runs, pairings, all]
+  );
+  const perEvalColumns = useMemo(() => evalColumns(model ?? slug), [model, slug]);
 
   if (!model) return <Empty>No runs of this model.</Empty>;
 
@@ -155,7 +276,7 @@ export function ModelPage() {
   const allLevels = [...new Set(everyRun.map(r => r.thinking))].sort(compareThinking);
   // What the model is, from models.dev (the header bar names it, its maker's mark leads), then what ran
   const facts = modelFacts(model);
-  const named = (id: string, mark = true) => (
+  const named = (id: string, mark = true): JSX.Element => (
     <span className="inline-flex items-center gap-1.5 align-middle">
       {mark && <BrandMark slug={id} size={16} />}
       {providerInfo(id).name}
@@ -186,11 +307,6 @@ export function ModelPage() {
     },
   ];
 
-  const evalLink = (e: Eval) => ({
-    to: '/evals/$evalId/$model' as const,
-    params: { evalId: evalSlug(e.id), model: modelSlug(model) },
-  });
-
   return (
     <div className={SECTIONS}>
       <PageHeader
@@ -219,91 +335,13 @@ export function ModelPage() {
         <>
           {/* Each eval: where the model places among the models, what it got, how long and what it cost; each pairing under it when it ran several */}
           <PageSection title="Per eval">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>
-                    <span className="sr-only">Eval</span>
-                  </TableHead>
-                  <TableHead className="text-right">
-                    <Tip content="Among the models, by each one's best pairing">
-                      <span>Place</span>
-                    </Tip>
-                  </TableHead>
-                  <TableHead className="text-right">Result</TableHead>
-                  <TableHead className="text-right max-md:hidden">
-                    <Tip content="Median per run: to the finish, or played">
-                      <span>Time</span>
-                    </Tip>
-                  </TableHead>
-                  <TableHead className="text-right max-md:hidden">
-                    <Tip content="Median per run">
-                      <span>Cost</span>
-                    </Tip>
-                  </TableHead>
-                  <TableHead className="text-right max-md:hidden">Runs</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {evals.map(e => {
-                  const own = runs.filter(r => r.eval === e.id);
-                  const rank = modelRank(all, pairings, e, model);
-                  // Each pairing it ran here as its own row under the eval's, when there are several
-                  const mine = pairings.filter(p => own.some(r => variantKey(r) === p.variant.key));
-                  return (
-                    <Fragment key={e.id}>
-                      <TableRow className="cursor-pointer" onClick={() => navigate(evalLink(e))}>
-                        <TableCell>
-                          <Link
-                            {...evalLink(e)}
-                            className="inline-flex max-w-full items-center gap-2 whitespace-nowrap hover:underline hover:underline-offset-4"
-                          >
-                            <EvalMark evalId={e.id} size={20} title="" />
-                            {/* A phone keeps the name short, so the place and result stay in view */}
-                            <span className="truncate max-md:max-w-28">{e.title}</span>
-                          </Link>
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {rank ? place(rank.rank, rank.of) : '–'}
-                        </TableCell>
-                        <ResultCells e={e} own={own} />
-                      </TableRow>
-                      {mine.length > 1 &&
-                        mine.map(p => (
-                          <TableRow
-                            key={p.variant.key}
-                            className="cursor-pointer"
-                            onMouseEnter={() => setHovered(p.variant.key)}
-                            onMouseLeave={() => setHovered(undefined)}
-                            onClick={() =>
-                              navigate({
-                                ...evalLink(e),
-                                search: { level: [p.variant.thinking], harness: [p.variant.agent] } as never,
-                              })
-                            }
-                          >
-                            <TableCell>
-                              <span className="flex min-w-0 items-center gap-2 pl-7 max-md:pl-2">
-                                <span
-                                  aria-hidden
-                                  className={cn(
-                                    'w-4 shrink-0 border-t-2 max-md:hidden',
-                                    p.variant.color.borderClassName,
-                                    LINE[p.variant.line]
-                                  )}
-                                />
-                                <VariantLabel variant={p.variant} run={p.sample} compact />
-                              </span>
-                            </TableCell>
-                            <TableCell />
-                            <ResultCells e={e} own={own.filter(r => variantKey(r) === p.variant.key)} />
-                          </TableRow>
-                        ))}
-                    </Fragment>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            <DataTable
+              data={evalRows}
+              columns={perEvalColumns}
+              getRowId={r => r.id}
+              hoverId={r => r.pairing?.variant.key}
+              onRowClick={r => navigate(evalTarget(model, r))}
+            />
           </PageSection>
 
           {/* Thinking levels side by side only when it ran at more than one */}
