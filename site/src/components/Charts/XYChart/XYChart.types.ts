@@ -46,6 +46,7 @@ export interface ChartArea {
   series: SeriesSpec;
   /** [x, y] in x order */
   points: [number, number][];
+  /** Areas of one stack add up point by point, so give them the same x values */
   stack?: string;
   /** @default true */
   step?: boolean;

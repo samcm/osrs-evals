@@ -136,7 +136,9 @@ export function XYChart(props: XYChartProps): JSX.Element {
     yName: !!y?.name,
   });
   // Rebuilt each render: the props are new each time, and the build is cheap next to ECharts' own update
-  const { option, hits } = buildOption(props, grid, colors, lit);
+  // Where the crosshair is (the pointer's x, here or in a synced chart), for the axis tooltip
+  const crosshairRef = useRef<number | null>(null);
+  const { option, hits } = buildOption(props, grid, colors, lit, () => crosshairRef.current);
   const plot = plotOf(size, grid, x, rows ? { rows: rows.length } : y!);
   const strength = (id: string | undefined): number => (lit != null && id != null && id !== lit ? FADED_OPACITY : 1);
 
@@ -166,6 +168,10 @@ export function XYChart(props: XYChartProps): JSX.Element {
 
   const ready = useCallback((instance: EChartsInstance) => {
     chartRef.current = instance;
+    // Sent before the tooltip draws, with the crosshair's unsnapped x
+    instance.on('updateAxisPointer', (e: { axesInfo?: { axisDim: string; value: number }[] }) => {
+      crosshairRef.current = e.axesInfo?.find(a => a.axisDim === 'x')?.value ?? null;
+    });
     const zr = instance.getZr();
     zr.on('mousemove', (e: { offsetX: number; offsetY: number }) => {
       pointerRef.current = { x: e.offsetX, y: e.offsetY };

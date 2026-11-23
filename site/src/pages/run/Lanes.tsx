@@ -2,67 +2,53 @@
  * The run as one instrument: lanes on one shared x axis and one playhead. Every lane the run has
  * data for shows (progress, model calls, SDK actions, activity, spend, context, XP); the lanes menu
  * hides some (`?lanes=`). Each lane is its own card: its title, its unit as the description, its cut
- * in the card's action, the chart, and its key under it. Every lane is a shadcn chart of the same
- * height sampled on the same grid of x values, so Recharts' `syncId` moves one crosshair through all
- * of them. Hovering previews that moment everywhere on the page; clicking puts the playhead there.
- * The playhead is a vertical line in every lane. The x measure and the lanes menu sit in a toolbar
- * above the lanes; the map is a card beside them.
+ * in the card's action, the chart, and its key under it. Every lane is an XYChart of the same height
+ * on the same x domain, synced, so one crosshair moves through all of them; only the lane under the
+ * pointer shows its values. Hovering previews that moment everywhere on the page; clicking puts the
+ * playhead there. The playhead is a line over every lane. The x measure and the lanes menu sit in a
+ * toolbar above the lanes; the map is a card beside them.
  */
 
-import { memo, useMemo, useRef, type JSX, type ReactNode, type RefObject } from 'react';
-import {
-  Area,
-  CartesianGrid,
-  ComposedChart,
-  Line,
-  ReferenceLine,
-  XAxis,
-  YAxis,
-  usePlotArea,
-  useXAxisScale,
-  useYAxisScale,
-  type MouseHandlerDataParam,
-  type TooltipContentProps,
-} from 'recharts';
-import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
+import { memo, useEffect, useMemo, useRef, type JSX, type ReactNode, type RefObject } from 'react';
+import { ChevronDownIcon } from '@heroicons/react/20/solid';
+import clsx from 'clsx';
 import { ParamSegmented, Segmented } from '@/components/bits';
 import {
   ChartFrame,
-  crosshairCursor,
-  gridProps,
   KeyLegend,
-  syncProps,
-  Y_AXIS_WIDTH,
+  SeriesLegend,
+  subscribeSync,
+  XYChart,
+  type AxisSpec,
+  type ChartArea,
+  type ChartBand,
+  type ChartLine,
+  type ChartRule,
   type LegendItem,
-} from '@/components/Charts/legacy';
-import { Sprite } from '@/components/marks';
-import { ChevronDownIcon } from '@heroicons/react/20/solid';
-import clsx from 'clsx';
+  type Plot,
+  type TooltipContent,
+  type TooltipRow,
+} from '@/components/Charts';
 import { PageSection, PageToolbar } from '@/components/page';
 import { Popover, PopoverButton, PopoverPanel } from '@/components/Overlays/Popover';
 import { CheckboxGroup } from '@/components/Forms/CheckboxGroup/CheckboxGroup';
-import { ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import type { Price, RunDetail, RunEvent, ToolCategory, Turn } from '@/data/types';
 import { skillSrc } from '@/lib/assets';
-import { cssColor, modelSeries, seriesKey } from '@/lib/chartSeries';
+import { cssColor, modelSeries, seriesKey, tokenSeries, toolSeries, type SeriesSpec } from '@/lib/chartSeries';
 import { evalArt } from '@/lib/evals';
 import { formatClock, formatCost, formatInt, formatSeconds, formatTokens } from '@/lib/format';
-import { FADED_OPACITY, useHover } from '@/lib/hover';
-import { useLegend, type LegendState } from '@/lib/legend';
+import { useLegend } from '@/lib/legend';
 import { useSearchUpdate } from '@/lib/search';
-import { hashColor } from '@/lib/series';
+import { hashColor, type SeriesColor } from '@/lib/series';
 import { SDK_OUTCOMES, TOKEN_KINDS, type TokenKind } from '@/lib/tokens';
-import { TOOL_CATEGORY } from '@/lib/tools';
 import {
   animationName,
   formatCompact,
   niceTicks,
-  RUNNING,
   setMoment,
   ticksWithin,
   turnHasError,
   turnSummary,
-  WALKING,
   type Clock,
   type XMeasure,
 } from './model';
@@ -70,15 +56,6 @@ import { useCommitted, usePlayhead } from './playhead';
 import { DEFAULT_LANES, LANE_IDS, runSearch, useSettle, type LaneId, type RunSearch } from './search';
 
 const SYNC = 'run-lanes';
-/** Points on the shared x grid: every lane is sampled here, so the crosshair matches by value */
-const GRID_POINTS = 720;
-/** The y axis takes the site's one width in every lane, so the plots line up with every other chart */
-const Y_WIDTH = Y_AXIS_WIDTH;
-/** Room right of every plot, so the last x label fits */
-const RIGHT = 20;
-/** Above every plot, and the x axis under it: where the playhead line starts and stops */
-const TOP = 4;
-const X_AXIS = 24;
 
 /** Where each kind of token sits in the calls series and in the price list. */
 const TOKEN_FIELDS: Record<
@@ -91,14 +68,32 @@ const TOKEN_FIELDS: Record<
   output: { calls: 'output', price: 'output' },
 };
 
-type Row = Record<string, number | undefined>;
+// Literal class names so Tailwind generates them: bg-data-sky border-data-sky fill-data-sky
+// bg-data-blue border-data-blue fill-data-blue bg-muted border-muted fill-muted
+const tokenColor = (name: string): SeriesColor => ({
+  token: `--color-${name}`,
+  swatchClassName: `bg-${name}`,
+  borderClassName: `border-${name}`,
+  fillClassName: `fill-${name}`,
+});
 
-/** A tooltip row for ChartTooltipContent: a name, a value already formatted, a colour. */
-interface TipItem {
-  name: string;
-  value: string;
-  color?: string;
+/** A series for something keyed by name (an account, a skill, an SDK function), in its colour. */
+function keySeries(id: string, label: string, color: SeriesColor, sprite?: string): SeriesSpec {
+  return {
+    id,
+    key: seriesKey(id),
+    label,
+    name: label,
+    color: cssColor(color),
+    swatch: color,
+    line: 'solid',
+    symbol: 'circle',
+    sprite,
+  };
 }
+
+/** A call made without a tool */
+const NO_TOOL = keySeries('none', 'No tool', tokenColor('muted'));
 
 interface Lane {
   id: LaneId;
@@ -106,15 +101,19 @@ interface Lane {
   /** The lane's unit or window, when the title does not say it */
   description?: string;
   control?: ReactNode;
-  config: ChartConfig;
-  rows: Row[];
-  yTicks: number[];
-  yFormat: (value: number) => string;
-  /** The lane's Recharts series and marks */
-  body: ReactNode;
-  tip: (i: number) => { title: ReactNode; items: TipItem[] };
+  y: AxisSpec;
+  lines?: ChartLine[];
+  areas?: ChartArea[];
+  bands?: ChartBand[];
+  /** Marks drawn over the plot in HTML (a call's error) */
+  overlay?: (plot: Plot) => ReactNode;
+  /** The values at an x, for the lane under the pointer */
+  tip: (x: number) => TooltipContent | null;
+  /** The key under the chart; with `bound`, it toggles series (hide/focus) */
   legend?: LegendItem[];
-  /** The legend toggles series (hide/focus) */
+  series?: SeriesSpec[];
+  /** How `series` are keyed: a line, or a swatch for areas */
+  seriesKind?: 'line' | 'swatch';
   bound?: boolean;
 }
 
@@ -123,49 +122,35 @@ interface Ctx {
   clock: Clock;
   measure: XMeasure;
   maxX: number;
-  /** The grid on the x measure, and the game tick at each point */
-  xs: number[];
-  ticks: number[];
   visible: (id: string) => boolean;
-  tools: ToolCategory[];
-  errorsOnly: boolean;
-  /** Whether a series should fade: another one is hovered */
-  faded: (id: string) => boolean;
+  /** The game tick at an x on the measure */
+  tickOf: (x: number) => number;
 }
 
 const formatX = (measure: XMeasure, x: number): string =>
   measure === 'ticks' ? `Tick ${formatInt(Math.round(x))}` : formatClock(x);
 
-/** For each grid point, the index of the last item at or before it (−1 before the first); `at` ascending. */
-function lastAtOrBefore(at: number[], grid: number[]): number[] {
-  const out: number[] = [];
-  let j = -1;
-  for (const g of grid) {
-    while (j + 1 < at.length && at[j + 1] <= g) j++;
-    out.push(j);
+/** The index of the last item at or before `x` (−1 before the first); `at` ascending. */
+function lastAt(at: number[], x: number): number {
+  let lo = 0;
+  let hi = at.length - 1;
+  let found = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (at[mid] <= x) {
+      found = mid;
+      lo = mid + 1;
+    } else hi = mid - 1;
   }
-  return out;
+  return found;
 }
 
-/** A series' opacity: dimmed while another series is hovered (lib/hover) */
-const fade = (faded: boolean): number => (faded ? FADED_OPACITY : 1);
-
-const area = (key: string, stack?: string, opacity = 0.4, faded = false) => (
-  <Area
-    key={key}
-    dataKey={key}
-    type="stepAfter"
-    stackId={stack}
-    stroke={`var(--color-${key})`}
-    fill={`var(--color-${key})`}
-    fillOpacity={opacity * fade(faded)}
-    strokeOpacity={fade(faded)}
-    strokeWidth={1.5}
-    dot={false}
-    activeDot={false}
-    isAnimationActive={false}
-  />
-);
+/** A step series' points held to the axis' end, so its last value reaches the run's end. */
+function heldToEnd<T extends [number, ...unknown[]]>(points: T[], maxX: number): T[] {
+  const last = points.at(-1);
+  if (!last || last[0] >= maxX) return points;
+  return [...points, [maxX, ...last.slice(1)] as T];
+}
 
 type Marked = Extract<RunEvent, { kind: 'quest' | 'death' | 'level' }>;
 type AttemptStart = Extract<RunEvent, { kind: 'attempt' }>;
@@ -179,15 +164,16 @@ function eventName(e: Marked): string {
 }
 
 function progressLane(ctx: Ctx): Lane {
-  const { run, clock, measure, xs, ticks } = ctx;
+  const { run, clock, measure } = ctx;
   // The quests show on the playback bar's track; here they are named in the tooltip
   const measureName = evalArt(run.eval).measure;
-  const spec = modelSeries(run.model);
-  const at = lastAtOrBefore(
-    run.timeline.map(p => p.tick),
-    ticks
+  const model = modelSeries(run.model);
+  const spec: SeriesSpec = { ...model, label: measureName, name: measureName, vendor: undefined, sprite: undefined };
+  const timeline = run.timeline.map(p => clock.x(p.tick, measure));
+  const points = heldToEnd(
+    run.timeline.map((p, i): [number, number] => [timeline[i], p.value]),
+    ctx.maxX
   );
-  const rows = xs.map((x, i) => ({ x, v: run.timeline[Math.max(0, at[i])]?.value ?? 0 }));
   const marked = run.events.filter((e): e is Marked => e.kind === 'quest');
   const attemptStarts = attempts(run);
   const max = Math.max(1, ...run.timeline.map(p => p.value));
@@ -200,26 +186,29 @@ function progressLane(ctx: Ctx): Lane {
             .filter(t => t <= target)
             .concat(target)
       : niceTicks(max, 2, true);
+  const ticks = [...new Set(yTicks)];
   const span = ctx.maxX || 1;
 
   return {
     id: 'progress',
     title: measureName,
-    config: { v: { label: measureName, color: spec.color } },
-    rows,
-    yTicks: [...new Set(yTicks)],
-    yFormat: formatCompact,
-    body: area('v', undefined, 0.12),
-    tip: i => {
-      const tick = ticks[i];
+    y: { domain: [0, ticks.at(-1) ?? 1], ticks, format: formatCompact, formatValue: formatInt },
+    lines: [{ series: spec, points }],
+    bands: [{ series: spec, points: points.map(([x, v]): [number, number, number] => [x, 0, v]), opacity: 0.12 }],
+    tip: x => {
+      const tick = ctx.tickOf(x);
       const attempt = attemptStarts.filter(a => a.tick <= tick).at(-1);
-      const near = marked.filter(e => Math.abs(clock.x(e.tick, measure) - xs[i]) <= span * 0.012);
-      const items: TipItem[] = [{ name: measureName, value: formatInt(rows[i].v), color: spec.color }];
-      if (run.attempts > 1 && attempt) items.unshift({ name: 'Attempt', value: String(attempt.attempt) });
-      for (const e of near) items.push({ name: eventName(e), value: formatX(measure, clock.x(e.tick, measure)) });
-      if (near.some(e => e.kind === 'quest' && e.source === 'inferred'))
-        items.push({ name: '≈ guessed from the quest-points jump', value: '' });
-      return { title: formatX(measure, xs[i]), items };
+      const near = marked.filter(e => Math.abs(clock.x(e.tick, measure) - x) <= span * 0.012);
+      const value = run.timeline[Math.max(0, lastAt(timeline, x))]?.value ?? 0;
+      const rows: TooltipRow[] = [{ series: spec, value: formatInt(value) }];
+      if (run.attempts > 1 && attempt) rows.unshift({ label: 'Attempt', value: String(attempt.attempt) });
+      for (const e of near) rows.push({ label: eventName(e), value: formatX(measure, clock.x(e.tick, measure)) });
+      const guessed = near.some(e => e.kind === 'quest' && e.source === 'inferred');
+      return {
+        title: formatX(measure, x),
+        rows,
+        note: guessed ? '≈ guessed from the quest-points jump' : undefined,
+      };
     },
   };
 }
@@ -240,17 +229,15 @@ function spendLane(ctx: Ctx, price: Price | undefined, cut: RunSearch['cost']): 
   const calls = ctx.run.series.calls;
   const usd = cut === 'usd' && price != null;
   const { end } = callXs(ctx);
-  const at = lastAtOrBefore(end, ctx.xs);
+  const specs = TOKEN_KINDS.map(k => tokenSeries(k.id));
   const kinds = TOKEN_KINDS.filter(k => ctx.visible(k.id));
   const valueOf = (kind: TokenKind, call: number): number => {
     if (call < 0) return 0;
     const tokens = calls[TOKEN_FIELDS[kind].calls][call] ?? 0;
     return usd ? (tokens * price![TOKEN_FIELDS[kind].price]) / 1e6 : tokens;
   };
-  const rows = ctx.xs.map(
-    (x, i) => Object.fromEntries([['x', x], ...TOKEN_KINDS.map(k => [seriesKey(k.id), valueOf(k.id, at[i])])]) as Row
-  );
   const total = kinds.reduce((sum, k) => sum + valueOf(k.id, calls.seconds.length - 1), 0);
+  const yTicks = niceTicks(total || 1, 2);
   const format = (v: number): string => (usd ? formatCost(v) : formatTokens(v));
   return {
     id: 'spend',
@@ -267,224 +254,193 @@ function spendLane(ctx: Ctx, price: Price | undefined, cut: RunSearch['cost']): 
         ]}
       />
     ) : undefined,
-    config: Object.fromEntries(TOKEN_KINDS.map(k => [seriesKey(k.id), { label: k.label, color: cssColor(k.color) }])),
-    rows,
-    yTicks: niceTicks(total || 1, 2),
-    yFormat: v => (usd ? `$${Number(v.toPrecision(3))}` : formatCompact(v)),
-    body: <>{kinds.map(k => area(seriesKey(k.id), 'spend', 0.4, ctx.faded(k.id)))}</>,
+    y: {
+      domain: [0, yTicks.at(-1) ?? 1],
+      ticks: yTicks,
+      format: v => (usd ? `$${Number(v.toPrecision(3))}` : formatCompact(v)),
+      formatValue: format,
+    },
+    // One run's running total, stacked by kind on a linear axis; every kind on the same x values so they stack
+    areas: kinds.map(k => ({
+      series: tokenSeries(k.id),
+      stack: 'spend',
+      points: heldToEnd(
+        [[0, 0] as [number, number], ...end.map((x, i): [number, number] => [x, valueOf(k.id, i)])],
+        ctx.maxX
+      ),
+    })),
+    series: specs,
+    seriesKind: 'swatch',
     bound: true,
-    legend: TOKEN_KINDS.map(k => ({ id: k.id, label: k.label, swatchClassName: k.color.swatchClassName })),
-    tip: i => {
-      const items: TipItem[] = [...kinds]
+    tip: x => {
+      const i = lastAt(end, x);
+      const rows: TooltipRow[] = [...kinds]
         .reverse()
-        .map(k => ({ name: k.label, value: format(valueOf(k.id, at[i])), color: cssColor(k.color) }));
+        .map(k => ({ series: tokenSeries(k.id), value: format(valueOf(k.id, i)) }));
       if (kinds.length > 1)
-        items.push({ name: 'Total', value: format(kinds.reduce((sum, k) => sum + valueOf(k.id, at[i]), 0)) });
-      return { title: formatX(ctx.measure, ctx.xs[i]), items };
+        rows.push({ label: 'Total', value: format(kinds.reduce((sum, k) => sum + valueOf(k.id, i), 0)) });
+      return { title: formatX(ctx.measure, x), rows };
     },
   };
 }
 
 function contextLane(ctx: Ctx): Lane {
   const calls = ctx.run.series.calls;
-  const spec = modelSeries(ctx.run.model);
+  const spec = { ...modelSeries(ctx.run.model), label: 'Context', name: 'Context', vendor: undefined };
   const { start } = callXs(ctx);
-  const at = lastAtOrBefore(start, ctx.xs);
-  const rows = ctx.xs.map((x, i) =>
-    at[i] >= 0 && calls.context[at[i]] != null ? { x, c: calls.context[at[i]]! } : { x }
-  );
   const max = Math.max(1, ...calls.context.map(c => c ?? 0));
+  const yTicks = niceTicks(max, 3);
   return {
     id: 'context',
     title: 'Context',
     description: 'Tokens per call',
-    config: { c: { label: 'Context', color: spec.color } },
-    rows,
-    yTicks: niceTicks(max, 3),
-    yFormat: formatCompact,
-    body: (
-      <Line
-        dataKey="c"
-        type="stepAfter"
-        stroke="var(--color-c)"
-        strokeWidth={2}
-        dot={false}
-        activeDot={false}
-        connectNulls={false}
-        isAnimationActive={false}
-      />
-    ),
-    tip: i => ({
-      title: at[i] >= 0 ? `Turn ${at[i] + 1}` : formatX(ctx.measure, ctx.xs[i]),
-      items: [
-        {
-          name: 'Context',
-          value: at[i] >= 0 ? `${formatTokens(calls.context[at[i]])} tokens` : '–',
-          color: spec.color,
-        },
-      ],
-    }),
-  };
-}
-
-/**
- * Each model call as a block: as wide as the time to the next call, as tall as the model took;
- * solid while the model worked, faint while its tools ran. Coloured by the call's tool category.
- */
-function CallBlocks({
-  starts,
-  ends,
-  untils,
-  latency,
-  colors,
-  shown,
-  errors,
-}: {
-  starts: number[];
-  ends: number[];
-  untils: number[];
-  latency: number[];
-  colors: string[];
-  shown: boolean[];
-  errors: boolean[];
-}) {
-  const plot = usePlotArea();
-  const x = useXAxisScale();
-  const y = useYAxisScale();
-  if (!plot || !x || !y) return null;
-  const bottom = plot.y + plot.height;
-  return (
-    <g className="recharts-call-blocks">
-      {starts.map((s, i) => {
-        const x0 = Number(x(s));
-        const x1 = Math.max(x0 + 1.5, Number(x(ends[i])));
-        const x2 = Math.max(x1, Number(x(untils[i])));
-        const top = Math.min(bottom - 2, Number(y(latency[i])));
-        const opacity = shown[i] ? 1 : 0.2;
-        return (
-          <g key={i} opacity={opacity}>
-            <rect x={x1} y={top} width={x2 - x1} height={bottom - top} fill={colors[i]} fillOpacity={0.25} />
-            <rect x={x0} y={top} width={x1 - x0} height={bottom - top} fill={colors[i]} />
-            {errors[i] && <rect x={x0} y={top - 4} width={Math.max(3, x1 - x0)} height={2} fill="var(--destructive)" />}
-          </g>
-        );
-      })}
-    </g>
-  );
-}
-
-function callsLane(ctx: Ctx): Lane {
-  const { run } = ctx;
-  const calls = run.series.calls;
-  const turns: Turn[] = run.turns;
-  const { start, end } = callXs(ctx);
-  const untils = start.map((_, i) => (i + 1 < start.length ? start[i + 1] : end[i]));
-  const colors = calls.category.map(cat => (cat ? cssColor(TOOL_CATEGORY[cat].color) : 'var(--muted-foreground)'));
-  const shown = turns.map(
-    t =>
-      (ctx.tools.length === 0 || t.actions.some(a => ctx.tools.includes(a.category))) &&
-      (!ctx.errorsOnly || turnHasError(t))
-  );
-  const errors = turns.map(turnHasError);
-  const present = [...new Set(calls.category.filter((c): c is ToolCategory => c != null))];
-  const at = lastAtOrBefore(start, ctx.xs);
-  const latencyTicks = niceTicks(Math.max(1, ...calls.latency), 2);
-  return {
-    id: 'calls',
-    title: 'Model calls',
-    description: 'Seconds per call, faint while its tools ran',
-    config: { zero: { label: 'Model calls' } },
-    rows: ctx.xs.map(x => ({ x, zero: 0 })),
-    yTicks: latencyTicks,
-    yFormat: v => `${formatCompact(v)} s`,
-    legend: present.map(cat => ({
-      label: TOOL_CATEGORY[cat].label,
-      swatchClassName: TOOL_CATEGORY[cat].color.swatchClassName,
-    })),
-    body: (
-      <>
-        <Line dataKey="zero" stroke="none" dot={false} activeDot={false} isAnimationActive={false} />
-        <CallBlocks
-          starts={start}
-          ends={end}
-          untils={untils}
-          latency={calls.latency}
-          colors={colors}
-          shown={shown}
-          errors={errors}
-        />
-      </>
-    ),
-    tip: i => {
-      const t = Math.max(0, at[i]);
-      const turn = turns[t];
-      const cat = calls.category[t];
-      const summary = turn ? turnSummary(turn) : null;
-      const items: TipItem[] = [];
-      if (cat) items.push({ name: TOOL_CATEGORY[cat].label, value: '', color: colors[t] });
-      items.push({ name: 'Model', value: `${formatSeconds(calls.latency[t])} s` });
-      items.push({ name: 'Then', value: calls.gap[t] == null ? 'End' : `${formatSeconds(calls.gap[t])} s` });
-      if (errors[t]) items.push({ name: 'Error', value: '', color: 'var(--destructive)' });
-      return {
-        title: (
-          <span className="flex max-w-64 flex-col gap-0.5">
-            <span>Turn {t + 1}</span>
-            {summary && <span className="truncate font-normal text-muted-foreground">{summary.text}</span>}
-          </span>
+    y: { domain: [0, yTicks.at(-1) ?? 1], ticks: yTicks, format: formatCompact },
+    lines: [
+      {
+        series: spec,
+        width: 2,
+        points: heldToEnd(
+          start.map((x, i): [number, number | null] => [x, calls.context[i] ?? null]),
+          ctx.maxX
         ),
-        items,
+      },
+    ],
+    tip: x => {
+      const i = lastAt(start, x);
+      return {
+        title: i >= 0 ? `Turn ${i + 1}` : formatX(ctx.measure, x),
+        rows: [{ series: spec, value: i >= 0 ? `${formatTokens(calls.context[i])} tokens` : '–' }],
       };
     },
   };
 }
 
+/**
+ * Each model call as a block: as wide as the time to the next call, as tall as the model took;
+ * solid while the model worked, faint while its tools ran, in the call's tool category's colour.
+ * Drawn as bands (a step outline per category, zero between its calls), a red mark over a call that
+ * erred.
+ */
+function callsLane(ctx: Ctx): Lane {
+  const { run } = ctx;
+  const calls = run.series.calls;
+  const turns: Turn[] = run.turns;
+  const { start, end } = callXs(ctx);
+  // A call too quick to see still gets a sliver
+  const minWidth = ctx.maxX / 600;
+  const answered = start.map((x, i) => Math.min(ctx.maxX, Math.max(x + minWidth, end[i])));
+  const untils = start.map((_, i) => Math.max(answered[i], i + 1 < start.length ? start[i + 1] : end[i]));
+  const specOf = (i: number): SeriesSpec => {
+    const cat = calls.category[i];
+    return cat ? toolSeries(cat) : NO_TOOL;
+  };
+  const present = [...new Set(calls.category.filter((c): c is ToolCategory => c != null))];
+  const groups: ({ id: ToolCategory | 'none' } & { spec: SeriesSpec })[] = [
+    ...present.map(c => ({ id: c, spec: toolSeries(c) })),
+    ...(calls.category.some(c => c == null) ? [{ id: 'none' as const, spec: NO_TOOL }] : []),
+  ];
+  const outline = (id: string, from: number[], to: number[]): [number, number, number][] => {
+    const points: [number, number, number][] = [[0, 0, 0]];
+    let last = 0;
+    start.forEach((_, i) => {
+      if ((calls.category[i] ?? 'none') !== id) return;
+      const x0 = Math.max(last, from[i]);
+      const x1 = Math.max(x0, to[i]);
+      points.push([x0, 0, calls.latency[i]], [x1, 0, 0]);
+      last = x1;
+    });
+    return points;
+  };
+  const errors = turns.flatMap((t, i) => (turnHasError(t) ? [i] : []));
+  const latencyTicks = niceTicks(Math.max(1, ...calls.latency), 2);
+  return {
+    id: 'calls',
+    title: 'Model calls',
+    description: 'Seconds per call, faint while its tools ran',
+    y: { domain: [0, latencyTicks.at(-1) ?? 1], ticks: latencyTicks, format: v => `${formatCompact(v)} s` },
+    bands: groups.flatMap(g => [
+      { key: `tools-${g.id}`, series: g.spec, points: outline(g.id, answered, untils), opacity: 0.25 },
+      { key: `model-${g.id}`, series: g.spec, points: outline(g.id, start, answered), opacity: 1 },
+    ]),
+    overlay: plot =>
+      errors.map(call => {
+        const left = plot.x(start[call]);
+        return (
+          <div
+            key={call}
+            aria-hidden
+            className="pointer-events-none absolute h-0.5 bg-danger"
+            style={{
+              left,
+              top: plot.y(calls.latency[call]) - 4,
+              width: Math.max(3, plot.x(answered[call]) - left),
+            }}
+          />
+        );
+      }),
+    legend: groups.map(g => ({ label: g.spec.label, color: g.spec.swatch })),
+    tip: x => {
+      const t = Math.max(0, lastAt(start, x));
+      const turn = turns[t];
+      const summary = turn ? turnSummary(turn) : null;
+      const rows: TooltipRow[] = [{ series: specOf(t), value: '' }];
+      rows.push({ label: 'Model', value: `${formatSeconds(calls.latency[t])} s` });
+      rows.push({ label: 'Then', value: calls.gap[t] == null ? 'End' : `${formatSeconds(calls.gap[t])} s` });
+      if (turn && turnHasError(turn)) rows.push({ label: 'Error', value: '' });
+      return { title: `Turn ${t + 1}`, rows, note: summary?.text };
+    },
+  };
+}
+
 interface Group {
-  id: string;
-  label: string;
-  color: string;
-  swatch: string;
+  spec: SeriesSpec;
   values: number[];
 }
 
-/** A stacked lane of per-bucket counts (per 100 ticks), sampled on the grid. */
+/** A stacked lane of per-bucket counts (per 100 ticks). */
 function bucketLane(
   ctx: Ctx,
-  base: Omit<Lane, 'config' | 'rows' | 'yTicks' | 'yFormat' | 'body' | 'tip' | 'legend' | 'bound'>,
+  base: Pick<Lane, 'id' | 'title' | 'description' | 'control'>,
   bucket: number,
   groups: Group[]
 ): Lane {
-  const { clock, measure, xs, ticks } = ctx;
-  const visible = groups.filter(g => ctx.visible(g.id));
-  const index = ticks.map(t => Math.max(0, Math.floor(t / bucket)));
-  const rows = xs.map(
-    (x, i) => Object.fromEntries([['x', x], ...visible.map(g => [seriesKey(g.id), g.values[index[i]] ?? 0])]) as Row
-  );
+  const { clock, measure } = ctx;
+  const visible = groups.filter(g => ctx.visible(g.spec.id));
+  const n = groups[0]?.values.length ?? 0;
+  // Every group on the same bucket starts, so the stack lines up
+  const xs = Array.from({ length: n }, (_, b) => Math.min(ctx.maxX, clock.x(b * bucket, measure)));
   let max = 1;
-  for (let b = 0; b < (groups[0]?.values.length ?? 0); b++)
+  for (let b = 0; b < n; b++)
     max = Math.max(
       max,
       visible.reduce((sum, g) => sum + (g.values[b] ?? 0), 0)
     );
+  const yTicks = niceTicks(max, 3, true);
   const end = (b: number): string =>
     measure === 'ticks' ? formatInt((b + 1) * bucket) : formatClock(clock.toSeconds((b + 1) * bucket));
   return {
     ...base,
-    config: Object.fromEntries(groups.map(g => [seriesKey(g.id), { label: g.label, color: g.color }])),
-    rows,
-    yTicks: niceTicks(max, 3, true),
-    yFormat: formatCompact,
-    body: <>{visible.map(g => area(seriesKey(g.id), base.id, 0.5, ctx.faded(g.id)))}</>,
+    y: { domain: [0, yTicks.at(-1) ?? 1], ticks: yTicks, format: formatCompact },
+    areas: visible.map(g => ({
+      series: g.spec,
+      stack: base.id,
+      points: heldToEnd(
+        xs.map((x, b): [number, number] => [x, g.values[b] ?? 0]),
+        ctx.maxX
+      ),
+    })),
+    series: groups.map(g => g.spec),
+    seriesKind: 'swatch',
     bound: true,
-    legend: groups.map(g => ({ id: g.id, label: g.label, swatchClassName: g.swatch })),
-    tip: i => {
-      const b = index[i];
-      const items = [...visible]
+    tip: x => {
+      const b = Math.max(0, Math.floor(ctx.tickOf(x) / bucket));
+      const rows = [...visible]
         .reverse()
         .filter(g => (g.values[b] ?? 0) > 0)
-        .map(g => ({ name: g.label, value: formatInt(g.values[b]), color: g.color }));
+        .map(g => ({ series: g.spec, value: formatInt(g.values[b]) }));
       return {
         title: `${formatX(measure, clock.x(b * bucket, measure))} to ${end(b)}`,
-        items: items.length ? items : [{ name: 'None', value: '' }],
+        rows: rows.length ? rows : [{ label: 'None', value: '' }],
       };
     },
   };
@@ -494,7 +450,7 @@ function sdkLane(ctx: Ctx, cut: RunSearch['sdk']): Lane | null {
   const sdk = ctx.run.series.sdk;
   if (!sdk || sdk.bins.length === 0) return null;
   const n = Math.ceil(ctx.clock.maxTicks / sdk.bucket_ticks) + 1;
-  const zeros = (): number[] => new Array(n).fill(0);
+  const zeros = (): number[] => new Array<number>(n).fill(0);
   let groups: Group[];
   if (cut === 'outcome') {
     const ok = zeros();
@@ -506,20 +462,8 @@ function sdkLane(ctx: Ctx, cut: RunSearch['sdk']): Lane | null {
       failed[b] += bad;
     }
     groups = [
-      {
-        id: 'ok',
-        label: SDK_OUTCOMES.ok.label,
-        color: cssColor(SDK_OUTCOMES.ok.color),
-        swatch: SDK_OUTCOMES.ok.color.swatchClassName,
-        values: ok,
-      },
-      {
-        id: 'failed',
-        label: SDK_OUTCOMES.failed.label,
-        color: cssColor(SDK_OUTCOMES.failed.color),
-        swatch: SDK_OUTCOMES.failed.color.swatchClassName,
-        values: failed,
-      },
+      { spec: keySeries('ok', SDK_OUTCOMES.ok.label, SDK_OUTCOMES.ok.color), values: ok },
+      { spec: keySeries('failed', SDK_OUTCOMES.failed.label, SDK_OUTCOMES.failed.color), values: failed },
     ];
   } else {
     const byFn = sdk.functions.map(zeros);
@@ -529,13 +473,7 @@ function sdkLane(ctx: Ctx, cut: RunSearch['sdk']): Lane | null {
     }
     const total = (v: number[]): number => v.reduce((s, x) => s + x, 0);
     groups = sdk.functions
-      .map((name, i) => ({
-        id: name,
-        label: name,
-        color: cssColor(hashColor(name)),
-        swatch: hashColor(name).swatchClassName,
-        values: byFn[i],
-      }))
+      .map((name, i) => ({ spec: keySeries(name, name, hashColor(name)), values: byFn[i] }))
       .sort((a, b) => total(b.values) - total(a.values));
   }
   return bucketLane(
@@ -569,13 +507,10 @@ function activityLane(ctx: Ctx, cut: RunSearch['act']): Lane | null {
   if (cut === 'moving') {
     groups = [
       {
-        id: 'walking',
-        label: 'Walking',
-        color: WALKING,
-        swatch: 'bg-data-sky',
+        spec: keySeries('walking', 'Walking', tokenColor('data-sky')),
         values: rows.map(r => Math.max(0, r[1] - r[2])),
       },
-      { id: 'running', label: 'Running', color: RUNNING, swatch: 'bg-data-blue', values: rows.map(r => r[2]) },
+      { spec: keySeries('running', 'Running', tokenColor('data-blue')), values: rows.map(r => r[2]) },
     ];
   } else {
     const names = new Map<string, number>();
@@ -583,10 +518,7 @@ function activityLane(ctx: Ctx, cut: RunSearch['act']): Lane | null {
     groups = [...names.entries()]
       .sort((a, b) => b[1] - a[1])
       .map(([seq]) => ({
-        id: seq,
-        label: animationName(seq),
-        color: cssColor(hashColor(seq)),
-        swatch: hashColor(seq).swatchClassName,
+        spec: keySeries(seq, animationName(seq), hashColor(seq)),
         values: rows.map(r => (r[5] === seq ? r[3] : 0)),
       }));
   }
@@ -613,58 +545,49 @@ function activityLane(ctx: Ctx, cut: RunSearch['act']): Lane | null {
   );
 }
 
+/** A line per key (an account's wealth, a skill's XP) over game ticks, each in its colour. */
+function keyedLines(
+  ctx: Ctx,
+  data: Record<string, [number, number][]>,
+  specs: SeriesSpec[]
+): Pick<Lane, 'lines' | 'tip'> {
+  const shown = specs.filter(s => ctx.visible(s.id));
+  const xs = Object.fromEntries(specs.map(s => [s.id, data[s.id].map(p => ctx.clock.x(p[0], ctx.measure))]));
+  return {
+    lines: shown.map(s => ({
+      series: s,
+      width: 2,
+      points: heldToEnd(
+        data[s.id].map((p, i): [number, number] => [xs[s.id][i], p[1]]),
+        ctx.maxX
+      ),
+    })),
+    tip: x => ({
+      title: formatX(ctx.measure, x),
+      rows: shown
+        .map(s => ({ series: s, n: data[s.id][lastAt(xs[s.id], x)]?.[1] ?? 0 }))
+        .sort((a, b) => b.n - a.n)
+        .map(r => ({ series: r.series, value: formatInt(r.n) })),
+    }),
+  };
+}
+
 /** Each account's wealth over time, a line per account: the team wealth eval's measure, cut by who holds it. */
 function wealthLane(ctx: Ctx): Lane | null {
   const wealth = ctx.run.series.wealth;
   if (!wealth || Object.keys(wealth).length === 0) return null;
-  const accounts = Object.keys(wealth);
-  const idx = Object.fromEntries(
-    accounts.map(a => [
-      a,
-      lastAtOrBefore(
-        wealth[a].map(p => p[0]),
-        ctx.ticks
-      ),
-    ])
-  );
-  const at = (a: string, i: number): number => wealth[a][idx[a][i]]?.[1] ?? 0;
-  const rows = ctx.xs.map(
-    (x, i) => Object.fromEntries([['x', x], ...accounts.map(a => [seriesKey(a), at(a, i)])]) as Row
-  );
-  const visible = accounts.filter(a => ctx.visible(a));
-  const max = Math.max(1, ...visible.flatMap(a => wealth[a].map(p => p[1])));
+  const specs = Object.keys(wealth).map(a => keySeries(a, a, hashColor(a)));
+  const max = Math.max(1, ...specs.filter(s => ctx.visible(s.id)).flatMap(s => wealth[s.id].map(p => p[1])));
+  const yTicks = niceTicks(max, 3);
   return {
     id: 'wealth',
     // The progress lane is the team's wealth, so this one names its cut
     title: 'Wealth by account',
     description: 'Store value',
-    config: Object.fromEntries(accounts.map(a => [seriesKey(a), { label: a, color: cssColor(hashColor(a)) }])),
-    rows,
-    yTicks: niceTicks(max, 3),
-    yFormat: formatCompact,
+    y: { domain: [0, yTicks.at(-1) ?? 1], ticks: yTicks, format: formatCompact, formatValue: formatInt },
+    ...keyedLines(ctx, wealth, specs),
+    series: specs,
     bound: true,
-    legend: accounts.map(a => ({ id: a, label: a, color: hashColor(a), line: 'solid' as const })),
-    body: (
-      <>
-        {visible.map(a => (
-          <Line
-            key={a}
-            dataKey={seriesKey(a)}
-            type="stepAfter"
-            stroke={`var(--color-${seriesKey(a)})`}
-            strokeOpacity={fade(ctx.faded(a))}
-            strokeWidth={2}
-            dot={false}
-            activeDot={false}
-            isAnimationActive={false}
-          />
-        ))}
-      </>
-    ),
-    tip: i => ({
-      title: formatX(ctx.measure, ctx.xs[i]),
-      items: visible.map(a => ({ name: a, value: formatInt(at(a, i)), color: cssColor(hashColor(a)) })),
-    }),
   };
 }
 
@@ -672,74 +595,41 @@ function xpLane(ctx: Ctx): Lane | null {
   const xp = ctx.run.series.xp;
   if (!xp || Object.keys(xp).length === 0) return null;
   const skills = Object.keys(xp).sort((a, b) => (xp[b].at(-1)?.[1] ?? 0) - (xp[a].at(-1)?.[1] ?? 0));
-  const visible = skills.filter(s => ctx.visible(s));
   const label = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
-  const idx = Object.fromEntries(
-    skills.map(s => [
-      s,
-      lastAtOrBefore(
-        xp[s].map(p => p[0]),
-        ctx.ticks
-      ),
-    ])
-  );
-  const rows = ctx.xs.map(
-    (x, i) => Object.fromEntries([['x', x], ...skills.map(s => [seriesKey(s), xp[s][idx[s][i]]?.[1] ?? 0])]) as Row
-  );
-  const max = Math.max(1, ...visible.map(s => xp[s].at(-1)?.[1] ?? 0));
+  const specs = skills.map(s => keySeries(s, label(s), hashColor(s), skillSrc(s)));
+  const max = Math.max(1, ...skills.filter(s => ctx.visible(s)).map(s => xp[s].at(-1)?.[1] ?? 0));
+  const yTicks = niceTicks(max, 3);
   return {
     id: 'xp',
     title: 'XP',
-    config: Object.fromEntries(skills.map(s => [seriesKey(s), { label: label(s), color: cssColor(hashColor(s)) }])),
-    rows,
-    yTicks: niceTicks(max, 3),
-    yFormat: formatCompact,
+    y: { domain: [0, yTicks.at(-1) ?? 1], ticks: yTicks, format: formatCompact, formatValue: formatInt },
+    ...keyedLines(ctx, xp, specs),
+    series: specs,
     bound: true,
-    legend: skills.map(s => ({
-      id: s,
-      label: label(s),
-      color: hashColor(s),
-      line: 'solid' as const,
-      mark: <Sprite src={skillSrc(s)} size={14} alt="" />,
-    })),
-    body: (
-      <>
-        {visible.map(s => (
-          <Line
-            key={s}
-            dataKey={seriesKey(s)}
-            type="stepAfter"
-            stroke={`var(--color-${seriesKey(s)})`}
-            strokeOpacity={fade(ctx.faded(s))}
-            strokeWidth={2}
-            dot={false}
-            activeDot={false}
-            isAnimationActive={false}
-          />
-        ))}
-      </>
-    ),
-    tip: i => ({
-      title: formatX(ctx.measure, ctx.xs[i]),
-      items: visible.map(s => ({
-        name: label(s),
-        value: formatInt(xp[s][idx[s][i]]?.[1] ?? 0),
-        color: cssColor(hashColor(s)),
-      })),
-    }),
   };
 }
 
 /**
- * The playhead in a lane, over its plot, in the page's playhead colour (primary): where the game is
- * (scrubbing or playing, else `?t=`, else the end). A jump glides over the page's 150 ms; a drag or
- * playing moves it as it goes.
+ * The playhead over a lane's plot, in the page's playhead colour (primary): where the game is
+ * (scrubbing or playing, else `?t=`, else the start). Its own component, so a moving playhead moves
+ * one line and never redraws the chart. A jump glides over the page's 150 ms; a drag or playing moves
+ * it as it goes.
  */
-function PlayheadLine({ run, clock, measure }: { run: RunDetail; clock: Clock; measure: XMeasure }): JSX.Element {
+function PlayheadLine({
+  run,
+  clock,
+  measure,
+  plot,
+}: {
+  run: RunDetail;
+  clock: Clock;
+  measure: XMeasure;
+  plot: Plot;
+}): JSX.Element {
   const [committed] = useCommitted(run, clock);
   const head = usePlayhead(clock, committed);
   const maxX = measure === 'ticks' ? clock.maxTicks : clock.maxSeconds;
-  const share = Math.min(1, Math.max(0, clock.x(head.at, measure) / (maxX || 1)));
+  const at = Math.min(maxX, Math.max(0, clock.x(head.at, measure)));
   return (
     <div
       aria-hidden
@@ -747,7 +637,7 @@ function PlayheadLine({ run, clock, measure }: { run: RunDetail; clock: Clock; m
         'pointer-events-none absolute w-0.5 -translate-x-1/2 bg-primary',
         !head.playing && head.scrub == null && 'transition-all'
       )}
-      style={{ top: TOP, bottom: X_AXIS, left: `calc(${Y_WIDTH}px + (100% - ${Y_WIDTH + RIGHT}px) * ${share})` }}
+      style={{ left: plot.x(at), top: plot.top, height: plot.height }}
     />
   );
 }
@@ -828,34 +718,25 @@ export const Lanes = memo(function Lanes({
   search: RunSearch;
   price: Price | undefined;
   aside?: ReactNode;
-}) {
+}): JSX.Element {
   const update = useSearchUpdate(runSearch);
   const settle = useSettle();
-  const legend = useLegend();
-  const hoverId = useHover().id;
-  const hoveredRef = useRef<string | null>(null);
+  const { visible } = useLegend();
   const measure = search.x;
   const maxX = measure === 'ticks' ? clock.maxTicks : clock.maxSeconds;
-  const { visible } = legend;
   const available = useMemo(() => availableLanes(run), [run]);
   const requested: readonly LaneId[] = search.lanes.length ? (search.lanes as LaneId[]) : DEFAULT_LANES;
   const shown = available.map(l => l.id).filter(id => requested.includes(id));
 
   const shownKey = shown.join(',');
-  const { lanes, ticks } = useMemo(() => {
-    const xs = Array.from({ length: GRID_POINTS + 1 }, (_, i) => (i / GRID_POINTS) * maxX);
-    const ticks = xs.map(x => (measure === 'ticks' ? x : clock.toTick(x)));
+  const lanes = useMemo(() => {
     const ctx: Ctx = {
       run,
       clock,
       measure,
       maxX,
-      xs,
-      ticks,
       visible,
-      tools: [],
-      errorsOnly: false,
-      faded: other => hoverId != null && hoverId !== other,
+      tickOf: x => (measure === 'ticks' ? x : clock.toTick(x)),
     };
     const build: Record<LaneId, () => Lane | null> = {
       progress: () => progressLane(ctx),
@@ -867,18 +748,38 @@ export const Lanes = memo(function Lanes({
       context: () => contextLane(ctx),
       xp: () => xpLane(ctx),
     };
-    const lanes = (shownKey.split(',') as LaneId[]).map(id => build[id]()).filter((l): l is Lane => l != null);
-    return { lanes, ticks };
-  }, [run, clock, measure, maxX, visible, search.cost, search.sdk, search.act, shownKey, price, hoverId]);
+    return (shownKey.split(',') as LaneId[]).map(id => build[id]()).filter((l): l is Lane => l != null);
+  }, [run, clock, measure, maxX, visible, search.cost, search.sdk, search.act, shownKey, price]);
 
-  const xTicks = useMemo(() => ticksWithin(maxX, measure), [maxX, measure]);
-  const attemptXs = useMemo(
+  const xAxis = useMemo(
+    (): AxisSpec => ({
+      domain: [0, maxX],
+      ticks: ticksWithin(maxX, measure),
+      format: v => (measure === 'ticks' ? formatCompact(v) : formatClock(v)),
+      formatValue: v => formatX(measure, v),
+    }),
+    [maxX, measure]
+  );
+  const rules = useMemo(
     () =>
       attempts(run)
         .filter(a => a.attempt > 1)
-        .map(a => ({ attempt: a.attempt, x: clock.x(a.tick, measure) })),
+        .map(a => ({ x: clock.x(a.tick, measure), label: `Attempt ${a.attempt}` })),
     [run, clock, measure]
   );
+
+  // The crosshair's x in any lane is the page's hover preview; a click settles the playhead there
+  const pointerRef = useRef<number | null>(null);
+  useEffect(
+    () =>
+      subscribeSync(SYNC, x => {
+        pointerRef.current = x;
+        setMoment({ hover: x == null ? null : Math.round(measure === 'ticks' ? x : clock.toTick(x)) });
+      }),
+    [clock, measure]
+  );
+  // Which lane the pointer is in: only that one shows its values
+  const activeRef = useRef<LaneId | null>(null);
 
   return (
     // The toolbar over the lanes and the map on wide screens; on a phone the map comes first, by the game
@@ -897,9 +798,9 @@ export const Lanes = memo(function Lanes({
       </PageToolbar>
       <div
         className="flex min-w-0 flex-col gap-gutter select-none xl:col-span-3"
-        onMouseLeave={() => {
-          hoveredRef.current = null;
-          setMoment({ hover: null });
+        onClick={() => {
+          const x = pointerRef.current;
+          if (x != null) settle(measure === 'ticks' ? x : clock.toTick(x));
         }}
       >
         {lanes.map(lane => (
@@ -909,14 +810,9 @@ export const Lanes = memo(function Lanes({
             run={run}
             clock={clock}
             measure={measure}
-            maxX={maxX}
-            xTicks={xTicks}
-            attempts={attemptXs}
-            legend={legend}
-            hoveredRef={hoveredRef}
-            onHover={i => setMoment({ hover: Math.round(ticks[i]) })}
-            onSelect={i => settle(ticks[i])}
-            gridSize={ticks.length}
+            xAxis={xAxis}
+            rules={rules}
+            activeRef={activeRef}
           />
         ))}
       </div>
@@ -927,137 +823,61 @@ export const Lanes = memo(function Lanes({
   );
 });
 
-function LaneChart({
+/** One lane's card: memoised, so the page's playhead moving never redraws its chart. */
+const LaneChart = memo(function LaneChart({
   lane,
   run,
   clock,
   measure,
-  maxX,
-  xTicks,
-  attempts,
-  legend,
-  hoveredRef,
-  onHover,
-  onSelect,
-  gridSize,
+  xAxis,
+  rules,
+  activeRef,
 }: {
   lane: Lane;
   run: RunDetail;
   clock: Clock;
   measure: XMeasure;
-  maxX: number;
-  xTicks: number[];
-  attempts: { attempt: number; x: number }[];
-  legend: LegendState;
-  hoveredRef: RefObject<string | null>;
-  onHover: (i: number) => void;
-  onSelect: (i: number) => void;
-  gridSize: number;
-}) {
-  const index = (state: MouseHandlerDataParam): number | null => {
-    // No point under the pointer is null, not the first point (a click there must not rewind)
-    if (state.activeIndex == null) return null;
-    const i = Number(state.activeIndex);
-    return Number.isInteger(i) && i >= 0 && i < gridSize ? i : null;
-  };
-  const yTop = lane.yTicks[lane.yTicks.length - 1] ?? 1;
+  xAxis: AxisSpec;
+  rules: ChartRule[];
+  activeRef: RefObject<LaneId | null>;
+}): JSX.Element {
+  const legend = useLegend();
+  // The attempt rules are named in the first lane only
+  const laneRules = lane.id === 'progress' ? rules : rules.map(r => ({ ...r, label: undefined }));
+  const key = lane.series ? (
+    <SeriesLegend series={lane.series} kind={lane.seriesKind} legend={lane.bound ? legend : undefined} />
+  ) : lane.legend?.length ? (
+    <KeyLegend items={lane.legend} />
+  ) : undefined;
   return (
     <PageSection title={lane.title} description={lane.description} actions={lane.control} className="cursor-crosshair">
-      <div className="relative">
-        <ChartFrame config={lane.config} height="compact">
-          <ComposedChart
-            data={lane.rows}
-            {...syncProps(SYNC)}
-            margin={{ top: TOP, right: RIGHT, bottom: 0, left: 0 }}
-            onMouseMove={state => {
-              hoveredRef.current = lane.id;
-              const i = index(state);
-              if (i != null) onHover(i);
-            }}
-            onClick={state => {
-              const i = index(state);
-              if (i != null) onSelect(i);
-            }}
-          >
-            <CartesianGrid {...gridProps} />
-            <XAxis
-              dataKey="x"
-              type="number"
-              domain={[0, maxX]}
-              ticks={xTicks}
-              tickFormatter={(v: number) => (measure === 'ticks' ? formatCompact(v) : formatClock(v))}
-              tickLine={false}
-              axisLine={false}
-              tickMargin={6}
-              height={X_AXIS}
-              interval={0}
-              allowDataOverflow
-            />
-            <YAxis
-              width={Y_WIDTH}
-              domain={[0, yTop]}
-              ticks={lane.yTicks}
-              tickFormatter={lane.yFormat}
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              interval={0}
-              allowDataOverflow
-            />
-            <ChartTooltip
-              cursor={crosshairCursor}
-              isAnimationActive={false}
-              content={(props: TooltipContentProps<ValueType, NameType>) => {
-                // Every lane follows the crosshair; only the lane under the pointer shows its values
-                if (hoveredRef.current !== lane.id || !props.active) return null;
-                const i = Number(props.activeIndex ?? -1);
-                if (!Number.isInteger(i) || i < 0 || i >= gridSize) return null;
-                const tip = lane.tip(i);
-                return (
-                  <ChartTooltipContent
-                    className="min-w-44"
-                    active
-                    label={tip.title as never}
-                    labelFormatter={() => tip.title}
-                    payload={
-                      tip.items.map(item => ({
-                        name: item.name,
-                        dataKey: item.name,
-                        value: item.value,
-                        color: item.color ?? 'transparent',
-                        payload: {},
-                      })) as never
-                    }
-                  />
-                );
-              }}
-            />
-            {lane.body}
-            {attempts.map(a => (
-              <ReferenceLine
-                key={a.attempt}
-                x={a.x}
-                stroke="var(--muted-foreground)"
-                strokeDasharray="3 3"
-                label={
-                  lane.id === 'progress'
-                    ? {
-                        value: `Attempt ${a.attempt}`,
-                        position: 'insideTopLeft',
-                        fontSize: 12,
-                        className: 'fill-muted-foreground',
-                      }
-                    : undefined
-                }
-              />
-            ))}
-          </ComposedChart>
+      <div
+        onPointerEnter={() => {
+          activeRef.current = lane.id;
+        }}
+        onPointerLeave={() => {
+          if (activeRef.current === lane.id) activeRef.current = null;
+        }}
+      >
+        <ChartFrame height="compact" legend={key}>
+          <XYChart
+            x={xAxis}
+            y={lane.y}
+            lines={lane.lines}
+            areas={lane.areas}
+            bands={lane.bands}
+            rules={laneRules}
+            sync={SYNC}
+            axisTooltip={x => (activeRef.current === lane.id ? lane.tip(x) : null)}
+            overlay={plot => (
+              <>
+                {lane.overlay?.(plot)}
+                <PlayheadLine run={run} clock={clock} measure={measure} plot={plot} />
+              </>
+            )}
+          />
         </ChartFrame>
-        <PlayheadLine run={run} clock={clock} measure={measure} />
       </div>
-      {lane.legend && lane.legend.length > 0 && (
-        <KeyLegend items={lane.legend} legend={lane.bound ? legend : undefined} className="pt-0" />
-      )}
     </PageSection>
   );
-}
+});

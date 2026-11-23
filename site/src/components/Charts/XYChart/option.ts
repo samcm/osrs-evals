@@ -53,7 +53,9 @@ export function buildOption(
   props: XYChartProps,
   grid: ChartGrid,
   colors: ChartColors,
-  lit: string | null
+  lit: string | null,
+  /** The crosshair's x, where the pointer is; ECharts gives the tooltip the nearest point's x instead */
+  pointerX: () => number | null = () => null
 ): { option: Record<string, unknown>; hits: Map<string, Hit> } {
   const { chrome, resolve } = colors;
   const hits = new Map<string, Hit>();
@@ -111,7 +113,10 @@ export function buildOption(
       step: (area.step ?? true) ? 'end' : false,
       symbol: 'none',
       z: 2,
-      data: area.points,
+      // ECharts stacks the first value dimension, which on two value axes is x; give y first so the
+      // stack adds up y, by index (so areas of one stack share their x values)
+      data: area.points.map(([px, py]) => [py, px]),
+      encode: { x: 1, y: 0 },
       lineStyle: { color, width: 1, opacity: strength(area.series) },
       areaStyle: { color, opacity: 0.85 * strength(area.series) },
     });
@@ -270,7 +275,7 @@ export function buildOption(
           },
           formatter: (params: { axisValue?: number }[] | { axisValue?: number }) => {
             const first = Array.isArray(params) ? params[0] : params;
-            const at = Number(first?.axisValue);
+            const at = pointerX() ?? Number(first?.axisValue);
             return Number.isFinite(at) ? html(axisTooltip(at)) : '';
           },
         }
@@ -281,7 +286,12 @@ export function buildOption(
     option: {
       animation: false,
       grid: { ...grid, containLabel: false },
-      xAxis: echartsAxis({ ...props.x, grid: props.x.grid ?? !!rows }, chrome, 'x'),
+      // The crosshair and the axis tooltip stay at the pointer's x: ECharts otherwise snaps a value
+      // axis' tooltip to the nearest point of any series (a band's or bar's anchor at 0 included)
+      xAxis: {
+        ...echartsAxis({ ...props.x, grid: props.x.grid ?? !!rows }, chrome, 'x'),
+        axisPointer: { snap: false },
+      },
       yAxis,
       tooltip,
       series,
