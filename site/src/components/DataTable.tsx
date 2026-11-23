@@ -156,12 +156,15 @@ export function DataTable<T>({
                     className={cn('text-muted-foreground', meta?.numeric && 'text-right', EDGE, meta?.className)}
                   >
                     {header.column.getCanSort() ? (
-                      <button
-                        type="button"
+                      // shadcn's data-table sort header: a ghost Button, pulled out by its padding so the
+                      // label lines up with the cells under it (left, or right for numbers)
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={header.column.getToggleSortingHandler()}
                         className={cn(
-                          'group/sort inline-flex items-center align-middle gap-1 rounded-sm whitespace-nowrap transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
-                          meta?.numeric && 'flex-row-reverse',
+                          'group/sort h-7 px-2 text-sm font-medium text-muted-foreground hover:text-foreground',
+                          meta?.numeric ? '-mr-2 flex-row-reverse' : '-ml-2',
                           sorted && 'text-foreground'
                         )}
                       >
@@ -173,7 +176,7 @@ export function DataTable<T>({
                             !sorted && 'opacity-0 group-hover/sort:opacity-60 group-focus-visible/sort:opacity-60'
                           )}
                         />
-                      </button>
+                      </Button>
                     ) : (
                       label
                     )}

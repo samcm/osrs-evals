@@ -72,13 +72,14 @@ Leaderboard. The blended score is the hero: each row's score is a large number o
 row). Rank,
 pairing, its score, every pairing that ran every eval ranked above any that didn't, whose partial
 score is muted (a thinking-level sweep runs two evals), with "How it's scored" in the card's action.
-The per-eval results are secondary: a small muted number per eval that more than one pairing ran
-(no tint), headed by the eval's sprite with its name on hover, each opening that model's runs of that
-eval; fifty rows a page, so every pairing shows at once, `?page=`; on a phone the eval numbers sit
-under the pairing's name. Then the featured eval (a Select of the evals heads the card,
-`?eval=` as the eval's slug; its best run's last moment and every pairing's median progress,
-compact, keyed by the leaderboard). The featured eval sits under the leaderboard, its still beside
-its chart, and beside the leaderboard (eight and four of twelve columns) from 2xl.
+The per-eval results are secondary: a muted number per eval that more than one pairing ran (no
+tint), right-aligned under its eval's name (its sprite too from 2xl), the pairing's own result there
+on hover (finished how many and how fast, or its median amount), each opening that model's runs of
+that eval; then **Spent**, all its runs' cost together, where the table is wide enough. Fifty rows a
+page, so every pairing shows at once, `?page=`; on a phone the eval numbers sit under the pairing's
+name. The leaderboard is the page's full width: no featured eval beside it (Sam: one eval on the
+side is wasted space). Sortable headers are shadcn's data-table ghost `Button`, pulled out by their
+padding so each label lines up with its column.
 
 ### Eval page
 
