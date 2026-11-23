@@ -126,8 +126,6 @@ export interface Run {
   eval: string;
   /** The run in one sentence (site/summarize.py); absent until it has run */
   summary?: string | null;
-  /** What set the run apart from the eval's others, a few words each (site/summarize.py) */
-  traits?: string[] | null;
   /** What site/summarize.py measured of the run from its logs */
   facts?: RunFacts | null;
   agent: string;
@@ -430,9 +428,6 @@ export interface RunFacts {
 /** public/data/runs/<id>.summary.json, from site/summarize.py: the run told in chapters and one sentence. */
 export interface RunSummary {
   summary: string;
-  /** The run's own sentence, before the cross-run pass replaced `summary` with what set it apart */
-  run_summary?: string;
-  traits?: string[];
   chapters: { from_tick: number; to_tick: number; title: string; text: string }[];
   model?: string;
 }

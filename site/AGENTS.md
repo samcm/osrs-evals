@@ -91,7 +91,8 @@ a team's characters; how many runs). Under it, in the card, a **Setup** section
 machine, from the export's `prompt`) and the settings (start, accounts, budget in ticks, attempts,
 score, game, agent, the thinking levels run, a link to the eval's file). No run's picture goes up
 here (Sam: don't just render some run in the header). Under the facts, in the card, **What happened**:
-the eval's note from `summarize.py`'s cross-run pass (`note` in index.json), when it has one. How the server's saves
+the eval's note from `summarize.py`'s eval pass (`note` in index.json): what the best runs had in
+common and how the others went wrong, with no names or figures that go stale. How the server's saves
 are read (varps, save files) is the README's business, never the site's. Then tabs: **Results**
 (`eval/Finish.tsx`: who won and whether anyone finished. A still chart, game time along x, up y the
 eval's measure in even quarters of the most any run reached or its stages up to the target, each
@@ -163,8 +164,8 @@ median in grey, and its runs. On a phone the breadcrumb keeps the eval. Filtered
 
 A debugger. The header bar names the eval and the pairing with its marks (vendor, thinking level,
 harness); a `PageHero` card has the run's sentence as its lead, then the result (game time, ticks
-on hover), its place among the eval's runs and its cost and **Stood out** (the run's traits from the cross-run pass, as words joined by
-semicolons, never chips) as terms over values,
+on hover), its place among the eval's runs and its cost as terms over values (no ranks or traits: the run's sentence says what set it apart,
+in words that stay true as runs are added),
 the run id (its facts behind it), the epoch and previous/next. Then the game player with the
 playback bar as its footer (quests and attempts on its track; the default speed plays the run in
 about two minutes), and the transcript card beside it at the game's height. Without a live game

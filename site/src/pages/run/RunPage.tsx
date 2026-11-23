@@ -196,10 +196,10 @@ function placeAmong(run: Run, runs: Run[]): { place: number; of: number } {
 
 /**
  * The run's opening card: what it did in one sentence (site/summarize.py), then its result, its
- * place among the eval's runs, its cost and what set it apart; the run id (its facts behind it) and the epochs on the
+ * place among the eval's runs and its cost; the run id (its facts behind it) and the epochs on the
  * right. The header bar already names the eval and the pairing, with its marks.
  */
-function Header({ run, evalInfo, runs, measure, summary, traits }: { run: RunDetail; evalInfo: Eval | undefined; runs: Run[]; measure: XMeasure; summary?: string; traits?: string[] | null }) {
+function Header({ run, evalInfo, runs, measure, summary }: { run: RunDetail; evalInfo: Eval | undefined; runs: Run[]; measure: XMeasure; summary?: string }) {
   const { place, of } = placeAmong(run, runs);
   return (
     <PageHero
@@ -208,8 +208,6 @@ function Header({ run, evalInfo, runs, measure, summary, traits }: { run: RunDet
         ...resultMeta(run, evalInfo),
         ...(of > 1 ? [{ term: 'Place', value: `#${formatInt(place)} of ${formatInt(of)} runs` }] : []),
         ...(run.cost != null ? [{ term: 'Cost', value: formatCost(run.cost) }] : []),
-        // What set it apart from the eval's other runs (site/summarize.py), as words, not chips
-        ...(traits?.length ? [{ term: 'Stood out', value: traits.join('; ') }] : []),
       ]}
       actions={
         <>
@@ -260,7 +258,7 @@ export function RunPage() {
    */
   return (
     <>
-      <Header run={run} evalInfo={evalInfo} runs={index.runs} measure={search.x} summary={told?.summary ?? run.summary ?? undefined} traits={told?.traits ?? run.traits} />
+      <Header run={run} evalInfo={evalInfo} runs={index.runs} measure={search.x} summary={told?.summary ?? run.summary ?? undefined} />
       <div className={cn('grid gap-gutter', held ? 'xl:grid-cols-12' : 'xl:grid-cols-5')}>
         <Card className={cn('min-w-0 gap-0 pt-0', held ? 'xl:col-span-8' : 'xl:col-span-3')}>
           {/* The game, and beside it what the followed account held, as the client's side panel */}

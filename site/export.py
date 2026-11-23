@@ -1238,13 +1238,13 @@ FACT_KEYS = (
 
 
 def add_told(out: Path, runs: list[dict], evals: dict) -> None:
-    """Each run's sentence, traits and measured facts, and each eval's note, from site/summarize.py's
+    """Each run's sentence and measured facts, and each eval's note, from site/summarize.py's
     files beside the data (kept across exports): runs/<id>.summary.json and .facts.json,
     evals/<id>.compare.json."""
     for r in runs:
         summary, facts = out / "runs" / f"{r['id']}.summary.json", out / "runs" / f"{r['id']}.facts.json"
         told = json.loads(summary.read_text()) if summary.exists() else {}
-        r["summary"], r["traits"] = told.get("summary"), told.get("traits")
+        r["summary"] = told.get("summary")
         f = json.loads(facts.read_text()) if facts.exists() else None
         r["facts"] = {k: f.get(k) for k in FACT_KEYS} if f else None
     for eval_id, e in evals.items():
