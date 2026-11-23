@@ -161,7 +161,7 @@ export function EvalPage() {
 
   return (
     <div className={SECTIONS}>
-      <EvalHero e={e} runs={all} meta={facts(e, all)} />
+      <EvalHero e={e} meta={facts(e, all)} />
       {/* The views and the controls that drive the open one share a row, as shadcn's dashboards do */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PageTabs value={search.tab} tabs={heldTab(e) ? [...TABS.slice(0, 1), { value: 'held' as const, label: heldTab(e)! }, ...TABS.slice(1)] : [...TABS]} />

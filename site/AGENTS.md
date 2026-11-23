@@ -81,11 +81,10 @@ its chart, and beside the leaderboard (eight and four of twelve columns) from 2x
 
 ### Eval page
 
-A header card (`eval/EvalHero.tsx`, a media card): the eval's sprite on a muted tile, the goal
-(the prompt, which says what wins) in full-strength text, and its facts as terms over values (the
-budget as game time, its ticks on hover; a team's characters; how many runs); on the right the game
-itself, the best run's last moment, captioned "Best run" with its pairing and result and opening it.
-Nothing restates the goal. How the server's saves
+A header card (`eval/EvalHero.tsx`): the eval's sprite on a muted tile and the goal (the prompt,
+which says what wins) in full-strength text, then its facts as terms over values (the budget as game
+time, its ticks on hover; a team's characters; how many runs). Nothing restates the goal, and no
+run's picture goes up here (Sam: don't just render some run in the header). How the server's saves
 are read (varps, save files) is the README's business, never the site's. Then tabs: **Race**
 (`Centerpiece`: the standings, the eval's one ranked list, beside every run together in the game
 on one playhead; then `Progress`, the eval's measure over time, starting on the first screen at
