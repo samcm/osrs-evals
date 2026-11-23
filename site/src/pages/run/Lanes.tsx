@@ -34,7 +34,7 @@ import {
   syncProps,
   Y_AXIS_WIDTH,
   type LegendItem,
-} from '@/components/Charts';
+} from '@/components/Charts/legacy';
 import { Sprite } from '@/components/marks';
 import { Button } from '@/components/ui/button';
 import { PageSection, PageToolbar } from '@/components/page';

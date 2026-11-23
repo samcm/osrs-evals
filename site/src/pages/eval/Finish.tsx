@@ -33,7 +33,7 @@ import {
   SeriesTooltip,
   xAxisProps,
   yAxisProps,
-} from '@/components/Charts';
+} from '@/components/Charts/legacy';
 import { DataTable } from '@/components/DataTable';
 import { Card } from '@/components/Layout/Card';
 import { ScrollArea } from '@/components/Layout/ScrollArea';

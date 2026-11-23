@@ -13,7 +13,7 @@ import {
   xAxisProps,
   logAxisProps,
   type LegendItem,
-} from '@/components/Charts';
+} from '@/components/Charts/legacy';
 import { ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { Eval, Run, ToolCategory } from '@/data/types';
 import { agentSeries, modelSeries, scatterShape, toolSeries, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
