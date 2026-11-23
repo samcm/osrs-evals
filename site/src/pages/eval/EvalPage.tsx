@@ -21,6 +21,7 @@ import { buildCurves, callsByTick, rankVariants, totalBudgetTicks, X_OPTIONS, xR
 import { Centerpiece } from './Centerpiece';
 import { pickRunners } from './centerpiece/race';
 import { ProgressChart } from './Progress';
+import { RESULT_X_OPTIONS, ResultsGrid } from './Results';
 import { RunsTable } from './RunsTable';
 import { WhereMap } from './Where';
 import { HeldView, heldTab } from './Held';
@@ -60,9 +61,10 @@ function facts(e: Eval, runs: Run[]): MetaItem[] {
   ];
 }
 
-// The first view is the race: "Overview" already names the site's home in the sidebar and breadcrumb
+// The first view is the results, every pairing as a small multiple; the race plays in its own tab
 const TABS = [
-  { value: 'overview', label: 'Race' },
+  { value: 'overview', label: 'Results' },
+  { value: 'race', label: 'Race' },
   { value: 'cost', label: 'Cost' },
   { value: 'behaviour', label: 'Behaviour' },
   { value: 'runs', label: 'Runs' },
@@ -124,6 +126,8 @@ export function EvalPage() {
     if (!urlLegend.focus || ranked.some(r => r.variant.key === urlLegend.focus)) return urlLegend;
     return { ...urlLegend, focus: undefined, visible: id => !urlLegend.hidden.includes(id) };
   }, [ranked, urlLegend]);
+  // The results' order is the eval's score, as every leaderboard: time to finish in game ticks
+  const rankedByScore = useMemo(() => (e ? rankVariants(e, runs, 'ticks').filter(r => legend.visible(r.variant.key)) : []), [e, runs, legend]);
   const range = useMemo(() => (e ? xRange(e, curves, search.x) : null), [e, curves, search.x]);
   // The runs the overview shows, the same in every part of it: every run, or each pairing's median
   // or best run. A focus keeps the other pairings, faded, so the focused one reads against them
@@ -151,6 +155,8 @@ export function EvalPage() {
   // The race's x measure is its progress chart's own control; the toolbar keeps what drives the whole view
   const controls =
     search.tab === 'overview' ? (
+      <ParamSegmented param="x" value={search.x} label="Along" options={RESULT_X_OPTIONS} />
+    ) : search.tab === 'race' ? (
       <ParamSegmented param="agg" value={search.agg} label="Runs shown" options={AGG_OPTIONS} />
     ) : search.tab === 'cost' ? (
       <ParamSegmented param="px" value={search.px} label="Spend" options={PX_OPTIONS} />
@@ -163,7 +169,7 @@ export function EvalPage() {
       <PageHeader mark={<EvalMark evalId={e.id} size={40} />} description={e.goal} meta={facts(e, all)} />
       {/* The views and the controls that drive the open one share a row, as shadcn's dashboards do */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PageTabs value={search.tab} tabs={heldTab(e) ? [...TABS.slice(0, 1), { value: 'held' as const, label: heldTab(e)! }, ...TABS.slice(1)] : [...TABS]} />
+        <PageTabs value={search.tab} tabs={heldTab(e) ? [...TABS.slice(0, 2), { value: 'held' as const, label: heldTab(e)! }, ...TABS.slice(2)] : [...TABS]} />
         <PageToolbar label="View controls">
           {runs.length > 0 && controls}
           <PairingFilters runs={all} thinking={scope.thinking} agent={scope.agent} onChange={setScope} />
@@ -173,6 +179,8 @@ export function EvalPage() {
       {runs.length === 0 ? (
         <Empty>No runs in this scope.</Empty>
       ) : search.tab === 'overview' ? (
+        <ResultsGrid e={e} ranked={rankedByScore} curves={curves.filter(cv => legend.visible(cv.variant.key))} x={search.x} range={range!} />
+      ) : search.tab === 'race' ? (
         <>
           <Centerpiece e={e} runs={runs} curves={shownCurves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} agg={search.agg} />
           <PageSection title={e.measure} actions={<ParamSegmented param="x" value={search.x} label="Along" options={X_OPTIONS} />}>

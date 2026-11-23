@@ -16,7 +16,7 @@ way to dig into that answer.
 | Page | Question it answers first |
 | --- | --- |
 | `/` (Home) | Which model at which thinking level in which harness is best, across every eval and at each? (one blended leaderboard that scales to many evals, then a featured eval) |
-| `/evals/$evalId` | How did each run progress through the game, and what did it cost? |
+| `/evals/$evalId` | Who won, who finished, and how did each get there? |
 | `/evals/$evalId/$model` | How did one model do on one eval, across thinking levels and harnesses? |
 | `/models/$model` | How does one model do across every eval, at each thinking level and in each harness? |
 | `/runs/$runId` | What did this agent do, minute by minute, in the game and in its head? |
@@ -37,7 +37,7 @@ Every page has the same skeleton, and nothing on a page invents its own.
 - **Type comes from the library:** card titles, descriptions and table text at their shadcn sizes;
   meta is small, term and value. No `text-lg`/`text-xl` in pages.
 - **One centrepiece.** Each detail page opens with one thing that grabs you and shows the game: the
-  eval page shows every run together in the game; the run page is a game player. Everything else
+  eval page shows every pairing's result as small multiples; the run page is a game player. Everything else
   hangs off it, in tabs or below it.
 - **Each thing is listed once.** A page lists its model + harness pairings in one place (the
   leaderboard; on an eval page, the race's standings); charts key their lines with a compact legend, never a second ranked list. No chips
@@ -83,7 +83,11 @@ its chart, and beside the leaderboard (eight and four of twelve columns) from 2x
 
 `PageHeader`, one line: the eval's sprite, the goal (the prompt, which says what wins), the budget
 as game time (its ticks on hover), a team's characters, and how many runs. How the server's saves
-are read (varps, save files) is the README's business, never the site's. Then tabs: **Race**
+are read (varps, save files) is the README's business, never the site's. Then tabs: **Results** (`eval/Results.tsx`: a card
+per pairing in the eval's order, best first, each with its result as the one big number, how many
+of its runs finished where the eval has a target, and its runs' progress on axes every card shares,
+x as game time, cost or calls; the first card, twice as wide with a Winner badge, when someone
+won), **Race**
 (`Centerpiece`: the standings, the eval's one ranked list, beside every run together in the game
 on one playhead; then `Progress`, the eval's measure over time, starting on the first screen at
 1440), **Cost** (cost against result, finished within a budget, attempts), **Behaviour** (time and
