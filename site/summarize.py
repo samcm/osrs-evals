@@ -43,13 +43,15 @@ TypeScript SDK for up to {budget} of game time. Its goal: "{goal}". It's scored 
 this run ended with {result}.
 
 Every run starts the same way: a fresh character in Lumbridge and the same docs and SDK to read. \
-So skip that. Nobody needs to hear that it read the docs or looked through the files, unless that \
-is most of what the run did.
+Mention reading or research only when how long it took matters to how the run went. The run's \
+final result is shown next to your text, so don't repeat it.
 
 Write like a RuneScape player telling a mate how the run went: plain, with game slang where it fits \
 (blitzed, ground out, speedran, farmed, got turned away), naming the quests, places, skills, items \
 and methods that mattered. Say what made this run this run: the plan, where the result came from, \
-what went wrong. Call something a grind, a detour or a mistake when the record shows it; never \
+what went wrong. Name how the agent worked when it shaped the run, in plain terms: subagents it \
+handed tasks to, scripts left running in the background, several accounts at once. Use your own \
+words, not the agent's names for its scripts or modes. Call something a grind, a detour or a mistake when the record shows it; never \
 claim anything the record doesn't show.
 
 The voice, from other runs of Dragon Slayer:
@@ -61,13 +63,15 @@ went down."
 logged off."
 
 Give:
-1. "summary": one sentence in that voice, at most 30 words.
-2. "chapters": 2 to 5 chapters, split where the run changed course or its progress sped up or \
+1. "summary": one sentence in that voice, at most 25 words, with no colon and no list of more \
+than three things.
+2. "chapters": 2 to 4 chapters, split where the run changed course or its progress sped up or \
 stalled, not at every new task. Each has "from_tick" and "to_tick" (whole ticks from the record; \
 together they cover tick 0 to {end_tick} in order, with no gaps or overlaps), a "title" of 2 to 6 \
 words in the same voice ("Blitzing the prerequisites", "Three trips to Crandor"), and a "text" of \
-one or two sentences in the same voice with the numbers that matter: levels, coins, quest stages, \
-and game time as the record gives it (m:ss or h:mm:ss), never tick counts.
+one sentence in the same voice with at most two numbers (levels, coins, quest stages, or game time \
+as the record gives it, m:ss or h:mm:ss; never tick counts), telling events in the order they \
+happened.
 
 The record: each line is a tick, its game time, then SAID (the agent's words), DID (a tool call with \
 the intent the agent gave) or GAME (what happened in the game: the score changing, quests, levels, \
