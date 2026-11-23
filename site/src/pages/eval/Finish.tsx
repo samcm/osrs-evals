@@ -303,11 +303,11 @@ function tableColumns(e: Eval, winner: string | undefined, toSeconds: (tick: num
       header: target != null ? 'Result' : e.measure,
       enableSorting: false,
       meta: { numeric: true },
-      // A finish is its time in game time; else how far it got
+      // A finish is its time in game time; else the stage it reached ("Stage 6": beside "0 of 2" finished, "6 of 10" read as runs)
       cell: ({ row }) => {
         const s = row.original;
         if (s.toFinish != null) return formatClock(toSeconds(s.toFinish));
-        const text = target != null ? `${oneDecimal(s.value)} of ${formatInt(target)}` : amount(s.value);
+        const text = target != null ? `Stage ${oneDecimal(s.value)}` : amount(s.value);
         return <span className={cn(target != null || still(s) ? 'text-muted-foreground' : undefined)}>{text}</span>;
       },
     }),

@@ -89,7 +89,8 @@ eval's measure in even quarters of the most any run reached or its stages up to 
 pairing its runs' median line, the band of its runs for the lit pairing else the winner, every run
 that reached the target checked where it did; beside it in five of twelve columns from xl (under it
 narrower) the eval's ranked table, as tall as the chart and scrolling inside: place (a trophy for
-the winner), the pairing with its swatch, how many finished, its result; a row lights its line, a
+the winner), the pairing with its swatch, how many finished, its result (its time to finish, else the stage it reached as "Stage 6", since
+"6 of 10" beside "0 of 2" finished reads as ten runs); a row lights its line, a
 click isolates it), **Race**
 (`Centerpiece`: the standings, the eval's one ranked list, beside every run together in the game
 on one playhead; then `Progress`, the eval's measure over time, starting on the first screen at
