@@ -8,7 +8,7 @@ import { defineSearch, int, legendParams, oneOf, sortParam } from '@/lib/search'
 
 export const evalSearch = defineSearch({
   /** The page's view */
-  tab: oneOf(['overview', 'held', 'cost', 'behaviour', 'runs'], 'overview'),
+  tab: oneOf(['overview', 'race', 'held', 'cost', 'behaviour', 'runs'], 'overview'),
   /** The overview's x measure, and which runs it shows: each pairing's median or best run, or every run */
   x: oneOf(['ticks', 'seconds', 'cost', 'calls'], 'ticks'),
   agg: oneOf(['median', 'best', 'runs'], 'median'),

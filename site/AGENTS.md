@@ -16,7 +16,7 @@ way to dig into that answer.
 | Page | Question it answers first |
 | --- | --- |
 | `/` (Home) | Which model at which thinking level in which harness is best, across every eval and at each? (one blended leaderboard that scales to many evals, then a featured eval) |
-| `/evals/$evalId` | How did each run progress through the game, and what did it cost? |
+| `/evals/$evalId` | Who won, did anyone finish, and how did each run progress through the game, and what did it cost? |
 | `/evals/$evalId/$model` | How did one model do on one eval, across thinking levels and harnesses? |
 | `/models/$model` | How does one model do across every eval, at each thinking level and in each harness? |
 | `/runs/$runId` | What did this agent do, minute by minute, in the game and in its head? |
@@ -83,7 +83,13 @@ its chart, and beside the leaderboard (eight and four of twelve columns) from 2x
 
 `PageHeader`, one line: the eval's sprite, the goal (the prompt, which says what wins), the budget
 as game time (its ticks on hover), a team's characters, and how many runs. How the server's saves
-are read (varps, save files) is the README's business, never the site's. Then tabs: **Race**
+are read (varps, save files) is the README's business, never the site's. Then tabs: **Results**
+(`eval/Finish.tsx`, one still chart that says who won and whether anyone finished: game time along
+x; up y the eval's measure in even quarters of the most any run reached, or its stages up to the
+target; each pairing its runs' median line, labelled at the right with its result by the eval's
+score, the winner first with a trophy; the band of its runs for the lit pairing, else the winner;
+every run that reached the target checked where it did; pairings that never left 0 counted under
+the chart), **Race**
 (`Centerpiece`: the standings, the eval's one ranked list, beside every run together in the game
 on one playhead; then `Progress`, the eval's measure over time, starting on the first screen at
 1440), **Cost** (cost against result, finished within a budget, attempts), **Behaviour** (time and
