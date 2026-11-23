@@ -61,6 +61,9 @@ function useSize(): [(node: HTMLElement | null) => (() => void) | undefined, { w
 /** Each chart's crosshair x, by its id, set as ECharts moves it and read by its tooltip */
 const crosshairs = new Map<string, number | null>();
 
+/** Room right of the plot for each row's value (`ChartRow.value`). */
+const ROW_VALUE_WIDTH = 64;
+
 const RULE_TONE: Record<NonNullable<ChartRule['tone']>, string> = {
   muted: 'border-muted',
   success: 'border-success',
@@ -126,32 +129,40 @@ export function XYChart(props: XYChartProps): JSX.Element {
   } = props;
   const colors = useChartColors();
   const hover = useHover();
-  const lit = props.lit !== undefined ? props.lit : (hover.id ?? null);
+  const litIds = props.lit !== undefined ? props.lit : (hover.id ?? null);
+  const litKey = litIds == null ? null : typeof litIds === 'string' ? litIds : litIds.join('\n');
+  const lit = litIds == null ? null : new Set(typeof litIds === 'string' ? [litIds] : litIds);
   const [ref, size] = useSize();
 
   // Room for labels whenever `endLabels` is given, even empty: a synced chart without labels under
   // one with them passes [] so their plots keep one right edge
   const labels = endLabels != null && showEndLabels(size.width);
-  const grid = chartGrid({
-    left: rows ? rowLabelWidth : Y_AXIS_WIDTH,
-    endLabels: labels,
-    xName: !!x.name,
-    yName: !!y?.name,
-  });
-  // Rebuilt each render: the props are new each time, and the build is cheap next to ECharts' own update
+  const rowValues = rows?.some(row => row.value != null) ?? false;
+  const grid = {
+    ...chartGrid({ left: rows ? rowLabelWidth : Y_AXIS_WIDTH, endLabels: labels, xName: !!x.name, yName: !!y?.name }),
+    ...(rowValues ? { right: ROW_VALUE_WIDTH } : {}),
+  };
   // Where the crosshair is (the pointer's x, here or in a synced chart), for the axis tooltip
-  const id = useId();
-  const { option, hits } = buildOption(props, grid, colors, lit, () => crosshairs.get(id) ?? null);
-  useEffect(() => () => void crosshairs.delete(id), [id]);
+  const chartId = useId();
+  useEffect(() => () => void crosshairs.delete(chartId), [chartId]);
+  // Rebuilt each render: the props are new each time, and the build is cheap next to ECharts' own update
+  const { option, hits } = buildOption(props, grid, colors, lit, () => crosshairs.get(chartId) ?? null);
   const plot = plotOf(size, grid, x, rows ? { rows: rows.length } : y!);
-  const strength = (id: string | undefined): number => (lit != null && id != null && id !== lit ? FADED_OPACITY : 1);
+  const strength = (id: string | undefined): number => (lit != null && id != null && !lit.has(id) ? FADED_OPACITY : 1);
 
   const events = {
-    mouseover: (e: { seriesName?: string }) => {
+    mouseover: (e: { seriesName?: string; seriesIndex?: number; dataIndex?: number }) => {
       const hit = e.seriesName ? hits.get(e.seriesName) : undefined;
+      itemRef.current =
+        (hit?.kind === 'points' || hit?.kind === 'bars') && e.seriesIndex != null && e.dataIndex != null
+          ? { seriesIndex: e.seriesIndex, dataIndex: e.dataIndex }
+          : null;
       if (hit?.series) setHovered(hit.series.id);
     },
-    mouseout: () => setHovered(undefined),
+    mouseout: () => {
+      itemRef.current = null;
+      setHovered(undefined);
+    },
     globalout: () => setHovered(undefined),
     click: (e: { seriesName?: string; dataIndex: number }) => {
       const hit = e.seriesName ? hits.get(e.seriesName) : undefined;
@@ -160,15 +171,17 @@ export function XYChart(props: XYChartProps): JSX.Element {
     },
   };
   // A change of the lit series redraws the chart, which drops the crosshair and tooltip under a
-  // still pointer; put them back where the pointer is
+  // still pointer; put them back where the pointer is, or on the point or bar it is over (an item's
+  // tooltip doesn't find its item from a position)
   const chartRef = useRef<EChartsInstance | null>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  const itemRef = useRef<{ seriesIndex: number; dataIndex: number } | null>(null);
   const syncRef = useRef(sync);
   useEffect(() => {
     const instance = chartRef.current;
     if (pointerRef.current && instance && !instance.isDisposed())
-      instance.dispatchAction({ type: 'showTip', ...pointerRef.current });
-  }, [lit]);
+      instance.dispatchAction({ type: 'showTip', ...(itemRef.current ?? pointerRef.current) });
+  }, [litKey]);
 
   const ready = useCallback(
     (instance: EChartsInstance) => {
@@ -176,7 +189,7 @@ export function XYChart(props: XYChartProps): JSX.Element {
       // Sent before the tooltip draws, with the crosshair's unsnapped x
       instance.on('updateAxisPointer', (e: unknown) => {
         const { axesInfo } = e as { axesInfo?: { axisDim: string; value: number }[] };
-        crosshairs.set(id, axesInfo?.find(a => a.axisDim === 'x')?.value ?? null);
+        crosshairs.set(chartId, axesInfo?.find(a => a.axisDim === 'x')?.value ?? null);
       });
       const zr = instance.getZr();
       zr.on('mousemove', (e: { offsetX: number; offsetY: number }) => {
@@ -194,7 +207,7 @@ export function XYChart(props: XYChartProps): JSX.Element {
         if (syncRef.current) publishSync(syncRef.current, null, instance);
       });
     },
-    [id]
+    [chartId]
   );
 
   // The group's crosshair: show this chart's at the x another chart of the group is pointing at
@@ -229,15 +242,26 @@ export function XYChart(props: XYChartProps): JSX.Element {
             onEvents={events}
             onChartReady={ready}
           />
+          {/* Centred on the row, up to the row's height: a narrow chart's label may take two lines */}
           {rows?.map((row, i) => (
             <div
               key={row.key}
-              className="absolute left-0 flex h-5 items-center overflow-hidden text-xs"
-              style={{ top: plot.y(i) - 10, width: rowLabelWidth - 8 }}
+              className="absolute left-0 flex max-h-11 -translate-y-1/2 items-center overflow-hidden text-xs"
+              style={{ top: plot.y(i), width: rowLabelWidth - 8 }}
             >
               {row.label}
             </div>
           ))}
+          {rowValues &&
+            rows!.map((row, i) => (
+              <div
+                key={row.key}
+                className="absolute flex -translate-y-1/2 items-center pl-2 text-xs font-medium text-foreground tabular-nums"
+                style={{ top: plot.y(i), left: plot.left + plot.width }}
+              >
+                {row.value}
+              </div>
+            ))}
           {rules && <Rules rules={rules} plot={plot} />}
           {markers && <SpriteMarkers markers={markers} plot={plot} size={props.markerSize} opacity={strength} />}
           {labels && (

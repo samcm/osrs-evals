@@ -4,7 +4,7 @@
  * narrows which pairings show; their scores are always computed over every run.
  */
 
-import { useMemo } from 'react';
+import { useMemo, type JSX } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Empty } from '@/components/bits';
@@ -18,7 +18,7 @@ import { Leaderboard } from './overview/Leaderboard';
 
 const route = getRouteApi('/');
 
-export function OverviewPage() {
+export function OverviewPage(): JSX.Element {
   useDocumentTitle(undefined);
   const { data } = useSuspenseQuery(indexQuery);
   const search = route.useSearch();

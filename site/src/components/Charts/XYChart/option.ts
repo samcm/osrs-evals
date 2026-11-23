@@ -53,15 +53,15 @@ export function buildOption(
   props: XYChartProps,
   grid: ChartGrid,
   colors: ChartColors,
-  lit: string | null,
+  lit: ReadonlySet<string> | null,
   /** The crosshair's x, where the pointer is; ECharts gives the tooltip the nearest point's x instead */
   pointerX: () => number | null = () => null
 ): { option: Record<string, unknown>; hits: Map<string, Hit> } {
   const { chrome, resolve } = colors;
   const hits = new Map<string, Hit>();
   const series: Record<string, unknown>[] = [];
-  const strength = (s: SeriesSpec | undefined): number => (lit != null && s && s.id !== lit ? FADED_OPACITY : 1);
-  const isLit = (s: SeriesSpec | undefined): boolean => lit != null && s?.id === lit;
+  const strength = (s: SeriesSpec | undefined): number => (lit != null && s && !lit.has(s.id) ? FADED_OPACITY : 1);
+  const isLit = (s: SeriesSpec | undefined): boolean => lit != null && s != null && lit.has(s.id);
   const hoverable = { emphasis: { disabled: true }, animation: false };
 
   // A band is one polygon (upper edge forward, lower edge back), drawn as a custom series so it
