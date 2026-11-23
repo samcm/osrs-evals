@@ -19,6 +19,7 @@ import { AttemptsTable, CdfChart, ParetoChart } from './Cuts';
 import { EffortStrips, GROUP_OPTIONS, ToolMix } from './Effort';
 import { buildCurves, callsByTick, rankVariants, totalBudgetTicks, X_OPTIONS, xRange } from './model';
 import { Centerpiece } from './Centerpiece';
+import { offersLog, Scoreboard, ScoreboardKey } from './Scoreboard';
 import { pickRunners } from './centerpiece/race';
 import { ProgressChart } from './Progress';
 import { RunsTable } from './RunsTable';
@@ -60,9 +61,10 @@ function facts(e: Eval, runs: Run[]): MetaItem[] {
   ];
 }
 
-// The first view is the race: "Overview" already names the site's home in the sidebar and breadcrumb
+// The first view is the scoreboard: who won, and whether anyone did the task; the race is its own tab
 const TABS = [
-  { value: 'overview', label: 'Race' },
+  { value: 'overview', label: 'Results' },
+  { value: 'race', label: 'Race' },
   { value: 'cost', label: 'Cost' },
   { value: 'behaviour', label: 'Behaviour' },
   { value: 'runs', label: 'Runs' },
@@ -75,6 +77,10 @@ const AGG_OPTIONS = [
   { value: 'median' as const, label: 'Median run', title: "Each pairing's median run" },
   { value: 'best' as const, label: 'Best run', title: "Each pairing's best run" },
   { value: 'runs' as const, label: 'Every run', title: 'Every run' },
+];
+const SCALE_OPTIONS = [
+  { value: 'linear' as const, label: 'Linear' },
+  { value: 'log' as const, label: 'Log' },
 ];
 const PX_OPTIONS = [
   { value: 'cost' as const, label: 'Cost' },
@@ -150,7 +156,7 @@ export function EvalPage() {
 
   // The race's x measure is its progress chart's own control; the toolbar keeps what drives the whole view
   const controls =
-    search.tab === 'overview' ? (
+    search.tab === 'race' ? (
       <ParamSegmented param="agg" value={search.agg} label="Runs shown" options={AGG_OPTIONS} />
     ) : search.tab === 'cost' ? (
       <ParamSegmented param="px" value={search.px} label="Spend" options={PX_OPTIONS} />
@@ -163,7 +169,7 @@ export function EvalPage() {
       <PageHeader mark={<EvalMark evalId={e.id} size={40} />} description={e.goal} meta={facts(e, all)} />
       {/* The views and the controls that drive the open one share a row, as shadcn's dashboards do */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PageTabs value={search.tab} tabs={heldTab(e) ? [...TABS.slice(0, 1), { value: 'held' as const, label: heldTab(e)! }, ...TABS.slice(1)] : [...TABS]} />
+        <PageTabs value={search.tab} tabs={heldTab(e) ? [...TABS.slice(0, 2), { value: 'held' as const, label: heldTab(e)! }, ...TABS.slice(2)] : [...TABS]} />
         <PageToolbar label="View controls">
           {runs.length > 0 && controls}
           <PairingFilters runs={all} thinking={scope.thinking} agent={scope.agent} onChange={setScope} />
@@ -173,6 +179,18 @@ export function EvalPage() {
       {runs.length === 0 ? (
         <Empty>No runs in this scope.</Empty>
       ) : search.tab === 'overview' ? (
+        <PageSection
+          actions={
+            target ? (
+              <ScoreboardKey />
+            ) : offersLog(e, runs) ? (
+              <ParamSegmented param="scale" value={search.scale} label="Scale" options={SCALE_OPTIONS} />
+            ) : undefined
+          }
+        >
+          <Scoreboard e={e} runs={runs} legend={legend} scale={search.scale} />
+        </PageSection>
+      ) : search.tab === 'race' ? (
         <>
           <Centerpiece e={e} runs={runs} curves={shownCurves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} agg={search.agg} />
           <PageSection title={e.measure} actions={<ParamSegmented param="x" value={search.x} label="Along" options={X_OPTIONS} />}>

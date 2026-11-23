@@ -16,7 +16,7 @@ way to dig into that answer.
 | Page | Question it answers first |
 | --- | --- |
 | `/` (Home) | Which model at which thinking level in which harness is best, across every eval and at each? (one blended leaderboard that scales to many evals, then a featured eval) |
-| `/evals/$evalId` | How did each run progress through the game, and what did it cost? |
+| `/evals/$evalId` | Who won, and did anyone do the task? (then how each run progressed, and what it cost) |
 | `/evals/$evalId/$model` | How did one model do on one eval, across thinking levels and harnesses? |
 | `/models/$model` | How does one model do across every eval, at each thinking level and in each harness? |
 | `/runs/$runId` | What did this agent do, minute by minute, in the game and in its head? |
@@ -83,7 +83,13 @@ its chart, and beside the leaderboard (eight and four of twelve columns) from 2x
 
 `PageHeader`, one line: the eval's sprite, the goal (the prompt, which says what wins), the budget
 as game time (its ticks on hover), a team's characters, and how many runs. How the server's saves
-are read (varps, save files) is the README's business, never the site's. Then tabs: **Race**
+are read (varps, save files) is the README's business, never the site's. Then tabs: **Results**
+(`Scoreboard.tsx`, static: a bar per pairing in the eval's ranking, the winner first with a trophy,
+the bar to its median result and every run a dot on it, filled if it finished and hollow if not, the
+median result at the row's end; on an eval with a target the axis is two parts so longer is always
+better, the stage reached up to a shaded finish zone, then time to finish from the budget down to
+none; without a target the amount, `?scale=log` where it spans decades; the key or the scale in the
+card's action, the axis on top so the first screen reads it), **Race**
 (`Centerpiece`: the standings, the eval's one ranked list, beside every run together in the game
 on one playhead; then `Progress`, the eval's measure over time, starting on the first screen at
 1440), **Cost** (cost against result, finished within a budget, attempts), **Behaviour** (time and
