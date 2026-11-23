@@ -431,8 +431,8 @@ export function AttemptsTable({ e, ranked, legend }: { e: Eval; ranked: RankedVa
             }
             return (
               <Tip content={`Not finished: ${e.measure.toLowerCase()} ${formatInt(result.best_value)}`}>
-                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                  <span aria-hidden className="size-2 rounded-full border-2 border-destructive" />
+                <span className="inline-flex items-center gap-1.5 text-muted">
+                  <span aria-hidden className="size-2 rounded-full border-2 border-danger" />
                   {reached} {formatInt(result.best_value)}
                 </span>
               </Tip>

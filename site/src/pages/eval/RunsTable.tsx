@@ -1,10 +1,10 @@
 /** Every run of the eval: its pairing and what it did (its sentence and chapters, so runs compare at a glance), its progress as a sparkline, its result, cost and length; a row opens the run. */
 
-import { useMemo } from 'react';
+import { useMemo, type JSX } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { Line, LineChart, YAxis, XAxis } from 'recharts';
-import { cn } from '@/lib/utils';
+import clsx from 'clsx';
 import { DataTable } from '@/components/DataTable';
 import { Empty, Tip } from '@/components/bits';
 import { VariantLabel } from '@/components/marks';
@@ -21,7 +21,15 @@ const col = createColumnHelper<Run>();
 const PAGE_SIZE = 25;
 
 /** A run's value over the budget, in its model's colour, on a scale shared by every row. */
-function Spark({ curve, maxTick, top }: { curve: RunCurve | undefined; maxTick: number; top: number }) {
+function Spark({
+  curve,
+  maxTick,
+  top,
+}: {
+  curve: RunCurve | undefined;
+  maxTick: number;
+  top: number;
+}): JSX.Element | null {
   if (!curve) return null;
   const data = curve.points.map(p => ({ t: Math.min(p.tick, maxTick), v: p.value }));
   return (
@@ -69,7 +77,7 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
             <span className="inline-flex items-center gap-1.5">
               <span
                 aria-hidden
-                className={cn('size-2 rounded-full', run.success ? 'bg-success' : 'border-2 border-destructive')}
+                className={clsx('size-2 rounded-full', run.success ? 'bg-success' : 'border-2 border-danger')}
               />
               {value}
             </span>
@@ -94,7 +102,7 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
       id: 'ended',
       header: 'Ended',
       meta: { className: 'max-md:hidden' },
-      cell: ({ row }) => <span className="text-muted-foreground">{endedWord(row.original.ended_by)}</span>,
+      cell: ({ row }) => <span className="text-muted">{endedWord(row.original.ended_by)}</span>,
     }),
     col.accessor('epoch', { header: 'Epoch', meta: { numeric: true } }),
     ...(target
@@ -122,7 +130,7 @@ export function RunsTable({
   curves: RunCurve[];
   sort: string[];
   page: number;
-}) {
+}): JSX.Element {
   const navigate = useNavigate();
   const update = useSearchUpdate();
   const cols = useMemo(() => columns(e, new Map(curves.map(cv => [cv.run.id, cv]))), [e, curves]);
