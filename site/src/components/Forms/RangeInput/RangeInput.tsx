@@ -30,11 +30,12 @@ export function RangeInput({
   step = 1,
   suffix,
   onChange,
+  hideLabel = false,
   className,
 }: RangeInputProps): React.JSX.Element {
   return (
     <div className={clsx(className)}>
-      <label htmlFor={id} className="block text-xs text-muted">
+      <label htmlFor={id} className={hideLabel ? 'sr-only' : 'block text-xs text-muted'}>
         {label}: {value}
         {suffix}
       </label>

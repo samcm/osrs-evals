@@ -7,11 +7,11 @@
  * pairing by the eval's score, its swatch keying its line; a row lights its line, a click isolates it.
  */
 
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useMemo } from 'react';
+import { useMemo, type JSX } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
-import { Trophy } from 'lucide-react';
+import { TrophyIcon } from '@heroicons/react/16/solid';
+import clsx from 'clsx';
 import {
   Area,
   CartesianGrid,
@@ -23,7 +23,6 @@ import {
   useXAxisScale,
   useYAxisScale,
 } from 'recharts';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartTooltip, type ChartConfig } from '@/components/ui/chart';
 import {
   ChartFrame,
@@ -36,6 +35,9 @@ import {
   yAxisProps,
 } from '@/components/Charts';
 import { DataTable } from '@/components/DataTable';
+import { Card } from '@/components/Layout/Card';
+import { ScrollArea } from '@/components/Layout/ScrollArea';
+import { PageSection } from '@/components/page';
 import { VariantLabel } from '@/components/marks';
 import type { Eval, Run } from '@/data/types';
 import { variantSeries, type SeriesSpec } from '@/lib/chartSeries';
@@ -43,11 +45,10 @@ import { formatClock, formatDuration, formatInt } from '@/lib/format';
 import { FADED_OPACITY, setHovered } from '@/lib/hover';
 import type { LegendState } from '@/lib/legend';
 import { median } from '@/lib/stats';
-import { cn } from '@/lib/utils';
-import { roundTicks } from './chartBits';
-import { faded, useLit } from './lit';
-import { reachedAt } from './centerpiece/race';
-import { sampleGrid, totalBudgetTicks, valueAt, type Agg, type RankedVariant, type RunCurve } from './model';
+import { roundTicks } from '@/pages/eval/chartBits';
+import { faded, useLit } from '@/pages/eval/lit';
+import { reachedAt } from '@/pages/eval/centerpiece/race';
+import { sampleGrid, totalBudgetTicks, valueAt, type Agg, type RankedVariant, type RunCurve } from '@/pages/eval/model';
 
 /** Axis amounts in two figures: "570K", "1.1M" */
 const axisAmount = new Intl.NumberFormat('en-US', { notation: 'compact', maximumSignificantDigits: 2 }).format;
@@ -122,7 +123,7 @@ export function FinishChart({
   ranked: RankedVariant[];
   agg: Agg;
   legend: LegendState;
-}) {
+}): JSX.Element {
   const navigate = useNavigate();
   const lit = useLit(legend.focus);
   const target = e.target;
@@ -229,119 +230,121 @@ export function FinishChart({
       }),
     [ranked, agg, top]
   );
-  const columns = useMemo(() => tableColumns(e, winner, toSeconds), [e, winner]);
+  const columns = useMemo(() => tableColumns(e, winner), [e, winner]);
 
   return (
     <div className="grid gap-gutter xl:grid-cols-12">
-      <Card className="min-w-0 xl:col-span-7">
-        <CardHeader>
-          <CardTitle>{e.measure}</CardTitle>
-          {target != null && (
-            <CardDescription>{`${formatInt(ranked.reduce((n, r) => n + r.finished, 0))} of ${formatInt(ranked.reduce((n, r) => n + r.runs.length, 0))} runs finished`}</CardDescription>
-          )}
-        </CardHeader>
-        <CardContent>
-          <ChartFrame config={config} height="lead">
-            <ComposedChart data={rows} margin={chartMargin()} onMouseLeave={() => setHovered(undefined)}>
-              <CartesianGrid {...gridProps} />
-              <XAxis
-                {...xAxisProps({
-                  dataKey: 'x',
-                  domain: [0, budget],
-                  ticks: xTicks,
-                  format: v => (v === 0 ? '0' : formatDuration(toSeconds(v))),
-                })}
-              />
-              <YAxis
-                {...yAxisProps({
-                  domain: [0, top],
-                  ticks: yTicks,
-                  clamp: true,
-                  format: target != null ? formatInt : axisAmount,
-                })}
-              />
-              {target != null && (
-                <ReferenceLine y={target} stroke="var(--success)" strokeDasharray="3 3" strokeOpacity={0.7} />
-              )}
-              <ChartTooltip
-                cursor={crosshairCursor}
-                content={({ active, label }) => {
-                  const at = Number(label);
-                  if (!active || !Number.isFinite(at)) return null;
-                  const payload = pairings
-                    .flatMap(p =>
-                      p.lines.map(l => ({
-                        dataKey: l.key,
-                        name: l.key,
-                        value: stepAt(l.points, at) ?? 0,
-                        color: p.spec.color,
-                        payload: {},
-                      }))
-                    )
-                    .filter(p => p.value > 0);
-                  if (payload.length === 0) return null;
-                  return (
-                    <SeriesTooltip
-                      active
-                      label={at}
-                      payload={payload as never}
-                      series={lineSeries}
-                      labelFormat={v => formatClock(toSeconds(Number(v)))}
-                      format={amount}
-                    />
-                  );
-                }}
-              />
-              {pairings
-                .filter(p => p.band.length)
-                .map(p => (
-                  <Area
-                    key={`b${p.spec.key}`}
-                    dataKey={`b${p.spec.key}`}
-                    type="stepAfter"
-                    fill={p.spec.color}
-                    // One band at a time, or thirty overlap into a grey wash: the lit pairing's, else the winner's
-                    fillOpacity={(lit ?? winner) === p.spec.id ? 0.15 : 0}
-                    stroke="none"
-                    connectNulls
-                    activeDot={false}
-                    isAnimationActive={false}
-                    legendType="none"
+      <PageSection
+        className="xl:col-span-7"
+        title={e.measure}
+        description={
+          target != null
+            ? `${formatInt(ranked.reduce((n, r) => n + r.finished, 0))} of ${formatInt(ranked.reduce((n, r) => n + r.runs.length, 0))} runs finished`
+            : undefined
+        }
+      >
+        <ChartFrame config={config} height="lead">
+          <ComposedChart data={rows} margin={chartMargin()} onMouseLeave={() => setHovered(undefined)}>
+            <CartesianGrid {...gridProps} />
+            <XAxis
+              {...xAxisProps({
+                dataKey: 'x',
+                domain: [0, budget],
+                ticks: xTicks,
+                format: v => (v === 0 ? '0' : formatDuration(toSeconds(v))),
+              })}
+            />
+            <YAxis
+              {...yAxisProps({
+                domain: [0, top],
+                ticks: yTicks,
+                clamp: true,
+                format: target != null ? formatInt : axisAmount,
+              })}
+            />
+            {target != null && (
+              <ReferenceLine y={target} stroke="var(--success)" strokeDasharray="3 3" strokeOpacity={0.7} />
+            )}
+            <ChartTooltip
+              cursor={crosshairCursor}
+              content={({ active, label }) => {
+                const at = Number(label);
+                if (!active || !Number.isFinite(at)) return null;
+                const payload = pairings
+                  .flatMap(p =>
+                    p.lines.map(l => ({
+                      dataKey: l.key,
+                      name: l.key,
+                      value: stepAt(l.points, at) ?? 0,
+                      color: p.spec.color,
+                      payload: {},
+                    }))
+                  )
+                  .filter(p => p.value > 0);
+                if (payload.length === 0) return null;
+                return (
+                  <SeriesTooltip
+                    active
+                    label={at}
+                    payload={payload as never}
+                    series={lineSeries}
+                    labelFormat={v => formatClock(toSeconds(Number(v)))}
+                    format={amount}
                   />
-                ))}
-              {/* The leaders draw last, over the rest */}
-              {[...pairings].reverse().flatMap(p =>
-                p.lines.map(l => (
-                  <Line
-                    key={l.key}
-                    {...lineProps(p.spec, {
-                      faded: faded(lit, p.spec.id),
-                      width: lit === p.spec.id || p.spec.id === winner ? 2.25 : 1.5,
-                    })}
-                    dataKey={l.key}
-                    name={l.key}
-                    connectNulls
-                    activeDot={false}
-                    className="cursor-pointer"
-                    onMouseEnter={() => setHovered(p.spec.id)}
-                    onMouseLeave={() => setHovered(undefined)}
-                    onClick={() =>
-                      l.run
-                        ? navigate({ to: '/runs/$runId', params: { runId: l.run.id }, search: {} as never })
-                        : legend.isolate(p.spec.id)
-                    }
-                  />
-                ))
-              )}
-              {marks.length > 0 && <FinishMarks marks={marks} lit={lit} />}
-            </ComposedChart>
-          </ChartFrame>
-        </CardContent>
-      </Card>
-      {/* Beside the chart, as tall as it, its rows scrolling inside; under it on a narrower screen */}
-      <Card className="min-w-0 xl:col-span-5 xl:h-0 xl:min-h-full">
-        <ScrollArea className="min-h-0 flex-1">
-          <CardContent className="px-0">
+                );
+              }}
+            />
+            {pairings
+              .filter(p => p.band.length)
+              .map(p => (
+                <Area
+                  key={`b${p.spec.key}`}
+                  dataKey={`b${p.spec.key}`}
+                  type="stepAfter"
+                  fill={p.spec.color}
+                  // One band at a time, or thirty overlap into a grey wash: the lit pairing's, else the winner's
+                  fillOpacity={(lit ?? winner) === p.spec.id ? 0.15 : 0}
+                  stroke="none"
+                  connectNulls
+                  activeDot={false}
+                  isAnimationActive={false}
+                  legendType="none"
+                />
+              ))}
+            {/* The leaders draw last, over the rest */}
+            {[...pairings].reverse().flatMap(p =>
+              p.lines.map(l => (
+                <Line
+                  key={l.key}
+                  {...lineProps(p.spec, {
+                    faded: faded(lit, p.spec.id),
+                    width: lit === p.spec.id || p.spec.id === winner ? 2.25 : 1.5,
+                  })}
+                  dataKey={l.key}
+                  name={l.key}
+                  connectNulls
+                  activeDot={false}
+                  className="cursor-pointer"
+                  onMouseEnter={() => setHovered(p.spec.id)}
+                  onMouseLeave={() => setHovered(undefined)}
+                  onClick={() =>
+                    l.run
+                      ? navigate({ to: '/runs/$runId', params: { runId: l.run.id }, search: {} as never })
+                      : legend.isolate(p.spec.id)
+                  }
+                />
+              ))
+            )}
+            {marks.length > 0 && <FinishMarks marks={marks} lit={lit} />}
+          </ComposedChart>
+        </ChartFrame>
+      </PageSection>
+      {/* Beside the chart, as tall as it, its rows scrolling inside; under it on a narrower screen. The card's
+          one grid row holds its body to the chart's height, and the scroll area covers the body */}
+      <Card className="min-w-0 xl:col-span-5 xl:grid xl:h-0 xl:min-h-full xl:grid-rows-1">
+        <ScrollArea className="mx-card-bleed my-card-bleed xl:absolute xl:inset-0 xl:m-0">
+          {/* The table bleeds to the card's edges by the inset; this gives it back inside the scroll area */}
+          <div className="px-card-inset py-4 sm:py-5">
             <DataTable
               data={standings}
               columns={columns}
@@ -349,7 +352,7 @@ export function FinishChart({
               hoverId={s => s.r.variant.key}
               onRowClick={s => legend.isolate(s.r.variant.key)}
             />
-          </CardContent>
+          </div>
         </ScrollArea>
       </Card>
     </div>
@@ -366,12 +369,9 @@ interface Standing {
 const col = createColumnHelper<Standing>();
 
 /** Place, pairing (its swatch keys its line), and its result; on an eval with a target, how many of its runs finished. */
-function tableColumns(
-  e: Eval,
-  winner: string | undefined,
-  toSeconds: (tick: number) => number
-): ColumnDef<Standing, unknown>[] {
+function tableColumns(e: Eval, winner: string | undefined): ColumnDef<Standing, unknown>[] {
   const target = e.target;
+  const toSeconds = (tick: number): number => (tick * e.tick_ms) / 1000;
   const still = (s: Standing): boolean => s.value <= 0 && s.r.finished === 0;
   return [
     col.accessor('place', {
@@ -380,9 +380,9 @@ function tableColumns(
       meta: { className: 'w-px' },
       cell: ({ row }) =>
         row.original.r.variant.key === winner ? (
-          <Trophy aria-label="Winner" className="size-4" />
+          <TrophyIcon aria-label="Winner" className="size-4 text-foreground" />
         ) : (
-          <span className="text-muted-foreground">{row.original.place}</span>
+          <span className="text-muted">{row.original.place}</span>
         ),
     }),
     col.accessor(s => s.r.variant.name, {
@@ -395,7 +395,7 @@ function tableColumns(
           run={row.original.r.runs[0]}
           compact
           swatch
-          className={cn('max-md:max-w-52', still(row.original) && 'text-muted-foreground')}
+          className={clsx('max-md:max-w-52', still(row.original) && 'text-muted')}
         />
       ),
     }),
@@ -409,7 +409,7 @@ function tableColumns(
             meta: { numeric: true, minWidth: 380 },
             cell: ({ row }) => (
               <span
-                className={cn(row.original.r.finished === 0 && 'text-muted-foreground')}
+                className={clsx(row.original.r.finished === 0 && 'text-muted')}
               >{`${formatInt(row.original.r.finished)} of ${formatInt(row.original.r.runs.length)}`}</span>
             ),
           }),
@@ -425,7 +425,7 @@ function tableColumns(
         const s = row.original;
         if (s.toFinish != null) return formatClock(toSeconds(s.toFinish));
         const text = target != null ? `Stage ${oneDecimal(s.value)}` : amount(s.value);
-        return <span className={cn(target != null || still(s) ? 'text-muted-foreground' : undefined)}>{text}</span>;
+        return <span className={clsx((target != null || still(s)) && 'text-muted')}>{text}</span>;
       },
     }),
   ] as ColumnDef<Standing, unknown>[];
