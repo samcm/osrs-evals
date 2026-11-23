@@ -117,6 +117,12 @@ def one_try(thinking: str):
         update: dict = {"max_retries": 0}
         if str(model).startswith("openai/") and config.reasoning_tokens and not config.reasoning_effort:
             update |= {"reasoning_effort": BUDGET_LEVELS.get(config.reasoning_tokens, "high"), "reasoning_tokens": None}
+        # omp's "off" reaches the Anthropic bridge as a thinking type it doesn't map, so Inspect sent
+        # adaptive thinking at the default effort. "none" makes it "disabled" for a model that takes
+        # it (Haiku 5.5); a model that can't turn thinking off then fails its first call instead of
+        # running mislabelled (the omp gateway rejects Sonnet 5.5's "between_tools")
+        if thinking == "off" and not config.reasoning_tokens and not config.reasoning_effort:
+            update |= {"reasoning_effort": "none"}
         return GenerateInput(messages, tools, tool_choice, config.model_copy(update=update))
 
     return filter
