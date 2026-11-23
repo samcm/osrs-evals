@@ -1,6 +1,6 @@
 """Tell each exported run in chapters and one sentence, with a model, for the site.
 
-    python site/summarize.py [--data site/public/data] [--model claude-sonnet-5-5] [--thinking medium]
+    python site/summarize.py [--data site/public/data] [--model claude-haiku-5-5] [--thinking medium]
         [--api anthropic|openai] [--base-url http://127.0.0.1:4000] [--jobs 4] [--only <run id> ...]
 
 Run it after site/export.py and before site/publish-data.sh. It reads each run's exported file
@@ -22,8 +22,8 @@ Environment: GATEWAY_URL (default http://127.0.0.1:4000, as on the run orbs) and
 x-api-key and as a bearer token; the gateway on the run orbs needs none).
 
 What it may say: only what the data shows, every chapter on ticks from the data. The prompt asks
-the model to describe and not judge; the script checks the chapters' ticks and orders them, and
-drops anything outside the run.
+for a RuneScape player's voice that says what made the run, skipping what every run does; the script
+checks the chapters' ticks and orders them, and drops anything outside the run.
 """
 
 import argparse
@@ -37,30 +37,41 @@ import urllib.request
 from pathlib import Path
 
 PROMPT = """\
-You are reading the record of one run of an evaluation: a language-model agent played the 2004 \
-MMORPG RuneScape (2004scape) through a TypeScript SDK, for a fixed budget of game ticks (one tick is \
-{tick_ms} ms of game time). The eval's goal, as the agent got it: "{goal}". It is scored by: \
-{measure}. This run ended with {result}.
+You're writing the captions for a site where people watch language-model agents play the 2004 \
+MMORPG RuneScape (2004scape). Below is the whole record of one run: the agent played through a \
+TypeScript SDK for up to {budget} of game time. Its goal: "{goal}". It's scored by {measure}, and \
+this run ended with {result}.
 
-Below is everything the run did, in order, on its game clock (tick numbers): the agent's own words \
-(SAID), its tool calls with the intent it gave for each (DID), and what happened in the game \
-(GAME: the eval's measure changing, quests, levels, items gained or lost, deaths, teleports).
+Every run starts the same way: a fresh character in Lumbridge and the same docs and SDK to read. \
+So skip that. Nobody needs to hear that it read the docs or looked through the files, unless that \
+is most of what the run did.
 
-Tell the run as a reader of the site needs it:
-1. Split it into 3 to 8 chapters: stretches where the agent pursued one aim or worked one way \
-(set up and read the docs, a route, a money method, a fix after something broke, waiting). Each \
-chapter covers whole ticks from the record, and together they cover the run from tick 0 to tick \
-{end_tick}, in order, without gaps or overlaps.
-2. Give each chapter a title of 2 to 6 words and one or two plain sentences of what the agent did \
-and what came of it in the game.
-3. Then sum the run up in ONE sentence of at most 25 words: its strategy and route (where it went, \
-what it did there, how it got its result), so a reader can tell it from the other runs at a glance. \
-One sentence means a single full stop, at the end; count the words, and leave out detail before \
-going over 25.
+Write like a RuneScape player telling a mate how the run went: plain, with game slang where it fits \
+(blitzed, ground out, speedran, farmed, got turned away), naming the quests, places, skills, items \
+and methods that mattered. Say what made this run this run: the plan, where the result came from, \
+what went wrong. Call something a grind, a detour or a mistake when the record shows it; never \
+claim anything the record doesn't show.
 
-Rules: describe, don't judge (no "cleverly", "wasted", "failed to"); never state anything the \
-record doesn't show; name places, items, quests and skills as the record names them; no \
-markdown. Answer with JSON only, in this shape:
+The voice, from other runs of Dragon Slayer:
+- "Farmed the quest scripts out to helper agents, blitzed the prerequisites, then speedran Dragon \
+Slayer from map to Elvarg in four minutes."
+- "Ground out the quest points one script at a time, then took three trips to Crandor before Elvarg \
+went down."
+- "Read the wiki, walked to the Champions' Guild, got turned away for having no quest points, and \
+logged off."
+
+Give:
+1. "summary": one sentence in that voice, at most 30 words.
+2. "chapters": 2 to 5 chapters, split where the run changed course or its progress sped up or \
+stalled, not at every new task. Each has "from_tick" and "to_tick" (whole ticks from the record; \
+together they cover tick 0 to {end_tick} in order, with no gaps or overlaps), a "title" of 2 to 6 \
+words in the same voice ("Blitzing the prerequisites", "Three trips to Crandor"), and a "text" of \
+one or two sentences in the same voice with the numbers that matter: levels, coins, quest stages, \
+and game time as the record gives it (m:ss or h:mm:ss), never tick counts.
+
+The record: each line is a tick, its game time, then SAID (the agent's words), DID (a tool call with \
+the intent the agent gave) or GAME (what happened in the game: the score changing, quests, levels, \
+items, deaths, teleports). Answer with JSON only, in this shape:
 {{"chapters": [{{"from_tick": 0, "to_tick": 1200, "title": "...", "text": "..."}}], "summary": "..."}}
 
 THE RECORD
@@ -143,9 +154,16 @@ def record_of(run: dict, items: dict) -> list[tuple[int, str, str]]:
     return out
 
 
-def render(record: list[tuple[int, str, str]]) -> str:
-    """The record as text, at most MAX_RECORD characters: game lines always, the agent's lines thinned evenly."""
-    lines = [f"{tick} {kind} {text}" for tick, kind, text in record]
+def clock(seconds: float) -> str:
+    """Game time as m:ss, or h:mm:ss from an hour."""
+    s = int(seconds)
+    return f"{s // 3600}:{s // 60 % 60:02d}:{s % 60:02d}" if s >= 3600 else f"{s // 60}:{s % 60:02d}"
+
+
+def render(record: list[tuple[int, str, str]], tick_ms: float) -> str:
+    """The record as text, each line with its tick and game time, at most MAX_RECORD characters:
+    game lines always, the agent's lines thinned evenly."""
+    lines = [f"{tick} {clock(tick * tick_ms / 1000)} {kind} {text}" for tick, kind, text in record]
     if sum(len(l) + 1 for l in lines) <= MAX_RECORD:
         return "\n".join(lines)
     game = sum(len(l) + 1 for l, (_, k, _) in zip(lines, record) if k == "GAME")
@@ -222,13 +240,15 @@ def summarize(path: Path, evals: dict, items: dict, args) -> tuple[str, str]:
     target = run.get("target")
     result = f"{run.get('final_value')} {e.get('measure', '').lower()}" + (f" ({'reached' if run.get('success') else 'did not reach'} the target {target})" if target is not None else "")
     run["measure"] = e.get("measure")
+    tick_ms = run.get("tick_ms") or e.get("tick_ms") or 600
+    budget = clock((run.get("budget_ticks") or e.get("budget_ticks") or end_tick) * tick_ms / 1000)
     prompt = PROMPT.format(
-        tick_ms=run.get("tick_ms") or e.get("tick_ms") or 600,
+        budget=budget,
         goal=run.get("goal") or e.get("goal", ""),
         measure=e.get("measure", "its result"),
         result=result,
         end_tick=end_tick,
-        record=render(record_of(run, items)),
+        record=render(record_of(run, items), tick_ms),
     )
     if args.print_prompt:
         print(prompt)
@@ -245,7 +265,7 @@ def summarize(path: Path, evals: dict, items: dict, args) -> tuple[str, str]:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--data", default="site/public/data")
-    ap.add_argument("--model", default="claude-sonnet-5-5")
+    ap.add_argument("--model", default="claude-haiku-5-5")
     ap.add_argument("--thinking", default="medium", help="off, low, medium, high, xhigh or max")
     ap.add_argument("--api", choices=["anthropic", "openai"], default="anthropic")
     ap.add_argument("--base-url", default=os.environ.get("GATEWAY_URL", "http://127.0.0.1:4000"))
