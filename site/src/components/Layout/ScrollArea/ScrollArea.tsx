@@ -44,7 +44,12 @@ export function ScrollArea({
         ref={viewportRef}
         data-slot="scroll-area-viewport"
         tabIndex={0}
-        className="size-full rounded-inherit focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+        className={clsx(
+          'size-full rounded-inherit focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary',
+          // Radix lays its content out as a table, which stops text truncating; scrolling only down, a
+          // block keeps the content to the area's width
+          !showHorizontal && '[&>div]:block!'
+        )}
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
