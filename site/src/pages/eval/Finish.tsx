@@ -10,30 +10,16 @@
 import { useMemo, type JSX } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
-import { TrophyIcon } from '@heroicons/react/16/solid';
+import { CheckIcon, TrophyIcon } from '@heroicons/react/16/solid';
 import clsx from 'clsx';
 import {
-  Area,
-  CartesianGrid,
-  ComposedChart,
-  Line,
-  ReferenceLine,
-  XAxis,
-  YAxis,
-  useXAxisScale,
-  useYAxisScale,
-} from 'recharts';
-import { ChartTooltip, type ChartConfig } from '@/components/ui/chart';
-import {
   ChartFrame,
-  chartMargin,
-  crosshairCursor,
-  gridProps,
-  lineProps,
-  SeriesTooltip,
-  xAxisProps,
-  yAxisProps,
-} from '@/components/Charts/legacy';
+  XYChart,
+  type ChartBand,
+  type ChartLine,
+  type Plot,
+  type TooltipContent,
+} from '@/components/Charts';
 import { DataTable } from '@/components/DataTable';
 import { Card } from '@/components/Layout/Card';
 import { ScrollArea } from '@/components/Layout/ScrollArea';
@@ -42,7 +28,7 @@ import { VariantLabel } from '@/components/marks';
 import type { Eval, Run } from '@/data/types';
 import { variantSeries, type SeriesSpec } from '@/lib/chartSeries';
 import { formatClock, formatDuration, formatInt } from '@/lib/format';
-import { FADED_OPACITY, setHovered } from '@/lib/hover';
+import { FADED_OPACITY } from '@/lib/hover';
 import type { LegendState } from '@/lib/legend';
 import { median } from '@/lib/stats';
 import { roundTicks } from '@/pages/eval/chartBits';
@@ -75,37 +61,32 @@ function stepAt(points: [number, number][], x: number): number | null {
   return value;
 }
 
-/** Where each run reached the target: a dot in its pairing's colour with a check. */
+/** Where each run reached the target: a dot in its pairing's colour with a check, over the plot. */
 function FinishMarks({
   marks,
   lit,
+  plot,
 }: {
   marks: { key: string; spec: SeriesSpec; tick: number; value: number }[];
   lit: string | null;
-}) {
-  const x = useXAxisScale();
-  const y = useYAxisScale();
-  if (!x || !y) return null;
+  plot: Plot;
+}): JSX.Element {
   return (
-    <g className="pointer-events-none">
+    <>
       {marks.map(m => (
-        <g
+        <span
           key={m.key}
-          transform={`translate(${Number(x(m.tick))} ${Number(y(m.value))})`}
-          opacity={faded(lit, m.spec.id) ? FADED_OPACITY : 1}
+          aria-hidden
+          className={clsx(
+            'pointer-events-none absolute flex size-3 -translate-1/2 items-center justify-center rounded-full ring-2 ring-surface transition-opacity',
+            m.spec.swatch.swatchClassName
+          )}
+          style={{ left: plot.x(m.tick), top: plot.y(m.value), opacity: faded(lit, m.spec.id) ? FADED_OPACITY : 1 }}
         >
-          <circle r={6} fill={m.spec.color} stroke="var(--card)" strokeWidth={1.5} />
-          <path
-            d="M-2.75 0.25 L-0.75 2.25 L2.75 -1.75"
-            fill="none"
-            stroke="var(--card)"
-            strokeWidth={1.75}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </g>
+          <CheckIcon className="size-2.5 text-surface" />
+        </span>
       ))}
-    </g>
+    </>
   );
 }
 
@@ -176,16 +157,6 @@ export function FinishChart({
     });
   }, [curves, ranked, legend, agg, budget, top]);
 
-  const rows = useMemo(() => {
-    const byX = new Map<number, Record<string, unknown>>();
-    const row = (x: number) => byX.get(x) ?? (byX.set(x, { x }), byX.get(x)!);
-    for (const p of pairings) {
-      for (const [x, lo, hi] of p.band) row(x)[`b${p.spec.key}`] = [lo, hi];
-      for (const line of p.lines) for (const [x, y] of line.points) row(x)[line.key] = y;
-    }
-    return [...byX.values()].sort((a, b) => (a.x as number) - (b.x as number));
-  }, [pairings]);
-
   // Every run that reached the target, where it did
   const marks = useMemo(
     () =>
@@ -205,16 +176,31 @@ export function FinishChart({
     [pairings, target, budget]
   );
 
-  const config = useMemo<ChartConfig>(
-    () => Object.fromEntries(pairings.map(p => [p.spec.key, { label: p.spec.label, color: p.spec.color }])),
-    [pairings]
-  );
-
   // Ticks on round game-clock times
   const xTicks = roundTicks(toSeconds(budget), 'seconds').map(s => (s * 1000) / e.tick_ms);
   const first = ranked[0];
   const winner = first && (first.medianResult ?? 0) > 0 ? first.variant.key : undefined;
-  const lineSeries = pairings.flatMap(p => p.lines.map(l => ({ ...p.spec, key: l.key })));
+
+  // The leaders draw last, over the rest; a run's line opens the run, a pairing's isolates it
+  const lines: ChartLine[] = [...pairings]
+    .reverse()
+    .flatMap(p =>
+      p.lines.map(l => ({ key: l.key, series: p.spec, points: l.points, width: p.spec.id === winner ? 2 : undefined }))
+    );
+  const runOf = new Map(pairings.flatMap(p => p.lines.flatMap(l => (l.run ? [[l.key, l.run] as const] : []))));
+  // One band at a time, or thirty overlap into a grey wash: the lit pairing's, else the winner's
+  const banded = pairings.find(p => p.spec.id === (lit ?? winner) && p.band.length);
+  const bands: ChartBand[] = banded ? [{ series: banded.spec, points: banded.band }] : [];
+  // At the crosshair, every line above zero, highest first
+  const tooltip = (at: number): TooltipContent | null => {
+    const rows = pairings
+      .flatMap(p => p.lines.map(l => ({ series: p.spec, value: stepAt(l.points, at) ?? 0 })))
+      .filter(r => r.value > 0)
+      .sort((a, b) => b.value - a.value);
+    return rows.length
+      ? { title: formatClock(toSeconds(at)), rows: rows.map(r => ({ ...r, value: amount(r.value) })) }
+      : null;
+  };
 
   // The table: every pairing in the eval's order, its result by the eval's score (median, or best)
   const standings = useMemo<Standing[]>(
@@ -243,100 +229,27 @@ export function FinishChart({
             : undefined
         }
       >
-        <ChartFrame config={config} height="lead">
-          <ComposedChart data={rows} margin={chartMargin()} onMouseLeave={() => setHovered(undefined)}>
-            <CartesianGrid {...gridProps} />
-            <XAxis
-              {...xAxisProps({
-                dataKey: 'x',
-                domain: [0, budget],
-                ticks: xTicks,
-                format: v => (v === 0 ? '0' : formatDuration(toSeconds(v))),
-              })}
-            />
-            <YAxis
-              {...yAxisProps({
-                domain: [0, top],
-                ticks: yTicks,
-                clamp: true,
-                format: target != null ? formatInt : axisAmount,
-              })}
-            />
-            {target != null && (
-              <ReferenceLine y={target} stroke="var(--success)" strokeDasharray="3 3" strokeOpacity={0.7} />
-            )}
-            <ChartTooltip
-              cursor={crosshairCursor}
-              content={({ active, label }) => {
-                const at = Number(label);
-                if (!active || !Number.isFinite(at)) return null;
-                const payload = pairings
-                  .flatMap(p =>
-                    p.lines.map(l => ({
-                      dataKey: l.key,
-                      name: l.key,
-                      value: stepAt(l.points, at) ?? 0,
-                      color: p.spec.color,
-                      payload: {},
-                    }))
-                  )
-                  .filter(p => p.value > 0);
-                if (payload.length === 0) return null;
-                return (
-                  <SeriesTooltip
-                    active
-                    label={at}
-                    payload={payload as never}
-                    series={lineSeries}
-                    labelFormat={v => formatClock(toSeconds(Number(v)))}
-                    format={amount}
-                  />
-                );
-              }}
-            />
-            {pairings
-              .filter(p => p.band.length)
-              .map(p => (
-                <Area
-                  key={`b${p.spec.key}`}
-                  dataKey={`b${p.spec.key}`}
-                  type="stepAfter"
-                  fill={p.spec.color}
-                  // One band at a time, or thirty overlap into a grey wash: the lit pairing's, else the winner's
-                  fillOpacity={(lit ?? winner) === p.spec.id ? 0.15 : 0}
-                  stroke="none"
-                  connectNulls
-                  activeDot={false}
-                  isAnimationActive={false}
-                  legendType="none"
-                />
-              ))}
-            {/* The leaders draw last, over the rest */}
-            {[...pairings].reverse().flatMap(p =>
-              p.lines.map(l => (
-                <Line
-                  key={l.key}
-                  {...lineProps(p.spec, {
-                    faded: faded(lit, p.spec.id),
-                    width: lit === p.spec.id || p.spec.id === winner ? 2.25 : 1.5,
-                  })}
-                  dataKey={l.key}
-                  name={l.key}
-                  connectNulls
-                  activeDot={false}
-                  className="cursor-pointer"
-                  onMouseEnter={() => setHovered(p.spec.id)}
-                  onMouseLeave={() => setHovered(undefined)}
-                  onClick={() =>
-                    l.run
-                      ? navigate({ to: '/runs/$runId', params: { runId: l.run.id }, search: {} as never })
-                      : legend.isolate(p.spec.id)
-                  }
-                />
-              ))
-            )}
-            {marks.length > 0 && <FinishMarks marks={marks} lit={lit} />}
-          </ComposedChart>
+        <ChartFrame height="lead">
+          <XYChart
+            x={{
+              domain: [0, budget],
+              ticks: xTicks,
+              format: v => (v === 0 ? '0' : formatDuration(toSeconds(v))),
+              formatValue: v => formatClock(toSeconds(v)),
+            }}
+            y={{ domain: [0, top], ticks: yTicks, format: target != null ? formatInt : axisAmount }}
+            lines={lines}
+            bands={bands}
+            rules={target != null ? [{ y: target, tone: 'success' }] : []}
+            lit={lit}
+            axisTooltip={tooltip}
+            onLineClick={line => {
+              const run = runOf.get(line.key!);
+              if (run) void navigate({ to: '/runs/$runId', params: { runId: run.id }, search: {} as never });
+              else if (line.series) legend.isolate(line.series.id);
+            }}
+            overlay={plot => marks.length > 0 && <FinishMarks marks={marks} lit={lit} plot={plot} />}
+          />
         </ChartFrame>
       </PageSection>
       {/* Beside the chart, as tall as it, its rows scrolling inside; under it on a narrower screen. The card's
