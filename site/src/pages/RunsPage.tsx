@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { Tip } from '@/components/bits';
-import { BrainIcon } from 'lucide-react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
@@ -19,7 +18,7 @@ import { outcomeWord } from '@/lib/evals';
 import { capitalize, formatClock, formatCost, formatInt, MISSING } from '@/lib/format';
 import { endedWord, resultText, resultValue } from '@/lib/runResult';
 import { useDocumentTitle, useScope, useSearchUpdate } from '@/lib/search';
-import { agentInfo, compareThinking, levelName, modelInfo, thinkingTitle, variantKey, vendorOf } from '@/lib/series';
+import { agentInfo, compareThinking, levelName, modelInfo, variantKey, vendorOf } from '@/lib/series';
 import { cn } from '@/lib/utils';
 
 const route = getRouteApi('/runs/');
@@ -198,7 +197,7 @@ export function RunsPage() {
   const options: Record<Facet, Option[]> = {
     eval: data.evals.map(e => ({ value: e.id, label: e.title, mark: <EvalMark evalId={e.id} size={16} title="" /> })),
     model: uniq(r => ({ value: r.model, label: modelInfo(r.model).name, mark: <BrandMark slug={modelInfo(r.model).vendor.slug} size={16} /> })),
-    thinking: uniq(r => ({ value: r.thinking, label: levelName(r.thinking), mark: <BrainIcon aria-label={thinkingTitle(r.thinking)} /> }))
+    thinking: uniq(r => ({ value: r.thinking, label: levelName(r.thinking) }))
       .filter(o => o.value)
       .sort((a, b) => compareThinking(a.value, b.value)),
     agent: uniq(r => ({ value: r.agent, label: agentInfo(r.agent, r.agent_name).name, mark: <BrandMark slug={agentInfo(r.agent, r.agent_name).slug} size={16} /> })),

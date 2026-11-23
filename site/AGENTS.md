@@ -58,8 +58,7 @@ Every page has the same skeleton, and nothing on a page invents its own.
 - **Motion** is 150 ms of opacity or position, off under reduced motion; loading holds the final
   size with a skeleton. Nothing jumps.
 - **Marks beside text:** 14 with `text-xs`, 16 with `text-sm`, 20 with `text-base` or larger, 40
-  only as the `PageHeader` mark. The harness is always `HarnessMark`, the thinking level always
-  `ThinkingLevel`.
+  only as the `PageHeader` mark. The thinking level is always `ThinkingLevel`.
 - **A page's name appears once in the content area: in the header bar.**
 - **Only model-driven runs.** The scripted baseline ("Program") is not on the site; the export skips
   it. There is no ideas page.
@@ -273,13 +272,13 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   `public/assets/brands/`. `BrandMark` draws both as a one-colour CSS mask in the text colour, so
   they suit both themes. Sizes: 14px in legends and tooltips, 16px inline and in nav, 20px in table
   rows, 40px in page headers.
-- **Agent harnesses** are their mark (`HarnessMark`: omp …) after the
-  model's name and thinking level, in the muted colour so the vendor's mark leads; the name is its
-  tooltip. A harness on its own (grouped by harness) is its mark and its name. The scripted baseline
+- **Agent harnesses** never trail a model's name (Sam: the mark there is useless; every run so far
+  is one harness). The harness shows where it is the subject: its filter, a model page's Harnesses
+  fact, grouping by harness (its mark and its name), a run's facts and an eval's Setup. The scripted baseline
   ("Program") has no model; it shows its game sprite and its name.
 - **Thinking levels** are a dimension, as EthIQ's efforts are: a pairing is a model at a thinking
   level in a harness, and wherever a model is named in a pairing its level sits beside it
-  (`ThinkingLevel`, a lucide brain and the word). Levels are off, minimal, low, medium, high, xhigh
+  (`ThinkingLevel`, the word alone, muted: "GPT-6.2 Astra high"; no icon). Levels are off, minimal, low, medium, high, xhigh
   and max, lowest first (`THINKING_LEVELS`), and "no thinking levels" for a model that has none
   (omp's `none`, which is not off); there is no "default". The site has only runs of the omp solver
   (`evals/omp.py@omp`), and a run's level is its solver's `thinking` param; the export skips a run

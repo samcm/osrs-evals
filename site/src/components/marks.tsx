@@ -14,7 +14,6 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { BrainIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tip } from './bits';
 import type { Run } from '@/data/types';
@@ -190,14 +189,11 @@ export function HarnessMark({ agent, fallback, size = 14, className }: { agent: 
   );
 }
 
-/** A thinking level: a brain and the level's word, muted, beside the model it belongs to. */
+/** A thinking level: its word, muted, after the model it belongs to ("GPT-6.2 Astra high"). */
 export function ThinkingLevel({ level, className }: { level: string; className?: string }) {
   return (
     <Tip content={thinkingTitle(level)}>
-      <span className={cn('inline-flex shrink-0 items-center gap-0.5 text-muted-foreground', className)}>
-        <BrainIcon aria-hidden className="size-3" />
-        <span className="text-xs">{levelName(level)}</span>
-      </span>
+      <span className={cn('shrink-0 font-normal text-muted-foreground', className)}>{levelName(level)}</span>
     </Tip>
   );
 }
@@ -229,8 +225,9 @@ export function AgentLabel({ agent, fallback, size = 16, className }: Omit<Label
 }
 
 /**
- * A variant (model × thinking level × harness): the model's vendor mark and name, its thinking
- * level, then the harness's mark. Compact uses the model's short name. The scripted baseline is
+ * A variant (model × thinking level × harness): the model's vendor mark and name, then its thinking
+ * level as a muted word. No harness mark (Sam: useless next to a name; every run so far is one
+ * harness): the harness shows where it's the subject (filters, the model page, a run's facts). Compact uses the model's short name. The scripted baseline is
  * its sprite and "Program".
  */
 export function VariantLabel({
@@ -250,7 +247,6 @@ export function VariantLabel({
       <BrandMark slug={model.vendor.slug} size={size} title={model.vendor.name} />
       <span className="truncate">{compact ? model.short : model.name}</span>
       <ThinkingLevel level={v.thinking} />
-      <HarnessMark agent={v.agent} fallback={run?.agent_name} size={size === 20 ? 16 : 14} />
     </span>
   );
 }

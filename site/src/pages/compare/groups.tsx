@@ -1,7 +1,7 @@
 /** Grouping runs by model, vendor, agent or variant, with each group's label. */
 
 import type { Run } from '@/data/types';
-import { AgentLabel, BrandMark, HarnessMark, ModelLabel, ThinkingLevel, VariantLabel } from '@/components/marks';
+import { AgentLabel, BrandMark, ModelLabel, ThinkingLevel, VariantLabel } from '@/components/marks';
 import { agentInfo, modelInfo, variantOf, vendorOf } from '@/lib/series';
 
 export type GroupBy = 'model' | 'vendor' | 'agent' | 'variant';
@@ -50,10 +50,7 @@ export function GroupLabel({ sample, by, size = 16, stacked }: { sample: Run; by
     return (
       <span className="flex flex-col items-end gap-0.5">
         <ModelLabel model={sample.model} compact size={size} />
-        <span className="flex items-center gap-1.5">
-          <ThinkingLevel level={sample.thinking} />
-          <HarnessMark agent={sample.agent} fallback={sample.agent_name} />
-        </span>
+        <ThinkingLevel level={sample.thinking} />
       </span>
     );
   }

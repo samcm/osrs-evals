@@ -6,7 +6,7 @@
  */
 
 import type { ReactNode } from 'react';
-import { BrainIcon, ListFilterIcon } from 'lucide-react';
+import { ListFilterIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Segmented } from '@/components/bits';
@@ -14,7 +14,7 @@ import { FacetFilter } from '@/components/FacetFilter';
 import { BrandMark } from '@/components/marks';
 import type { Run } from '@/data/types';
 import { useEffort, useSearchUpdate, type EffortCut } from '@/lib/search';
-import { agentInfo, compareThinking, levelName, thinkingTitle } from '@/lib/series';
+import { agentInfo, compareThinking, levelName } from '@/lib/series';
 
 const EFFORT_OPTIONS = [
   { value: 'all' as const, label: 'All levels', title: 'Every thinking level of each model in each harness' },
@@ -82,7 +82,7 @@ export function PairingFilters({
       {effort && <Segmented label="Thinking levels shown" value={cut} options={EFFORT_OPTIONS} onChange={v => update({ effort: v === 'all' ? undefined : v } as never)} />}
       <FacetFilter
         title="Thinking"
-        options={levels.map(level => ({ value: level, label: levelName(level), mark: <BrainIcon aria-label={thinkingTitle(level)} /> }))}
+        options={levels.map(level => ({ value: level, label: levelName(level) }))}
         selected={thinking}
         counts={counted(runs, level)}
         onChange={values => onChange({ thinking: values })}

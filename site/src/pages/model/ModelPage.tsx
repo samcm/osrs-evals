@@ -11,7 +11,7 @@ import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { DataTable } from '@/components/DataTable';
 import { Empty, Tip } from '@/components/bits';
-import { BrandMark, EvalMark, HarnessMark, ThinkingLevel, VariantLabel } from '@/components/marks';
+import { AgentLabel, BrandMark, EvalMark, VariantLabel } from '@/components/marks';
 import { PairingFilters } from '@/components/PairingFilters';
 import { PageHeader, PageSection, PageToolbar, type MetaItem } from '@/components/page';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -23,7 +23,7 @@ import { setHovered } from '@/lib/hover';
 import { resultValue } from '@/lib/runResult';
 import { bestLevelKeys, blendedScores, modelRank, runScore } from '@/lib/score';
 import { inScope, useDocumentTitle, useEffort, useScope, useSearchUpdate } from '@/lib/search';
-import { compareThinking, modelFacts, modelInfo, modelSlug, providerInfo, providerLogo, variantKey } from '@/lib/series';
+import { compareThinking, levelName, modelFacts, modelInfo, modelSlug, providerInfo, providerLogo, variantKey } from '@/lib/series';
 import { median } from '@/lib/stats';
 import { cn } from '@/lib/utils';
 import { runColumns, type Row } from '../RunsPage';
@@ -153,16 +153,16 @@ export function ModelPage() {
     {
       term: 'Harnesses',
       value: (
-        <span className="inline-flex items-center gap-1.5 align-middle">
+        <span className="inline-flex items-center gap-3 align-middle">
           {harnesses.map(r => (
-            <HarnessMark key={r.agent} agent={r.agent} fallback={r.agent_name} size={16} className="bg-foreground" />
+            <AgentLabel key={r.agent} agent={r.agent} fallback={r.agent_name} size={16} />
           ))}
         </span>
       ),
     },
     {
       term: 'Thinking',
-      value: <span className="inline-flex flex-wrap items-center gap-x-2 align-middle">{allLevels.map(l => <ThinkingLevel key={l} level={l} />)}</span>,
+      value: allLevels.map(levelName).join(', '),
     },
   ];
 

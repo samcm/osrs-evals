@@ -5,7 +5,6 @@
  *   <SeriesLabel series={variantSeries(run)} size={14} />
  */
 
-import { Tip } from '@/components/bits';
 import { cn } from '@/lib/utils';
 import type { SeriesSpec } from '@/lib/chartSeries';
 import { BrandMark, Sprite, ThinkingLevel, type BrandSize } from '@/components/marks';
@@ -23,11 +22,6 @@ export function SeriesLabel({ series, size = 14, className }: { series: SeriesSp
       )}
       {series.label && <span className="truncate">{series.label}</span>}
       {series.thinking && <ThinkingLevel level={series.thinking} />}
-      {series.harness && (series.vendor || series.sprite) && (
-        <Tip content={series.harness.name}>
-          <BrandMark slug={series.harness.slug} size={size} title={series.harness.name} className="bg-muted-foreground" />
-        </Tip>
-      )}
     </span>
   );
 }
