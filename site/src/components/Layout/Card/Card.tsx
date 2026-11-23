@@ -82,7 +82,7 @@ export function Card({
       className={clsx(
         'relative divide-y divide-border',
         !allowContentOverflow && 'overflow-hidden',
-        rounded && 'rounded-sm',
+        rounded && 'rounded-md',
         styles.container,
         isInteractive && 'cursor-pointer transition-colors duration-200 hover:outline-primary-40',
         className

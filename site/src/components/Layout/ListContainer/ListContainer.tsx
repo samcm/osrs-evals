@@ -34,8 +34,8 @@ const variantStyles: Record<
     itemMobileFull: 'px-4 sm:px-0',
   },
   card: {
-    wrapper: 'overflow-hidden rounded-sm bg-surface outline -outline-offset-1 outline-border',
-    wrapperMobileFull: 'overflow-hidden bg-surface outline -outline-offset-1 outline-border sm:rounded-sm',
+    wrapper: 'overflow-hidden rounded-md bg-surface outline -outline-offset-1 outline-border',
+    wrapperMobileFull: 'overflow-hidden bg-surface outline -outline-offset-1 outline-border sm:rounded-md',
     list: '',
     listWithDividers: 'divide-y divide-border',
     item: 'px-6',
@@ -43,7 +43,7 @@ const variantStyles: Record<
   },
   flat: {
     wrapper: 'overflow-hidden border border-border bg-panel',
-    wrapperMobileFull: 'overflow-hidden border border-border bg-panel sm:rounded-sm',
+    wrapperMobileFull: 'overflow-hidden border border-border bg-panel sm:rounded-md',
     list: '',
     listWithDividers: 'divide-y divide-border',
     item: 'px-6',
@@ -51,8 +51,8 @@ const variantStyles: Record<
   },
   separate: {
     list: 'space-y-3',
-    item: 'overflow-hidden rounded-sm bg-surface px-6 outline -outline-offset-1 outline-border',
-    itemMobileFull: 'overflow-hidden bg-surface px-4 outline -outline-offset-1 outline-border sm:rounded-sm sm:px-6',
+    item: 'overflow-hidden rounded-md bg-surface px-6 outline -outline-offset-1 outline-border',
+    itemMobileFull: 'overflow-hidden bg-surface px-4 outline -outline-offset-1 outline-border sm:rounded-md sm:px-6',
   },
 };
 

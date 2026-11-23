@@ -619,7 +619,7 @@ export function WorldMap({
   return (
     <div
       ref={containerRef}
-      className={clsx('relative w-full min-w-0 overflow-hidden rounded-sm bg-background', className)}
+      className={clsx('relative w-full min-w-0 overflow-hidden rounded-md bg-background', className)}
       style={{ height: frameHeight }}
     >
       <canvas

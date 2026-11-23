@@ -138,8 +138,8 @@ export default defineConfig(
     },
     rules: {
       'better-tailwindcss/enforce-canonical-classes': 'error',
-      // dark and star mark the theme on <html>.
-      'better-tailwindcss/no-unknown-classes': ['error', { ignore: ['^dark$', '^star$'] }],
+      // dark marks the theme on <html>.
+      'better-tailwindcss/no-unknown-classes': ['error', { ignore: ['^dark$'] }],
       'better-tailwindcss/no-restricted-classes': [
         'error',
         {

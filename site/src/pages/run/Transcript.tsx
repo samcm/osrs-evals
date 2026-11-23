@@ -97,7 +97,7 @@ function MarkdownTable({ node }: { node?: HastElement }): JSX.Element | null {
   );
 }
 
-/** Markdown in the page's type: body text, bold headings, code in Geist Mono. */
+/** Markdown in the page's type: body text, bold headings, code in Plex Mono. */
 const MARKDOWN: Components = {
   h1: ({ children }) => <p className="font-medium">{children}</p>,
   h2: ({ children }) => <p className="font-medium">{children}</p>,

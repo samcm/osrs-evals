@@ -40,8 +40,8 @@ export interface BreadcrumbProps {
   className?: string;
 
   /**
-   * Separator character/element between breadcrumb items
-   * @default "/"
+   * Separator between breadcrumb items
+   * @default a 16px chevron
    */
-  separator?: string;
+  separator?: ReactNode;
 }

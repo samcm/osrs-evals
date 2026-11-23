@@ -12,15 +12,15 @@ interface ColorClasses {
   };
 }
 
-/** green, orange and red are status colours and use the theme's status tokens; the rest are category tags */
+/** gray is the neutral badge; green, orange and red are status colours and use the theme's status tokens */
 const colorStyles: Record<BadgeColor, ColorClasses> = {
   gray: {
-    border: 'bg-tag-gray-wash text-tag-gray inset-ring inset-ring-tag-gray-ring',
-    flat: 'bg-tag-gray-bg text-tag-gray',
-    dotFill: 'fill-tag-gray-fill',
+    border: 'bg-surface text-muted inset-ring inset-ring-border',
+    flat: 'bg-muted-10 text-muted',
+    dotFill: 'fill-muted',
     removeButton: {
-      hover: 'hover:bg-tag-gray-hover',
-      stroke: 'stroke-tag-gray-stroke group-hover:stroke-tag-gray-stroke-hover',
+      hover: 'hover:bg-muted-20',
+      stroke: 'stroke-muted-50 group-hover:stroke-muted',
     },
   },
   red: {
@@ -41,15 +41,6 @@ const colorStyles: Record<BadgeColor, ColorClasses> = {
       stroke: 'stroke-warning-50 group-hover:stroke-warning-75',
     },
   },
-  yellow: {
-    border: 'bg-tag-yellow-wash text-tag-yellow inset-ring inset-ring-tag-yellow-ring',
-    flat: 'bg-tag-yellow-bg text-tag-yellow',
-    dotFill: 'fill-tag-yellow-fill',
-    removeButton: {
-      hover: 'hover:bg-tag-yellow-hover',
-      stroke: 'stroke-tag-yellow-stroke group-hover:stroke-tag-yellow-stroke-hover',
-    },
-  },
   green: {
     border: 'bg-success-10 text-success inset-ring inset-ring-success-20',
     flat: 'bg-success-15 text-success',
@@ -57,51 +48,6 @@ const colorStyles: Record<BadgeColor, ColorClasses> = {
     removeButton: {
       hover: 'hover:bg-success-20',
       stroke: 'stroke-success-50 group-hover:stroke-success-75',
-    },
-  },
-  teal: {
-    border: 'bg-tag-teal-wash text-tag-teal inset-ring inset-ring-tag-teal-ring',
-    flat: 'bg-tag-teal-bg text-tag-teal',
-    dotFill: 'fill-tag-teal-fill',
-    removeButton: {
-      hover: 'hover:bg-tag-teal-hover',
-      stroke: 'stroke-tag-teal-stroke group-hover:stroke-tag-teal-stroke-hover',
-    },
-  },
-  blue: {
-    border: 'bg-tag-blue-wash text-tag-blue inset-ring inset-ring-tag-blue-ring',
-    flat: 'bg-tag-blue-bg text-tag-blue',
-    dotFill: 'fill-tag-blue-fill',
-    removeButton: {
-      hover: 'hover:bg-tag-blue-hover',
-      stroke: 'stroke-tag-blue-stroke group-hover:stroke-tag-blue-stroke-hover',
-    },
-  },
-  indigo: {
-    border: 'bg-tag-indigo-wash text-tag-indigo inset-ring inset-ring-tag-indigo-ring',
-    flat: 'bg-tag-indigo-bg text-tag-indigo',
-    dotFill: 'fill-tag-indigo-fill',
-    removeButton: {
-      hover: 'hover:bg-tag-indigo-hover',
-      stroke: 'stroke-tag-indigo-stroke group-hover:stroke-tag-indigo-stroke-hover',
-    },
-  },
-  purple: {
-    border: 'bg-tag-purple-wash text-tag-purple inset-ring inset-ring-tag-purple-ring',
-    flat: 'bg-tag-purple-bg text-tag-purple',
-    dotFill: 'fill-tag-purple-fill',
-    removeButton: {
-      hover: 'hover:bg-tag-purple-hover',
-      stroke: 'stroke-tag-purple-stroke group-hover:stroke-tag-purple-stroke-hover',
-    },
-  },
-  pink: {
-    border: 'bg-tag-pink-wash text-tag-pink inset-ring inset-ring-tag-pink-ring',
-    flat: 'bg-tag-pink-bg text-tag-pink',
-    dotFill: 'fill-tag-pink-fill',
-    removeButton: {
-      hover: 'hover:bg-tag-pink-hover',
-      stroke: 'stroke-tag-pink-stroke group-hover:stroke-tag-pink-stroke-hover',
     },
   },
 };

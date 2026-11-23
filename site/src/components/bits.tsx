@@ -118,7 +118,7 @@ export function ParamSegmented<T extends string>({
   );
 }
 
-/** Preformatted text in Geist Mono that wraps on narrow screens. */
+/** Preformatted text in Plex Mono that wraps on narrow screens. */
 export function CodeBlock({
   children,
   tone = 'default',
@@ -131,7 +131,7 @@ export function CodeBlock({
   return (
     <pre
       className={clsx(
-        'max-h-96 overflow-auto rounded-sm border px-3 py-2 font-mono text-xs/5 wrap-break-word whitespace-pre-wrap',
+        'max-h-96 overflow-auto rounded-md border px-3 py-2 font-mono text-xs/5 wrap-break-word whitespace-pre-wrap',
         tone === 'danger' ? 'border-danger-20 bg-danger-5 text-danger' : 'border-border bg-well text-foreground',
         className
       )}

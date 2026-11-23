@@ -1,10 +1,10 @@
 import { registerTheme } from 'echarts/core';
 
 /** Font stack for ECharts canvas text; matches the UI's --font-sans. */
-const CHART_FONT_FAMILY = "'Geist Variable', Geist, system-ui, sans-serif";
+const CHART_FONT_FAMILY = "'IBM Plex Sans Variable', 'IBM Plex Sans', system-ui, sans-serif";
 
 /** Name of the registered ECharts theme; pass as `theme` to every ReactECharts instance. */
-export const ECHARTS_THEME = 'lab';
+export const ECHARTS_THEME = 'site';
 
 // Canvas text cannot inherit CSS fonts, so every chart takes the UI typeface from this theme.
 registerTheme(ECHARTS_THEME, {

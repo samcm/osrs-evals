@@ -1,1 +1,1 @@
-export { Sidebar, PRODUCT_NAME } from './Sidebar';
+export { Sidebar, Wordmark } from './Sidebar';

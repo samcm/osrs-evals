@@ -73,7 +73,7 @@ export function Alert({
   const displayIcon = icon !== undefined ? icon : config.defaultIcon;
 
   // Determine container classes based on variant
-  const containerClasses = accentBorder ? `${config.containerBorder} p-4` : `rounded-sm ${config.container} p-4`;
+  const containerClasses = accentBorder ? `${config.containerBorder} p-4` : `rounded-md ${config.container} p-4`;
 
   const iconClasses = accentBorder ? config.iconBorder : config.icon;
   const descriptionClasses = accentBorder ? config.descriptionBorder : config.description;

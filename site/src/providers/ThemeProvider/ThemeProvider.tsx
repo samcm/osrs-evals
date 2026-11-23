@@ -7,6 +7,9 @@ interface ThemeProviderProps {
   themeOverride?: Theme;
 }
 
+/** The page colour of each theme (--color-background), for the browser's own chrome; index.html has the same */
+const THEME_COLORS: Record<Theme, string> = { light: '#f0f4f7', dark: '#0d1218' };
+
 function getSystemTheme(): Theme {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
@@ -14,7 +17,7 @@ function getSystemTheme(): Theme {
 function getInitialTheme(): Theme {
   // Check localStorage first
   const stored = localStorage.getItem('theme') as Theme | null;
-  if (stored === 'light' || stored === 'dark' || stored === 'star') {
+  if (stored === 'light' || stored === 'dark') {
     return stored;
   }
   // Fall back to system preference
@@ -31,20 +34,12 @@ export function ThemeProvider({ children, themeOverride }: ThemeProviderProps): 
   // Apply theme to document and update theme-color meta tag
   useEffect(() => {
     const root = document.documentElement;
-    // Remove all theme classes first
-    root.classList.remove('dark', 'star');
-    // Add the current theme class if not light
-    if (effectiveTheme === 'dark') {
-      root.classList.add('dark');
-    } else if (effectiveTheme === 'star') {
-      root.classList.add('star');
-    }
+    root.classList.toggle('dark', effectiveTheme === 'dark');
 
     // Update theme-color meta tag for Safari/browser chrome
-    const themeColors: Record<Theme, string> = { light: '#efeee5', dark: '#0f0f0e', star: '#000a1a' };
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.setAttribute('content', themeColors[effectiveTheme]);
+      meta.setAttribute('content', THEME_COLORS[effectiveTheme]);
     }
   }, [effectiveTheme]);
 

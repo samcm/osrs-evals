@@ -183,7 +183,7 @@ const scopeParams = { model: list(), agent: list(), vendor: list(), thinking: li
 /** The root route's params: scope plus a theme override for shared links. */
 export const rootSearch = defineSearch({
   ...scopeParams,
-  theme: oneOf(['light', 'dark', 'star'], undefined),
+  theme: oneOf(['light', 'dark'], undefined),
   /** EthIQ's cut: every thinking level of each model in each harness, or only its best one. A view
    * param on every page, not carried from page to page */
   effort: oneOf(['all', 'best'], 'all'),

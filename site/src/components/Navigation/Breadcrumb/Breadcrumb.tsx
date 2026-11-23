@@ -1,6 +1,7 @@
 import { Fragment, type JSX } from 'react';
 import { Link } from '@tanstack/react-router';
 import { clsx } from 'clsx';
+import { ChevronRightIcon } from '@heroicons/react/16/solid';
 import type { BreadcrumbProps } from './Breadcrumb.types';
 
 /**
@@ -21,7 +22,11 @@ import type { BreadcrumbProps } from './Breadcrumb.types';
  * />
  * ```
  */
-export function Breadcrumb({ items, className, separator = '/' }: BreadcrumbProps): JSX.Element | null {
+export function Breadcrumb({
+  items,
+  className,
+  separator = <ChevronRightIcon className="size-4" />,
+}: BreadcrumbProps): JSX.Element | null {
   if (items.length === 0) return null;
 
   return (
@@ -55,7 +60,7 @@ export function Breadcrumb({ items, className, separator = '/' }: BreadcrumbProp
                 )}
               </li>
               {!isActive && (
-                <li aria-hidden="true" className={clsx('text-muted-50', phone)}>
+                <li aria-hidden="true" className={clsx('flex text-muted-50', phone)}>
                   {separator}
                 </li>
               )}

@@ -28,7 +28,7 @@ way to dig into that answer.
 Sam's words: "why are we reinventing structure and hierarchy in all these weird different angles?"
 Every page has the same skeleton, and nothing on a page invents its own.
 
-- **lab's shell, nothing bespoke.** lab's fixed `Sidebar`; the sticky breadcrumb bar names the page
+- **One shell, nothing bespoke.** The fixed `Sidebar`; the sticky breadcrumb bar names the page
   with the `Breadcrumb` (the landing page is "Home"); the content never repeats the page's name and
   has no H1. Content is a column of lab `Card`s.
 - **Skeleton:** `PageHeader` (a one-line description and facts, optional; the eval and run pages
@@ -209,11 +209,14 @@ Files: `src/pages/run/`.
 React 19, Vite 7, TypeScript, pnpm, `@tanstack/react-router` (file routes in `src/routes/`, kept
 thin; page UI in `src/pages/`), `@tanstack/react-query` for loading the JSON (components never call
 `fetch` directly; use the query options in `src/data/`), `@tanstack/react-table` for tables,
-Tailwind 4 with lab's tokens, Headless UI 2, Heroicons 2, ECharts 6 through `echarts-for-react`,
-Geist and Geist Mono via `@fontsource-variable`.
+Tailwind 4 with the site's own tokens, Headless UI 2, Heroicons 2, ECharts 6 through
+`echarts-for-react`, IBM Plex Sans (`@fontsource-variable/ibm-plex-sans`), IBM Plex Mono
+(`@fontsource/ibm-plex-mono`, 400 and 500) and Cinzel (`@fontsource-variable/cinzel`).
 
-The UI stack is ethpandaops/lab's (GPL-3.0; `NOTICE` lists what came from it): its tokens, its core
-components in `src/components/<Category>/<Name>/`, its chart chrome, its lint and its build. Read
+The UI stack is ethpandaops/lab's (GPL-3.0; `NOTICE` lists what came from it): its core components
+in `src/components/<Category>/<Name>/`, its chart chrome, its lint and its build. The theme (tokens,
+fonts, radii) and the shell's chrome (sidebar, header bar, mobile header, theme toggle) are the
+site's own; don't bring lab's look back. Read
 lab's own rules where this file is silent: <https://github.com/ethpandaops/lab/tree/main/.claude/rules>
 (styling, react, charts, loading states).
 
@@ -268,7 +271,7 @@ never for one page. The only custom-drawn component is the world map.
 - A run's `t` absent is its first tick: a click into a run opens it at the start and plays (at the
   default speed, once the game has drawn the world); a link with `t` is a shared moment and opens
   paused there. `acct` is the account a team's run follows.
-- Theme (light, dark or star) is a preference kept in local storage; `?theme=light|dark|star`
+- Theme (light or dark) is a preference kept in local storage; `?theme=light|dark`
   overrides it for a shared link, and the theme toggle drops it.
 
 ## Identity: logos, colours, sprites
@@ -313,7 +316,8 @@ never for one page. The only custom-drawn component is the world map.
   a render of each run's character. Sprites are drawn with `Sprite` (pixelated, integer scaling
   only). Every eval has a sprite; every quest has its icon; every skill has its icon.
 - Game art and the game's font stay out of the shell (sidebar, header, nav): those use Heroicons
-  and the stock type. Sprites appear only in page content, where they mark something in the game.
+  and the site's type (Cinzel only for the wordmark). Sprites appear only in page content, where
+  they mark something in the game.
 - Tool-call categories (write and run, read, wait, …) have one name and colour each, from
   `src/lib/tools.ts`. Token kinds and SDK outcomes keep theirs everywhere too.
 - Interface icons are Heroicons (lab's set): 24/outline in the nav, 20/solid in controls, 16/solid
@@ -321,26 +325,38 @@ never for one page. The only custom-drawn component is the world map.
 
 ## Visual rules
 
-lab's look: its shell, its three themes (light, dark, star) and its components, unmodified. Charts
-are artifacts, not decoration. If something looks off, use lab's own pattern for it; do not restyle
-its components or add a look of our own.
+The site's own theme, "rune and stone", on lab's components. Charts are artifacts, not decoration.
+If something looks off, fix it in the tokens or the shared component, never with a one-off style.
 
-- **Every value is a token in `src/styles/tokens.css`** (lab's, verbatim, plus the site's data
-  colours), used as a Tailwind class. Tailwind's defaults are removed, so `bg-red-500`,
-  `text-white` and `shadow-2xl` don't exist: use the semantic classes (`bg-surface`,
-  `bg-background`, `text-foreground`, `text-muted`, `border-border`, `bg-primary-10`, `text-danger`).
-  Every base colour is a `light-dark()` pair with its own value under `html.star`; data colours
-  (models, tool categories, token kinds, `data-*`, `chart-*`) read the same in every theme. Lint
-  rejects arbitrary values (`h-[300px]`), `dark:` variants, `leading-*`, opacity modifiers
-  (`bg-primary/10`: use a tint token such as `bg-primary-10`), colour literals and fixed inline
-  styles; `style` carries only values computed at runtime. Layouts Tailwind has no class for are
-  named utilities in `src/styles/utilities.css`. To add a token, follow lab's `styling.md`.
-- `src/styles/shadcn-legacy.css` and `src/components/ui/` are the old shadcn layer, kept only until
-  every page is ported. Never use them in new code.
-- **Depth:** page, card, border. No shadows beyond the library's defaults, no glows, gradients, blur
-  or lift on hover.
-- **Type:** Geist for text and numbers, Geist Mono only for identifiers (run ids, model ids, code).
-  Numbers use `tabular-nums`. No uppercase-tracked headings. Use the library's sizes.
+- **Every value is a token in `src/styles/tokens.css`**, used as a Tailwind class. Tailwind's
+  defaults are removed, so `bg-red-500`, `text-white` and `shadow-2xl` don't exist: use the
+  semantic classes (`bg-surface`, `bg-background`, `text-foreground`, `text-muted`,
+  `border-border`, `bg-primary-10`, `text-danger`). Two themes, light and dark: every base colour
+  and every `data-*` hue is a `light-dark()` pair, so `html.dark` switches them all; the model
+  colours (`--color-model-*`) read the same in both. Lint rejects arbitrary values (`h-[300px]`),
+  `dark:` variants, `leading-*`, opacity modifiers (`bg-primary/10`: use a tint token such as
+  `bg-primary-10`), colour literals and fixed inline styles; `style` carries only values computed
+  at runtime. Layouts Tailwind has no class for are named utilities in `src/styles/utilities.css`.
+  A token nothing reads is deleted.
+- **Palette roles.** Neutrals are cool blue-grey stone: on light a pale stone page, near-white
+  cards and the sidebar a shade darker than the page; on dark a deep blue-black in three distinct
+  steps (page, sidebar, card) and a hairline. `primary` is rune blue and marks only what is
+  interactive (links, focus, the selected segment, checked controls, primary buttons). `accent` is
+  coin gold and appears in two places only: the active nav item's 2px rule and the wordmark's
+  lozenge; never on data. Status (`success` moss, `warning` ochre, `danger` brick) is readable as
+  text on every surface of its theme. The data hues (`data-*`) are the site's own: deeper on light,
+  lighter on dark, lightness varied with hue so tool categories and token kinds stay apart in a
+  stack.
+- **Depth:** page, card, border. Only floating panels (popovers, menus, tooltips) have a shadow,
+  the theme's one soft `shadow-lg`; no glows, gradients, blur or lift on hover.
+- **Radii:** `rounded-xs` (3px) for marks (badges, swatches, skeleton bars), `rounded-sm` (6px)
+  for controls (buttons, inputs, segmented controls, nav items, tooltips), `rounded-md` (10px) for
+  containers (cards, tables, popovers and menus, the map, code blocks), `rounded-2xs` (2px) for
+  hairline marks, `rounded-full` for dots and tracks.
+- **Type:** IBM Plex Sans for text and numbers, IBM Plex Mono only for identifiers (run ids, model
+  ids, code). Numbers use `tabular-nums`. Cinzel (`font-wordmark`) sets the product's name in the
+  sidebar and the mobile header and nothing else. No uppercase-tracked headings: group labels and
+  headings are sentence case. Use the library's sizes.
 - **Colour is data.** The chrome is neutral; colour appears only for series, categories and status.
 - **Status colour carries judgement only** and always comes with a word or a mark. A plain number
   stays in the text colour. Heat scales use one hue in tint steps.
@@ -404,14 +420,18 @@ named on hover; the game and the map follow one account at a time (`acct`).
 
 ## Layout
 
-- lab's `Sidebar` (fixed from lg, collapsible to an icon rail with its state in local storage, a
-  drawer under lab's fixed mobile header below lg): Home, Runs and Compare; then **Evals** (every
-  eval the project runs, the most runs first, each with its own Heroicon; one without runs yet too:
-  its page says so in one sentence); then **Models**, a collapsible item per maker with its mark,
-  opening to its models (open when one is the page). The product's name heads the sidebar and the
-  mobile header, beside the `ThemeToggle` (light, dark, star). Over the content, the sticky
-  breadcrumb bar holds the `Breadcrumb`, which never loses its last crumb; on a phone the run and
-  eval-model pages keep the eval's crumb. The shell is `src/routes/__root.tsx`.
+- The `Sidebar` (fixed from lg on its own stone a step off the page, collapsible to an icon rail
+  with its state in local storage, a drawer under the fixed mobile header below lg): Home, Runs and
+  Compare; then **Evals** (every eval the project runs, the most runs first, each with its own
+  Heroicon; one without runs yet too: its page says so in one sentence); then **Models**, a
+  collapsible item per maker with its mark, opening to its models (open when one is the page).
+  Group labels are muted sentence case. Items are muted text; the page shown is full-strength with
+  a 2px gold rule at its left edge, no fill. The product's name (`Wordmark`: a gold lozenge and
+  "2004scape evals" in Cinzel; the lozenge alone on the rail) heads the sidebar and the mobile
+  header. Over the content, the sticky header bar holds the `Breadcrumb` (chevron separators),
+  which never loses its last crumb, and from lg the `ThemeToggle` at its right; on a phone the
+  mobile header has the menu button, the wordmark and the toggle, and the run and eval-model pages
+  keep the eval's crumb. The shell is `src/routes/__root.tsx`.
 - One page container (lab's `Container`); sections are `Card`s in grids with one gap size.
 - Tables are lab's `DataTable` driven by TanStack Table: numbers right-aligned, headers on one line,
   most important columns first (the pairing, then its result, then cost, so a phone shows the
@@ -464,7 +484,7 @@ everywhere: a faint dashed ring or underline on its icon, "≈" and one line of 
   exports and dependencies.
 - Run the Vite dev server (`cd site && pnpm dev`), which serves `public/data` (the `site-data`
   release, untarred into `public`), and look at every page you touched at 1440 and 390 wide, light
-  and dark (`?theme=dark`; star too for anything with colour), with agent-browser at device scale 2. `document.documentElement.scrollWidth` must equal the viewport width at 390.
+  and dark (`?theme=dark`), with agent-browser at device scale 2. `document.documentElement.scrollWidth` must equal the viewport width at 390.
 - Full-page captures show charts below the fold blank (they draw once scrolled into view), so
   scroll to each chart and capture the viewport to judge it.
 - Change every control, reload, and check the same view comes back from the URL.

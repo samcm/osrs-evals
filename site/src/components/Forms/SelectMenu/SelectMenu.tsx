@@ -78,7 +78,7 @@ export function SelectMenu<T>({
           anchor="bottom start"
           transition
           className={clsx(
-            'z-9999 mt-1 max-h-60 overflow-auto rounded-sm border border-border bg-surface data-leave:transition data-leave:duration-100 data-leave:ease-in data-closed:data-leave:opacity-0',
+            'z-9999 mt-1 max-h-60 overflow-auto rounded-md border border-border bg-surface data-leave:transition data-leave:duration-100 data-leave:ease-in data-closed:data-leave:opacity-0',
             expandToFit ? 'w-max' : 'w-button'
           )}
         >

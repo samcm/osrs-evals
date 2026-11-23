@@ -14,7 +14,7 @@ export interface ChartColors {
 
 /**
  * The colours a chart draws in: lab's `useThemeColors` for the chrome, and series colours (tokens)
- * resolved for the active theme, so every chart follows light, dark and star.
+ * resolved for the active theme, so every chart follows light and dark.
  */
 export function useChartColors(): ChartColors {
   const chrome = useThemeColors();

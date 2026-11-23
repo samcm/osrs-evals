@@ -1,6 +1,6 @@
 /**
- * Theme colours for code that draws on a canvas (the world maps, the heat map). The theme itself is
- * lab's: ThemeProvider (src/providers) keeps the reader's choice of light, dark or star, `?theme=`
+ * Theme colours for code that draws on a canvas (the world maps, the heat map). The theme's state is
+ * lab's: ThemeProvider (src/providers) keeps the reader's choice of light or dark, `?theme=`
  * overrides it for a shared link, and useTheme / useThemeColors (src/hooks) read it. This adds what
  * a canvas also needs: any token, such as a series colour, resolved to a colour it can draw.
  */

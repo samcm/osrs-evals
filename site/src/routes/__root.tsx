@@ -1,7 +1,6 @@
 import { type JSX, type ReactNode, useEffect, useState } from 'react';
 import {
   createRootRouteWithContext,
-  Link,
   Outlet,
   retainSearchParams,
   useRouter,
@@ -9,9 +8,10 @@ import {
   useSearch,
 } from '@tanstack/react-router';
 import { useQuery, type QueryClient } from '@tanstack/react-query';
+import { Bars2Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { ThemeToggle } from '@/components/Layout/ThemeToggle';
-import { Sidebar, PRODUCT_NAME } from '@/components/Layout/Sidebar';
+import { Sidebar, Wordmark } from '@/components/Layout/Sidebar';
 import { Container } from '@/components/Layout/Container';
 import { LoadingContainer } from '@/components/Layout/LoadingContainer';
 import { Breadcrumb } from '@/components/Navigation/Breadcrumb';
@@ -27,7 +27,8 @@ import { RETAINED_PARAMS, rootSearch } from '@/lib/search';
 import { modelInfo, modelSlug } from '@/lib/series';
 
 /**
- * Mobile header component with hamburger menu, the product's name, and theme toggle
+ * The mobile header: the menu button, the wordmark and the theme toggle, on the sidebar's stone
+ * so the drawer opens from it as one panel.
  */
 function MobileHeader({
   sidebarOpen,
@@ -36,24 +37,20 @@ function MobileHeader({
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
 }): JSX.Element {
+  const Icon = sidebarOpen ? XMarkIcon : Bars2Icon;
   return (
-    <div className="fixed inset-x-0 top-0 z-40 flex items-center justify-between border-b border-border bg-background p-4 sm:px-6 lg:hidden">
-      <div className="flex min-w-0 items-center gap-x-6">
+    <div className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between gap-x-3 border-b border-border bg-sidebar px-2 sm:px-4 lg:hidden">
+      <div className="flex min-w-0 items-center gap-x-2">
         <button
           type="button"
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="group -m-2.5 flex size-10 flex-col items-center justify-center gap-1.5 p-2.5 lg:hidden"
+          className="flex size-10 shrink-0 items-center justify-center rounded-sm text-muted transition-colors hover:text-foreground"
           aria-label="Toggle sidebar"
           aria-pressed={sidebarOpen}
         >
-          <span className="sr-only">Toggle sidebar</span>
-          <span className="h-0.5 w-6 origin-center rounded-full bg-muted transition-all duration-300 ease-out group-hover:bg-foreground group-aria-pressed:translate-y-2 group-aria-pressed:rotate-45" />
-          <span className="h-0.5 w-6 origin-center rounded-full bg-muted transition-all duration-300 ease-out group-hover:bg-foreground group-aria-pressed:opacity-0" />
-          <span className="h-0.5 w-6 origin-center rounded-full bg-muted transition-all duration-300 ease-out group-hover:bg-foreground group-aria-pressed:-translate-y-2 group-aria-pressed:-rotate-45" />
+          <Icon className="size-6" />
         </button>
-        <Link to="/" className="truncate font-display text-xl font-bold text-foreground">
-          {PRODUCT_NAME}
-        </Link>
+        <Wordmark />
       </div>
       <ThemeToggle />
     </div>
@@ -99,8 +96,9 @@ function useCrumbs(): BreadcrumbItem[] {
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
 /**
- * The app's shell, as lab's root layout: the sidebar (a drawer under the mobile header below lg),
- * the sticky breadcrumb bar naming the page, and the page in a Container, a column of cards.
+ * The app's shell: the sidebar (a drawer under the mobile header below lg), the sticky header bar
+ * (the breadcrumb naming the page, the theme toggle from lg), and the page in a Container, a column
+ * of cards.
  */
 function Shell({ children }: { children: ReactNode }): JSX.Element {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -145,10 +143,14 @@ function Shell({ children }: { children: ReactNode }): JSX.Element {
 
           {/* Main content */}
           <main
-            className={`min-w-0 bg-background pt-16.25 transition-all duration-200 lg:min-h-dvh lg:pt-0 ${sidebarCollapsed ? 'lg:pl-14' : 'lg:pl-56'}`}
+            className={`min-w-0 bg-background pt-14 transition-all duration-200 lg:min-h-dvh lg:pt-0 ${sidebarCollapsed ? 'lg:pl-14' : 'lg:pl-56'}`}
           >
-            <div className="z-20 flex h-12 items-center border-b border-border bg-background px-4 sm:px-6 lg:sticky lg:top-0 lg:px-8">
+            {/* The header bar: the breadcrumb, and from lg the theme toggle (the mobile header has it below) */}
+            <div className="z-20 flex h-12 items-center justify-between gap-x-4 border-b border-border bg-background px-4 sm:px-6 lg:sticky lg:top-0 lg:px-8">
               <Breadcrumb items={crumbs} />
+              <div className="max-lg:hidden">
+                <ThemeToggle />
+              </div>
             </div>
             <Container className="flex min-w-0 flex-col gap-6">{children}</Container>
           </main>
@@ -174,7 +176,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   component: RootComponent,
   pendingComponent: () => (
     <Shell>
-      <LoadingContainer className="h-96 rounded-sm" />
+      <LoadingContainer className="h-96 rounded-md" />
     </Shell>
   ),
   errorComponent: ({ error }) => (

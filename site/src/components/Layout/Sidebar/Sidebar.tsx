@@ -18,7 +18,6 @@ import {
   QueueListIcon,
   TrophyIcon,
 } from '@heroicons/react/24/outline';
-import { ThemeToggle } from '@/components/Layout/ThemeToggle';
 import { Tooltip } from '@/components/Overlays/Tooltip';
 import { BrandMark } from '@/components/marks';
 import { indexQuery } from '@/data/queries';
@@ -27,7 +26,29 @@ import { modelInfo, modelSlug } from '@/lib/series';
 import type { SidebarProps } from './Sidebar.types';
 
 /** The product's name: the sidebar's header and the mobile header */
-export const PRODUCT_NAME = '2004scape evals';
+const PRODUCT_NAME = '2004scape evals';
+
+/**
+ * The product's name in Cinzel beside its mark, a small gold lozenge; collapsed, the mark alone. Only
+ * the sidebar and the mobile header show it, and it always links home.
+ */
+export function Wordmark({ collapsed = false }: { collapsed?: boolean }): JSX.Element {
+  return (
+    <Link
+      to="/"
+      aria-label={collapsed ? PRODUCT_NAME : undefined}
+      className={clsx(
+        'flex min-w-0 items-center gap-2.5 text-foreground transition-colors hover:text-foreground-soft',
+        collapsed && 'justify-center p-2'
+      )}
+    >
+      <span aria-hidden="true" className="size-2 shrink-0 rotate-45 rounded-px bg-accent" />
+      {!collapsed && (
+        <span className="truncate font-wordmark text-base/none font-semibold tracking-wider">{PRODUCT_NAME}</span>
+      )}
+    </Link>
+  );
+}
 
 /** A heroicon for each eval (the shell keeps game art out); a new eval gets the beaker. */
 const EVAL_ICONS: Record<string, typeof HomeIcon> = {
@@ -58,9 +79,11 @@ interface Maker {
   models: string[];
 }
 
+/** An item is muted text; the page shown is full-strength, marked by a 2px gold rule at its left edge, no fill. */
 const navItemClassName =
-  'group flex items-center gap-x-2.5 rounded-sm text-muted transition-colors hover:bg-foreground-5 hover:text-foreground';
-const navItemActiveClassName = 'bg-foreground-7 text-foreground! [&>svg]:text-primary';
+  'group relative flex items-center gap-x-2.5 rounded-sm text-muted transition-colors hover:text-foreground';
+const navItemActiveClassName =
+  'font-medium text-foreground! before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent';
 
 /** The pathname the router shows */
 function usePathname(): string {
@@ -92,7 +115,7 @@ function NavLink({ page, collapsed }: { page: NavItem; collapsed: boolean }): JS
       aria-current={active ? 'page' : undefined}
       className={clsx(
         navItemClassName,
-        collapsed ? 'justify-center p-2' : 'px-2 py-1 text-sm/5 font-medium',
+        collapsed ? 'justify-center p-2' : 'py-1.5 pr-2 pl-3 text-sm/5',
         active && navItemActiveClassName
       )}
     >
@@ -120,8 +143,11 @@ function ModelLink({ model, onClick }: { model: string; onClick?: () => void }):
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
       className={clsx(
-        'flex items-center gap-x-2 rounded-sm px-2 py-1 text-sm/5 font-medium text-muted transition-colors hover:bg-foreground-5 hover:text-foreground',
-        active && 'bg-foreground-7 text-foreground!'
+        navItemClassName,
+        'py-1 pr-2 text-sm/5',
+        // Under its maker, the name lines up with the maker's; in the rail's flyout, with the heading
+        onClick ? 'pl-3' : 'pl-9.5',
+        active && navItemActiveClassName
       )}
     >
       <span className="truncate">{modelInfo(model).short}</span>
@@ -148,14 +174,14 @@ function MakerItem({ maker }: { maker: Maker }): JSX.Element {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className={clsx(navItemClassName, 'w-full px-2 py-1 text-left text-sm/5 font-medium')}
+        className={clsx(navItemClassName, 'w-full py-1.5 pr-2 pl-3 text-left text-sm/5')}
       >
         <BrandMark slug={maker.slug} size={16} />
         <span className="min-w-0 flex-1 truncate">{maker.name}</span>
         <ChevronRightIcon className={clsx('size-3.5 shrink-0 transition-transform', open && 'rotate-90')} />
       </button>
       {open && (
-        <div className="mt-0.5 ml-4 space-y-0.5 border-l border-border pl-2">
+        <div>
           {maker.models.map(m => (
             <ModelLink key={m} model={m} />
           ))}
@@ -175,7 +201,7 @@ function MakerFlyout({ maker }: { maker: Maker }): JSX.Element {
         aria-label={maker.name}
         className={clsx(
           navItemClassName,
-          'w-full justify-center p-2 data-open:bg-foreground-5 data-open:text-foreground',
+          'w-full justify-center p-2 data-open:text-foreground',
           here && navItemActiveClassName
         )}
       >
@@ -184,13 +210,11 @@ function MakerFlyout({ maker }: { maker: Maker }): JSX.Element {
       <PopoverPanel
         transition
         anchor={{ to: 'right start', gap: 18, padding: 8 }}
-        className="z-60 flex max-w-vw-less-4 min-w-40 flex-col rounded-sm border border-border bg-background p-2 shadow-lg transition duration-100 ease-out data-closed:-translate-x-1 data-closed:opacity-0"
+        className="z-60 flex max-w-vw-less-4 min-w-40 flex-col rounded-md border border-border bg-surface py-2 pr-2 shadow-lg transition duration-100 ease-out data-closed:-translate-x-1 data-closed:opacity-0"
       >
         {({ close }) => (
           <>
-            <div className="px-2 pt-0.5 pb-1 text-2xs font-semibold tracking-wider text-muted-60 uppercase">
-              {maker.name}
-            </div>
+            <div className="pt-0.5 pb-1 pl-3 text-xs text-muted">{maker.name}</div>
             {maker.models.map(m => (
               <ModelLink key={m} model={m} onClick={() => close()} />
             ))}
@@ -201,10 +225,10 @@ function MakerFlyout({ maker }: { maker: Maker }): JSX.Element {
   );
 }
 
-/** Group heading (Evals, Models); the collapsed rail draws a rule instead */
+/** Group heading (Evals, Models), in sentence case; the collapsed rail draws a short rule instead */
 function SubsectionHeader({ title, collapsed }: { title: string; collapsed: boolean }): JSX.Element {
-  if (collapsed) return <div aria-hidden="true" className="mx-2 mb-2 border-t border-border-50" />;
-  return <div className="mb-1 ml-1 text-2xs font-semibold tracking-wider text-muted-60 uppercase">{title}</div>;
+  if (collapsed) return <div aria-hidden="true" className="mx-3 mb-2 border-t border-border" />;
+  return <div className="mb-1 pl-3 text-xs text-muted">{title}</div>;
 }
 
 /** The nav: the main pages, then the evals (most runs first), then the models by maker */
@@ -247,9 +271,9 @@ function useNav(): { pages: NavItem[]; evals: NavItem[]; makers: Maker[] } {
 /** The groups of links, for the rail (collapsed or not) and the mobile drawer */
 function Nav({ collapsed }: { collapsed: boolean }): JSX.Element {
   const { pages, evals, makers } = useNav();
-  const list = collapsed ? 'space-y-1' : 'space-y-0.5';
+  const list = collapsed ? 'space-y-1' : 'space-y-px';
   return (
-    <nav className="flex flex-1 flex-col gap-y-4">
+    <nav className="flex flex-1 flex-col gap-y-5">
       <div className={list}>
         {pages.map(page => (
           <NavLink key={page.path} page={page} collapsed={collapsed} />
@@ -276,8 +300,8 @@ function Nav({ collapsed }: { collapsed: boolean }): JSX.Element {
 }
 
 /**
- * The app's sidebar, as lab's: fixed on the left from lg, collapsible to an icon rail (the caller
- * keeps that state), and a drawer under the mobile header below lg.
+ * The app's sidebar: a stone panel a step off the page, fixed on the left from lg, collapsible to an
+ * icon rail (the caller keeps that state), and a drawer under the mobile header below lg.
  */
 export function Sidebar({ sidebarOpen, setSidebarOpen, collapsed, setCollapsed }: SidebarProps): JSX.Element {
   return (
@@ -286,15 +310,15 @@ export function Sidebar({ sidebarOpen, setSidebarOpen, collapsed, setCollapsed }
       <Dialog open={sidebarOpen} onClose={setSidebarOpen} aria-label="Sidebar" className="relative z-30 lg:hidden">
         <DialogBackdrop
           transition
-          className="fixed inset-0 bg-background transition-opacity duration-300 ease-linear data-closed:opacity-0"
+          className="fixed inset-0 bg-sidebar transition-opacity duration-300 ease-linear data-closed:opacity-0"
         />
 
-        <div className="fixed inset-0 flex pt-16">
+        <div className="fixed inset-0 flex pt-14">
           <DialogPanel
             transition
             className="relative flex w-full flex-1 transform transition duration-300 ease-in-out data-closed:-translate-x-full"
           >
-            <div className="relative flex grow flex-col overflow-y-auto bg-background p-4">
+            <div className="relative flex grow flex-col overflow-y-auto bg-sidebar px-2 py-4 sm:px-4">
               <Nav collapsed={false} />
             </div>
           </DialogPanel>
@@ -304,41 +328,26 @@ export function Sidebar({ sidebarOpen, setSidebarOpen, collapsed, setCollapsed }
       {/* Static sidebar for desktop */}
       <div
         className={clsx(
-          'hidden border-r border-border bg-background transition-all duration-200 lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:flex-col',
+          'hidden border-r border-border bg-sidebar transition-all duration-200 lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:flex-col',
           collapsed ? 'lg:w-14' : 'lg:w-56'
         )}
       >
-        {/* Header */}
-        <div
-          className={clsx(
-            'flex h-12 shrink-0 items-center border-b border-border',
-            collapsed ? 'justify-center px-2' : 'justify-between px-3'
-          )}
-        >
-          {!collapsed && (
-            <Link to="/" className="truncate font-display text-lg/tight font-bold text-foreground hover:opacity-80">
-              {PRODUCT_NAME}
-            </Link>
-          )}
-          <ThemeToggle />
+        {/* The wordmark, level with the header bar beside it */}
+        <div className={clsx('flex h-12 shrink-0 items-center', collapsed ? 'justify-center' : 'px-5')}>
+          <Wordmark collapsed={collapsed} />
         </div>
 
         {/* Scrollable content */}
-        <div className={clsx('flex grow flex-col overflow-y-auto', collapsed ? 'px-2 py-3' : 'p-3')}>
+        <div className="flex grow flex-col overflow-y-auto px-2 py-3">
           <Nav collapsed={collapsed} />
         </div>
 
         {/* Footer */}
-        <div
-          className={clsx(
-            'flex shrink-0 border-t border-border-50 py-2',
-            collapsed ? 'justify-center' : 'justify-end px-2'
-          )}
-        >
+        <div className={clsx('flex shrink-0 py-2', collapsed ? 'justify-center' : 'justify-end px-2')}>
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
-            className="rounded-sm p-1.5 text-muted transition-colors hover:bg-primary-10 hover:text-primary"
+            className="rounded-sm p-1.5 text-muted transition-colors hover:bg-foreground-5 hover:text-foreground"
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {collapsed ? <ChevronRightIcon className="size-4" /> : <ChevronLeftIcon className="size-4" />}

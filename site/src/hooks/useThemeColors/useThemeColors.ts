@@ -52,27 +52,24 @@ function getComputedThemeColors(): ThemeColors {
 /**
  * Get current theme mode from HTML class
  *
- * Returns stable reference ('light', 'dark', or 'star') based on document.documentElement classes.
+ * Returns stable reference ('light' or 'dark') based on document.documentElement classes.
  * Used by useSyncExternalStore to detect theme changes.
  *
- * @returns {'light' | 'dark' | 'star'} Current theme mode
+ * @returns {'light' | 'dark'} Current theme mode
  */
-function getCurrentTheme(): 'light' | 'dark' | 'star' {
-  const classList = document.documentElement.classList;
-  if (classList.contains('star')) return 'star';
-  if (classList.contains('dark')) return 'dark';
-  return 'light';
+function getCurrentTheme(): 'light' | 'dark' {
+  return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
 }
 
 /**
  * Get theme colors as hex values suitable for chart libraries
  *
- * Reactively updates when theme changes (light/dark/star mode).
+ * Reactively updates when theme changes (light/dark mode).
  * Colors are computed from CSS variables (src/index.css), ensuring single source of truth.
  *
  * **How it works:**
  * 1. Observes `<html>` element class changes via MutationObserver
- * 2. Returns stable theme string ('light'/'dark'/'star') from getSnapshot
+ * 2. Returns stable theme string ('light'/'dark') from getSnapshot
  * 3. When theme changes, triggers re-computation via useMemo
  * 4. Reads CSS variables via `getComputedStyle` and converts to hex
  *
@@ -99,7 +96,7 @@ function getCurrentTheme(): 'light' | 'dark' | 'star' {
  */
 export function useThemeColors(): ThemeColors {
   // Observe HTML class changes to detect theme toggles
-  // getSnapshot returns stable string reference ('light'/'dark'/'star')
+  // getSnapshot returns stable string reference ('light'/'dark')
   const theme = useSyncExternalStore(
     callback => {
       const observer = new MutationObserver(callback);

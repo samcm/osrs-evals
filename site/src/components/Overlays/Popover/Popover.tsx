@@ -91,7 +91,7 @@ export function PopoverButton({ children, ...props }: PopoverButtonProps): JSX.E
 export function PopoverPanel({ children, className, ...props }: PopoverPanelProps): JSX.Element {
   return (
     <HeadlessPopoverPanel
-      className={clsx('z-50 rounded-sm bg-surface', 'outline-1 -outline-offset-1 outline-border', className)}
+      className={clsx('z-50 rounded-md bg-surface', 'outline-1 -outline-offset-1 outline-border', className)}
       {...props}
     >
       {children}

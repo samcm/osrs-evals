@@ -28,13 +28,13 @@ export function Checkbox({
       indeterminate={indeterminate}
       name={name}
       value={value}
-      className={`group relative inline-flex size-4 items-center justify-center ${rounded ? 'rounded-sm' : ''} border border-border bg-background transition-colors data-checked:border-primary data-checked:bg-primary data-disabled:border-border data-disabled:bg-surface data-disabled:data-checked:bg-surface data-focus:outline-2 data-focus:outline-offset-2 data-focus:outline-primary data-indeterminate:border-primary data-indeterminate:bg-primary ${className}`}
+      className={`group relative inline-flex size-4 items-center justify-center ${rounded ? 'rounded-xs' : ''} border border-border bg-background transition-colors data-checked:border-primary data-checked:bg-primary data-disabled:border-border data-disabled:bg-surface data-disabled:data-checked:bg-surface data-focus:outline-2 data-focus:outline-offset-2 data-focus:outline-primary data-indeterminate:border-primary data-indeterminate:bg-primary ${className}`}
       {...props}
     >
       <svg
         fill="none"
         viewBox="0 0 14 14"
-        className="pointer-events-none size-3.5 stroke-on-fill data-disabled:stroke-foreground-25"
+        className="pointer-events-none size-3.5 stroke-on-solid data-disabled:stroke-foreground-25"
       >
         <path
           d="M3 8L6 11L11 3.5"

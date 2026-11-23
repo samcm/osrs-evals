@@ -1,14 +1,20 @@
-The site's UI stack is copied from The Lab by ethPandaOps (https://github.com/ethpandaops/lab),
-licensed under the GNU General Public License v3.0. These files come from it, some adapted (lab's
-Ethereum-specific parts removed, osrs-evals' navigation, crumbs and data colours added):
+The site's UI components and tooling are copied from The Lab by ethPandaOps
+(https://github.com/ethpandaops/lab), licensed under the GNU General Public License v3.0. These
+files come from it, some adapted (lab's Ethereum-specific parts removed, osrs-evals' navigation,
+crumbs and radii added):
 
-- src/styles/tokens.css, src/styles/base.css, src/styles/utilities.css and the shape of
-  src/index.css
-- src/components/Elements, Forms, Layout, Navigation, Overlays (but Overlays/Tooltip, written here in
-  their style), Feedback, DataTable and
-  Lists/Table
-- src/components/Charts/chartChrome.ts and src/components/Charts/Sparkline
+- src/components/Elements, Forms, Layout (but not the Sidebar's and ThemeToggle's look), Navigation,
+  Overlays (but Overlays/Tooltip, written here in their style), Feedback, DataTable and Lists/Table
+- src/components/Charts/chartChrome.ts and src/components/Charts/Sparkline (the chart chrome)
 - src/providers, src/contexts and src/hooks/useTheme and useThemeColors
 - src/utils/color.ts and echarts-theme.ts
+- the structure of src/styles/base.css and src/styles/utilities.css (the layout utilities and
+  keyframes) and the shape of src/index.css
 - eslint.config.js, .prettierrc, knip.ts, vite.config.ts, the tsconfig files and
   pnpm-workspace.yaml
+
+The theme is the site's own and not from lab: the palette, data hues, type and radii in
+src/styles/tokens.css ("rune and stone": stone neutrals, rune-blue primary, coin-gold accent; IBM
+Plex Sans, IBM Plex Mono and Cinzel), and the chrome: the sidebar's look and wordmark
+(src/components/Layout/Sidebar), the header bar and mobile header (src/routes/__root.tsx) and the
+two-theme toggle (src/components/Layout/ThemeToggle).

@@ -89,7 +89,7 @@ export function PageHero({
     <Card>
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
         {mark && (
-          <span className="flex size-16 shrink-0 items-center justify-center rounded-sm bg-muted-10">{mark}</span>
+          <span className="flex size-16 shrink-0 items-center justify-center rounded-md bg-muted-10">{mark}</span>
         )}
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           {(lead || detail) && (

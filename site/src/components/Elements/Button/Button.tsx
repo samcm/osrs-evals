@@ -26,7 +26,6 @@ export function Button({
   trailingIcon,
   iconOnly = false,
   nowrap = false,
-  hyper = false,
   className,
   children,
   type = 'button',
@@ -38,11 +37,7 @@ export function Button({
     size,
     rounded,
     iconOnly,
-    className: clsx(
-      nowrap && 'whitespace-nowrap',
-      hyper && (variant === 'blank' ? 'button-hyper-blank' : 'button-hyper'),
-      className
-    ),
+    className: clsx(nowrap && 'whitespace-nowrap', className),
   });
 
   // Render icon with appropriate styles
