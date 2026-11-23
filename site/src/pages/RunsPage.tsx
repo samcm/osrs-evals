@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Tip } from '@/components/bits';
 import { BrainIcon } from 'lucide-react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
@@ -57,12 +58,14 @@ function ResultCell({ run, e }: { run: Run; e: Eval | undefined }) {
   const text = resultText(run, e);
   const word = outcomeWord(run);
   return (
-    <span className="inline-flex items-center gap-1.5" title={[e && `${value} ${e.measure.toLowerCase()}`, word !== 'Scored' && word].filter(Boolean).join(', ')}>
+    <Tip content={[e && `${value} ${e.measure.toLowerCase()}`, word !== 'Scored' && word].filter(Boolean).join(', ')}>
+    <span className="inline-flex items-center gap-1.5">
       {word !== 'Scored' && (
         <span aria-label={word} role="img" className={cn('size-2 shrink-0 rounded-full', word === 'Finished' ? 'bg-success' : 'border-2 border-destructive')} />
       )}
       {text}
     </span>
+    </Tip>
   );
 }
 
@@ -78,10 +81,12 @@ export function runColumns(oneEval: Eval | undefined): ColumnDef<Row, unknown>[]
             // A phone shows the eval's sprite in the pairing's cell, so the result fits beside it
             meta: { className: 'max-md:hidden' },
             cell: ({ row, getValue }) => (
-              <span className="inline-flex items-center gap-2" title={String(getValue())}>
-                <EvalMark evalId={row.original.eval} size={20} title={String(getValue())} />
-                <span className="@max-5xl/runs:sr-only">{String(getValue())}</span>
-              </span>
+              <Tip content={String(getValue())}>
+                <span className="inline-flex items-center gap-2">
+                  <EvalMark evalId={row.original.eval} size={20} title={String(getValue())} />
+                  <span className="@max-5xl/runs:sr-only">{String(getValue())}</span>
+                </span>
+              </Tip>
             ),
           }),
         ]),

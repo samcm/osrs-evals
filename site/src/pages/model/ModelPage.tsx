@@ -10,7 +10,7 @@ import { Fragment, useMemo } from 'react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { DataTable } from '@/components/DataTable';
-import { Empty } from '@/components/bits';
+import { Empty, Tip } from '@/components/bits';
 import { BrandMark, EvalMark, HarnessMark, ThinkingLevel, VariantLabel } from '@/components/marks';
 import { PairingFilters } from '@/components/PairingFilters';
 import { PageHeader, PageSection, PageToolbar, type MetaItem } from '@/components/page';
@@ -193,15 +193,21 @@ export function ModelPage() {
                   <TableHead>
                     <span className="sr-only">Eval</span>
                   </TableHead>
-                  <TableHead className="text-right" title="Among the models, by each one's best pairing">
-                    Place
+                  <TableHead className="text-right">
+                    <Tip content="Among the models, by each one's best pairing">
+                      <span>Place</span>
+                    </Tip>
                   </TableHead>
                   <TableHead className="text-right">Result</TableHead>
-                  <TableHead className="text-right max-md:hidden" title="Median per run: to the finish, or played">
-                    Time
+                  <TableHead className="text-right max-md:hidden">
+                    <Tip content="Median per run: to the finish, or played">
+                      <span>Time</span>
+                    </Tip>
                   </TableHead>
-                  <TableHead className="text-right max-md:hidden" title="Median per run">
-                    Cost
+                  <TableHead className="text-right max-md:hidden">
+                    <Tip content="Median per run">
+                      <span>Cost</span>
+                    </Tip>
                   </TableHead>
                   <TableHead className="text-right max-md:hidden">Runs</TableHead>
                 </TableRow>
@@ -216,7 +222,7 @@ export function ModelPage() {
                     <Fragment key={e.id}>
                       <TableRow className="cursor-pointer" onClick={() => navigate(evalLink(e))}>
                         <TableCell>
-                          <Link {...evalLink(e)} className="inline-flex max-w-full items-center gap-2 whitespace-nowrap hover:underline hover:underline-offset-4" title={e.title}>
+                          <Link {...evalLink(e)} className="inline-flex max-w-full items-center gap-2 whitespace-nowrap hover:underline hover:underline-offset-4">
                             <EvalMark evalId={e.id} size={20} title="" />
                             {/* A phone keeps the name short, so the place and result stay in view */}
                             <span className="truncate max-md:max-w-28">{e.title}</span>

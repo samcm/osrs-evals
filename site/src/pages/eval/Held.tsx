@@ -8,7 +8,7 @@
  */
 
 import { Link } from '@tanstack/react-router';
-import { Empty } from '@/components/bits';
+import { Empty, Tip } from '@/components/bits';
 import { Sprite, VariantLabel } from '@/components/marks';
 import { PageSection } from '@/components/page';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -36,10 +36,12 @@ export function heldTab(e: Eval): string | null {
 
 function ItemCell({ id, count, note }: { id: string; count: number; note?: string }) {
   return (
-    <li className="relative flex size-9 items-center justify-center rounded-sm bg-muted/60" title={`${itemName(id)}${count > 1 ? `, ${formatInt(count)}` : ''}${note ? `: ${note}` : ''}`}>
+    <Tip content={`${itemName(id)}${count > 1 ? `, ${formatInt(count)}` : ''}${note ? `: ${note}` : ''}`}>
+    <li className="relative flex size-9 items-center justify-center rounded-sm bg-muted/60">
       <Sprite src={itemSprite(id, count)} size={32} alt={itemName(id)} />
       {count > 1 && <span className="absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums text-shadow-sm text-shadow-card">{stackCount(count)}</span>}
     </li>
+    </Tip>
   );
 }
 
@@ -80,8 +82,12 @@ export function HeldView({ e, ranked, grid }: { e: Eval; ranked: RankedVariant[]
               </TableHead>
               <TableHead className="text-right">{e.measure}</TableHead>
               {trained.map(s => (
-                <TableHead key={s} className="w-px text-center" title={s.charAt(0).toUpperCase() + s.slice(1)}>
-                  <Sprite src={skillSrc(s)} size={20} alt={s} />
+                <TableHead key={s} className="w-px text-center">
+                  <Tip content={s.charAt(0).toUpperCase() + s.slice(1)}>
+                    <span className="inline-flex">
+                      <Sprite src={skillSrc(s)} size={20} alt={s} />
+                    </span>
+                  </Tip>
                 </TableHead>
               ))}
             </TableRow>
@@ -120,12 +126,14 @@ export function HeldView({ e, ranked, grid }: { e: Eval; ranked: RankedVariant[]
       <PageSection title="Most held" description={`Of ${formatInt(ended.length)} runs, how many ended holding each`}>
         <ol className="flex flex-wrap gap-x-3 gap-y-2">
           {common.slice(0, 48).map(([id, n]) => (
-            <li key={id} className="flex flex-col items-center gap-0.5" title={`${itemName(id)}: ${formatInt(n)} of ${formatInt(ended.length)} runs`}>
+            <Tip key={id} content={`${itemName(id)}: ${formatInt(n)} of ${formatInt(ended.length)} runs`}>
+            <li className="flex flex-col items-center gap-0.5">
               <span className="flex size-9 items-center justify-center rounded-sm bg-muted/60">
                 <Sprite src={itemSprite(id)} size={32} alt={itemName(id)} />
               </span>
               <span className="text-xs text-muted-foreground tabular-nums">{n}</span>
             </li>
+            </Tip>
           ))}
         </ol>
       </PageSection>
@@ -140,7 +148,7 @@ export function HeldView({ e, ranked, grid }: { e: Eval; ranked: RankedVariant[]
             >
               <span className="flex min-w-0 items-center justify-between gap-3 md:w-72 md:shrink-0">
                 {label(r)}
-                <span className="text-sm tabular-nums" title={e.measure}>
+                <span className="text-sm tabular-nums">
                   {resultText(r.run, e)}
                 </span>
               </span>

@@ -1,10 +1,11 @@
 /**
- * Small shared pieces on shadcn/ui: segmented controls (ToggleGroup, optionally bound to a URL
- * param), a disclosure (Collapsible), code, empty states, the page title. Identity marks are in
+ * Small shared pieces on shadcn/ui: a tooltip on any element (Tip), segmented controls (ToggleGroup, optionally bound to a URL
+ * param), a disclosure (Collapsible), code, empty states (Empty), the page title. Identity marks are in
  * marks.tsx.
  */
 
-import { useState, type ReactNode } from 'react';
+import { useState, type ReactElement, type ReactNode } from 'react';
+import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Run } from '@/data/types';
 import { outcomeWord } from '@/lib/evals';
@@ -12,6 +13,22 @@ import { useSearchUpdate } from '@/lib/search';
 import { PageHeader } from './page';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Empty as EmptyRoot, EmptyDescription } from '@/components/ui/empty';
+
+/**
+ * A shadcn Tooltip on an element, the element itself its trigger: the one way to say more on hover
+ * (never the browser's own `title`). Without content it is just the element.
+ */
+export function Tip({ content, children, side }: { content: ReactNode; children: ReactElement; side?: 'top' | 'right' | 'bottom' | 'left' }) {
+  if (content == null || content === '' || content === false) return children;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side={side}>{content}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 /** A run's outcome: a mark and a word. Finished is a filled dot, not finished a hollow ring. */
 export function Outcome({ run }: { run: Pick<Run, 'success'> }) {
@@ -70,9 +87,11 @@ export function Segmented<T extends string>({
       className={className}
     >
       {options.map(option => (
-        <ToggleGroupItem key={option.value} value={option.value} aria-label={option.title} title={option.title}>
-          {option.label}
-        </ToggleGroupItem>
+        <Tip key={option.value} content={option.title}>
+          <ToggleGroupItem value={option.value} aria-label={option.title}>
+            {option.label}
+          </ToggleGroupItem>
+        </Tip>
       ))}
     </ToggleGroup>
   );
@@ -119,9 +138,7 @@ export function Disclosure({
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
       <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md py-1 text-left text-xs font-medium text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50">
-        <span aria-hidden className="w-2 shrink-0 font-mono">
-          {open ? '−' : '+'}
-        </span>
+        <ChevronRight aria-hidden className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-90')} />
         <span>{title}</span>
         {meta && <span className="font-normal">{meta}</span>}
       </CollapsibleTrigger>
@@ -145,9 +162,13 @@ export function CodeBlock({ children, tone = 'default', className }: { children:
   );
 }
 
-/** What is missing, in one short sentence. */
+/** What is missing, in one short sentence: shadcn's Empty, its description alone. */
 export function Empty({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn('py-6 text-center text-sm text-pretty text-muted-foreground', className)}>{children}</p>;
+  return (
+    <EmptyRoot className={cn('p-6', className)}>
+      <EmptyDescription>{children}</EmptyDescription>
+    </EmptyRoot>
+  );
 }
 
 /**

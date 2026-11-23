@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Spinner } from '@/components/ui/spinner';
 import { createRootRouteWithContext, Link, Outlet, retainSearchParams } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
@@ -15,7 +16,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   component: Root,
   pendingComponent: () => (
     <Layout>
-      <Empty>Loading.</Empty>
+      <Empty>
+        <Spinner className="mx-auto" />
+      </Empty>
     </Layout>
   ),
   errorComponent: ({ error }) => (

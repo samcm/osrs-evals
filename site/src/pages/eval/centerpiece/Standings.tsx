@@ -10,6 +10,7 @@
  * pin is the run's pin there.
  */
 
+import { Tip } from '@/components/bits';
 import { Fragment } from 'react';
 import { Link } from '@tanstack/react-router';
 import { BrandMark, Sprite, VariantLabel } from '@/components/marks';
@@ -90,12 +91,16 @@ export function Standings({ e, rows, max, perRun, lit, stages }: { e: Eval; rows
           </TableHead>
           {(track || !target) && <TableHead className="text-right">{target ? <span className="sr-only">Progress</span> : 'Now'}</TableHead>}
           {target && !perRun && <TableHead className="text-right">Finished</TableHead>}
-          <TableHead className="text-right" title={perRun ? undefined : target ? 'Median time to finish, over finished runs' : 'Median over its runs'}>
-            {target ? (perRun ? 'Result' : 'Time') : perRun ? 'Result' : 'Median'}
+          <TableHead className="text-right">
+            <Tip content={perRun ? undefined : target ? 'Median time to finish, over finished runs' : 'Median over its runs'}>
+              <span>{target ? (perRun ? 'Result' : 'Time') : perRun ? 'Result' : 'Median'}</span>
+            </Tip>
           </TableHead>
           {track && (
-            <TableHead className="text-right" title={perRun ? undefined : 'Median per run'}>
-              Cost
+            <TableHead className="text-right">
+              <Tip content={perRun ? undefined : 'Median per run'}>
+                <span>Cost</span>
+              </Tip>
             </TableHead>
           )}
         </TableRow>
@@ -114,27 +119,28 @@ export function Standings({ e, rows, max, perRun, lit, stages }: { e: Eval; rows
             <Fragment key={run.id}>
               <TableRow className={cn('transition-opacity duration-150', fade, told && 'border-b-0')} {...hover}>
                 <TableCell>
-                  <Link
-                    to="/evals/$evalId/$model"
-                    params={{ evalId: evalSlug(e.id), model: modelSlug(variant.model) }}
-                    search={{ level: [variant.thinking], harness: [variant.agent] } as never}
-                    // The raced run in one sentence (site/summarize.py), on hover
-                    title={run.summary ?? undefined}
-                    className="flex min-w-0 items-center gap-1.5 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                  >
-                    <VariantLabel run={run} variant={variant} compact size={14} className="min-w-0" />
-                    {perRun && <span className="text-muted-foreground tabular-nums">#{run.epoch}</span>}
-                  </Link>
+                  {/* The raced run in one sentence (site/summarize.py), on hover */}
+                  <Tip content={run.summary}>
+                    <Link
+                      to="/evals/$evalId/$model"
+                      params={{ evalId: evalSlug(e.id), model: modelSlug(variant.model) }}
+                      search={{ level: [variant.thinking], harness: [variant.agent] } as never}
+                      className="flex min-w-0 items-center gap-1.5 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      <VariantLabel run={run} variant={variant} compact size={14} className="min-w-0" />
+                      {perRun && <span className="text-muted-foreground tabular-nums">#{run.epoch}</span>}
+                    </Link>
+                  </Tip>
                 </TableCell>
                 {track ? (
                   <TableCell>
                     {/* The track opens the run: a hairline to the end, the stages as ticks, the run's line (its harness's dash) to its pin */}
+                    <Tip content={row.status}>
                     <Link
                       to="/runs/$runId"
                       params={{ runId: run.id }}
                       // A click into a run opens it at its start, playing
                       search={{} as never}
-                      title={row.status ?? undefined}
                       aria-label={`Epoch ${run.epoch}: ${formatInt(row.value)}`}
                       className="flex items-center gap-1.5 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                     >
@@ -145,7 +151,6 @@ export function Standings({ e, rows, max, perRun, lit, stages }: { e: Eval; rows
                           <span
                             key={s.stage}
                             aria-hidden
-                            title={s.name}
                             className={cn('absolute top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full', row.value >= s.stage ? variant.color.swatchClassName : 'border bg-card')}
                             style={{ left: `${Math.min(1, s.stage / max) * 100}%` }}
                           />
@@ -155,23 +160,26 @@ export function Standings({ e, rows, max, perRun, lit, stages }: { e: Eval; rows
                         </span>
                       </span>
                       {row.mark && !target && (
-                        <span title={row.mark.name} className={cn('flex shrink-0', row.mark.inferred && 'border-b border-dashed border-muted-foreground')}>
+                        <span className={cn('flex shrink-0', row.mark.inferred && 'border-b border-dashed border-muted-foreground')}>
                           <Sprite src={row.mark.src} size={14} alt={row.mark.name} />
                         </span>
                       )}
                       {!target && (
-                        <span className="w-10 shrink-0 text-right text-muted-foreground tabular-nums" title={formatInt(row.value)}>
+                        <span className="w-10 shrink-0 text-right text-muted-foreground tabular-nums">
                           {formatAxisNumber(row.value)}
                         </span>
                       )}
                     </Link>
+                    </Tip>
                   </TableCell>
                 ) : (
                   !target && (
                     <TableCell className="text-right text-muted-foreground tabular-nums">
-                      <Link to="/runs/$runId" params={{ runId: run.id }} search={{} as never} title={row.status ?? undefined}>
-                        {formatAxisNumber(row.value)}
-                      </Link>
+                      <Tip content={row.status}>
+                        <Link to="/runs/$runId" params={{ runId: run.id }} search={{} as never}>
+                          {formatAxisNumber(row.value)}
+                        </Link>
+                      </Tip>
                     </TableCell>
                   )
                 )}
@@ -181,9 +189,15 @@ export function Standings({ e, rows, max, perRun, lit, stages }: { e: Eval; rows
                     <span className="text-muted-foreground"> of {formatInt(p.runs.length)}</span>
                   </TableCell>
                 )}
-                <TableCell className="text-right tabular-nums" title={target ? undefined : formatInt(perRun ? resultValue(run) : p.medianResult)}>
+                <TableCell className="text-right tabular-nums">
                   {/* Without a target a value can run to millions: compact, exact on hover */}
-                  {target ? (perRun ? resultText(run, e) : times.length ? gameTime(e, median(times)!) : '–') : formatAxisNumber((perRun ? resultValue(run) : p.medianResult) ?? 0)}
+                  {target ? (
+                    perRun ? resultText(run, e) : times.length ? gameTime(e, median(times)!) : '–'
+                  ) : (
+                    <Tip content={formatInt(perRun ? resultValue(run) : p.medianResult)}>
+                      <span>{formatAxisNumber((perRun ? resultValue(run) : p.medianResult) ?? 0)}</span>
+                    </Tip>
+                  )}
                 </TableCell>
                 {track && <TableCell className="text-right tabular-nums">{formatCost(perRun ? run.cost : median(p.runs.map(r => r.cost)))}</TableCell>}
               </TableRow>
@@ -192,15 +206,16 @@ export function Standings({ e, rows, max, perRun, lit, stages }: { e: Eval; rows
                 <TableRow className={cn('transition-opacity duration-150 hover:bg-transparent', fade)} {...hover}>
                   <TableCell colSpan={columns} className="pt-0">
                     {/* The line is held while the chapters load, so the rows never jump */}
-                    <Link
-                      to="/runs/$runId"
-                      params={{ runId: run.id }}
-                      search={(row.chapter ? { t: row.chapter.from_tick } : {}) as never}
-                      title={row.chapter ? `${row.chapter.title}. ${row.chapter.text}` : undefined}
-                      className="block truncate rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-                    >
-                      {row.chapter?.title ?? '\u00a0'}
-                    </Link>
+                    <Tip content={row.chapter?.text}>
+                      <Link
+                        to="/runs/$runId"
+                        params={{ runId: run.id }}
+                        search={(row.chapter ? { t: row.chapter.from_tick } : {}) as never}
+                        className="block truncate rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                      >
+                        {row.chapter?.title ?? '\u00a0'}
+                      </Link>
+                    </Tip>
                   </TableCell>
                 </TableRow>
               )}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Tip } from '@/components/bits';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { loadTrimmedSprite, type TrimmedSprite } from '@/lib/assets';
@@ -522,9 +523,11 @@ export function WorldMap({
   };
 
   const button = (text: string, title: string, onClick: () => void) => (
-    <Button type="button" variant="outline" size="sm" title={title} aria-label={title} onClick={onClick}>
-      {text}
-    </Button>
+    <Tip content={title}>
+      <Button type="button" variant="outline" size="sm" aria-label={title} onClick={onClick}>
+        {text}
+      </Button>
+    </Tip>
   );
 
   const failed = metaFailed || imageFailed;

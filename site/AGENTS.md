@@ -214,6 +214,14 @@ is, and use that: a list with columns is a `Table` (through `DataTable`), never 
 hand beside or inside a chart; a note under a chart is a `CardDescription` or a table row, never a
 one-off tooltip trigger. Draw something yourself only when no shadcn component fits, and say why in
 the file.
+The same goes for the small things (Sam: "make sure we are using shadcn everywhere"): anything said
+on hover is a shadcn `Tooltip` (`Tip` in `components/bits.tsx`), never the browser's `title`; anything
+clickable is a `Button` (ghost, with overrides for a list row or a track mark) or a `Toggle`, never a
+bare `<button>`; a sortable header is the data-table ghost `Button`; a box that scrolls inside a card is
+a `ScrollArea` (its `viewportRef` for code that keeps a row in view); an empty state is `Empty`;
+loading is `Spinner` or `Skeleton`; a key on a tooltip is `Kbd`; a table the agent wrote in Markdown
+is a `Table`. Icons are lucide's, not hand-drawn SVG. Charts draw their own marks in SVG; nothing else
+does.
 
 **Use the libraries; don't hand-roll UI.** Every component comes from **shadcn/ui** (Radix
 primitives, in `src/components/ui/`, added with `npx shadcn@latest add <name>`): Card, Button,

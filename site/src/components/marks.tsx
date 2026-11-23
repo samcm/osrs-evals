@@ -16,6 +16,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { BrainIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tip } from './bits';
 import type { Run } from '@/data/types';
 import { brandSrc, itemSrc, loadTrimmedSprite } from '@/lib/assets';
 import { evalArt } from '@/lib/evals';
@@ -95,7 +96,6 @@ export function Sprite({
       role={alt ? 'img' : undefined}
       aria-label={alt || undefined}
       aria-hidden={alt ? undefined : true}
-      title={alt || undefined}
       data-sprite
       data-failed={failed || undefined}
       className={cn('inline-block shrink-0 align-middle', SPRITE_SIZES[size], className)}
@@ -114,7 +114,8 @@ export type BrandSize = keyof typeof BRAND_SIZES;
  * `program` is the scripted baseline's game sprite. One without a logo gets a muted letter tile.
  */
 export function BrandMark({ slug, size = 16, title, className }: { slug: string; size?: BrandSize; title?: string; className?: string }) {
-  const a11y = title ? { role: 'img', 'aria-label': title, title } : { 'aria-hidden': true };
+  // Its name for screen readers; a hover name is the caller's Tip where the mark stands alone
+  const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': true };
   if (slug === 'program') return <Sprite src={brandSrc('program')!} size={size} alt={title ?? ''} className={className} />;
   const src = brandSrc(slug);
   if (!src) {
@@ -182,16 +183,22 @@ function ProgramLabel({ size, swatch, color, className }: { size: BrandSize; swa
 /** An agent harness as its mark, in the muted colour so the model's vendor mark leads; its name on hover. */
 export function HarnessMark({ agent, fallback, size = 14, className }: { agent: string; fallback?: string; size?: BrandSize; className?: string }) {
   const info = agentInfo(agent, fallback);
-  return <BrandMark slug={info.slug} size={size} title={info.name} className={cn('bg-muted-foreground', className)} />;
+  return (
+    <Tip content={info.name}>
+      <BrandMark slug={info.slug} size={size} title={info.name} className={cn('bg-muted-foreground', className)} />
+    </Tip>
+  );
 }
 
 /** A thinking level: a brain and the level's word, muted, beside the model it belongs to. */
 export function ThinkingLevel({ level, className }: { level: string; className?: string }) {
   return (
-    <span className={cn('inline-flex shrink-0 items-center gap-0.5 text-muted-foreground', className)} title={thinkingTitle(level)}>
-      <BrainIcon aria-hidden className="size-3" />
-      <span className="text-xs">{levelName(level)}</span>
-    </span>
+    <Tip content={thinkingTitle(level)}>
+      <span className={cn('inline-flex shrink-0 items-center gap-0.5 text-muted-foreground', className)}>
+        <BrainIcon aria-hidden className="size-3" />
+        <span className="text-xs">{levelName(level)}</span>
+      </span>
+    </Tip>
   );
 }
 
@@ -200,11 +207,13 @@ export function ModelLabel({ model, compact, swatch, size = 16, className }: Lab
   const info = modelInfo(model);
   if (info.vendor.slug === 'program') return <ProgramLabel size={size} swatch={swatch} color={info.color} className={className} />;
   return (
-    <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)} title={compact ? info.name : model}>
-      {swatch && <Swatch color={info.color} />}
-      <BrandMark slug={info.vendor.slug} size={size} title={info.vendor.name} />
-      <span className="truncate">{compact ? info.short : info.name}</span>
-    </span>
+    <Tip content={compact ? info.name : undefined}>
+      <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
+        {swatch && <Swatch color={info.color} />}
+        <BrandMark slug={info.vendor.slug} size={size} title={info.vendor.name} />
+        <span className="truncate">{compact ? info.short : info.name}</span>
+      </span>
+    </Tip>
   );
 }
 
@@ -236,7 +245,7 @@ export function VariantLabel({
   const model = modelInfo(v.model);
   if (isProgram(v.agent, run?.agent_name)) return <ProgramLabel size={size} swatch={swatch} color={v.color} className={className} />;
   return (
-    <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)} title={v.name}>
+    <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
       {swatch && <Swatch color={v.color} />}
       <BrandMark slug={model.vendor.slug} size={size} title={model.vendor.name} />
       <span className="truncate">{compact ? model.short : model.name}</span>

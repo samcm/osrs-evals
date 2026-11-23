@@ -9,7 +9,9 @@
 import { useEffect, useMemo } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
 import { Sprite } from '@/components/marks';
+import { PauseIcon, PlayIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Kbd } from '@/components/ui/kbd';
 import { Slider } from '@/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -49,21 +51,21 @@ function EventMark({ mark }: { mark: Mark }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => {
             pause();
             commit(mark.tick);
           }}
           aria-label={mark.events.map(eventTitle).join(', ')}
           className={cn(
-            'absolute top-0 flex size-4 -translate-x-1/2 items-center justify-center rounded-sm text-xs leading-none text-muted-foreground tabular-nums outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
-            inferred && 'border-b border-dashed border-muted-foreground'
+            'absolute top-0 size-4 -translate-x-1/2 rounded-sm p-0 text-xs leading-none font-normal text-muted-foreground tabular-nums hover:bg-transparent',
+            inferred && 'rounded-none border-0 border-b border-dashed border-muted-foreground'
           )}
           style={{ left: mark.left }}
         >
           {e.kind === 'attempt' ? e.attempt : <Sprite src={e.kind === 'death' ? skillSrc('hitpoints') : e.quest ? questSrc(e.quest) : uiSrc('quests')} size={MARK} alt="" />}
-        </button>
+        </Button>
       </TooltipTrigger>
       <TooltipContent>
         {mark.events.map((ev, i) => (
@@ -127,11 +129,16 @@ export function Playback({ run, clock, measure, chapters }: { run: RunDetail; cl
   const label = measure === 'ticks' ? `${formatInt(Math.round(tick))} ticks` : formatClock(clock.toSeconds(tick));
   return (
     <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-2">
-      <Button variant="outline" size="icon-sm" onClick={toggle} aria-label={head.playing ? 'Pause' : 'Play'} aria-keyshortcuts="Space" title={head.playing ? 'Pause' : 'Play'}>
-        <svg aria-hidden viewBox="0 0 10 10" className="fill-current">
-          {head.playing ? <path d="M1.5 1h2.5v8H1.5zM6 1h2.5v8H6z" /> : <path d="M2 1l7 4-7 4z" />}
-        </svg>
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="outline" size="icon-sm" onClick={toggle} aria-label={head.playing ? 'Pause' : 'Play'} aria-keyshortcuts="Space">
+            {head.playing ? <PauseIcon className="fill-current" /> : <PlayIcon className="fill-current" />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          {head.playing ? 'Pause' : 'Play'} <Kbd>Space</Kbd>
+        </TooltipContent>
+      </Tooltip>
       <div className="order-first flex min-w-0 basis-full flex-col gap-1 sm:order-none sm:basis-0 sm:flex-1">
         {marks.length > 0 && (
           <div className="relative h-4">
@@ -162,14 +169,14 @@ export function Playback({ run, clock, measure, chapters }: { run: RunDetail; cl
                   <li key={c.from_tick} className="flex min-w-0" style={{ width: `${(Math.min(max, c.to_tick) - Math.min(max, c.from_tick)) / max * 100}%` }}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
                           aria-label={c.title}
                           onClick={() => {
                             pause();
                             commit(c.from_tick);
                           }}
-                          className={cn('h-full w-full rounded-full outline-none hover:bg-foreground/40 focus-visible:ring-3 focus-visible:ring-ring/50', current ? 'bg-primary' : 'bg-muted-foreground/25')}
+                          className={cn('h-full w-full rounded-full border-0 p-0 hover:bg-foreground/40 active:not-aria-[haspopup]:translate-y-0', current ? 'bg-primary' : 'bg-muted-foreground/25')}
                         />
                       </TooltipTrigger>
                       <TooltipContent>{c.title}</TooltipContent>

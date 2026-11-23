@@ -10,6 +10,8 @@
 
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { Tip } from '@/components/bits';
+import { Button } from '@/components/ui/button';
 import { hoverProps, useHover } from '@/lib/hover';
 import type { LegendState } from '@/lib/legend';
 import type { SeriesSpec } from '@/lib/chartSeries';
@@ -102,20 +104,18 @@ export function KeyLegend({ items, legend, className }: { items: LegendItem[]; l
         const shown = legend.visible(id);
         return (
           <li key={key} className="transition-opacity" style={{ opacity: hover.opacity(id) }}>
-            <button
-              type="button"
-              {...hoverProps(id)}
-              aria-pressed={shown}
-              aria-label={item.name}
-              title={legend.focus === id ? 'Click to show every series' : 'Click to hide; double-click to show only this'}
-              onClick={event => (event.detail >= 2 ? legend.isolate(id) : legend.toggle(id))}
-              className={cn(
-                'flex items-center gap-1.5 rounded-sm transition-opacity outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                !shown && 'opacity-40'
-              )}
-            >
-              {content}
-            </button>
+            <Tip content={legend.focus === id ? 'Click to show every series' : 'Click to hide; double-click to show only this'}>
+              <Button
+                variant="ghost"
+                {...hoverProps(id)}
+                aria-pressed={shown}
+                aria-label={item.name}
+                onClick={event => (event.detail >= 2 ? legend.isolate(id) : legend.toggle(id))}
+                className={cn('h-auto gap-1.5 rounded-sm border-0 p-0 text-xs font-normal hover:bg-transparent active:not-aria-[haspopup]:translate-y-0', !shown && 'opacity-40')}
+              >
+                {content}
+              </Button>
+            </Tip>
           </li>
         );
       })}

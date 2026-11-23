@@ -7,8 +7,11 @@
  * once to where all the eval's runs went. On a phone the standings come first, the map under them.
  */
 
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
+import { PauseIcon, PlayIcon } from 'lucide-react';
+import { Tip } from '@/components/bits';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -166,17 +169,11 @@ export function Centerpiece({
     >
       <div ref={standingsRef} className="relative flex min-w-0 flex-col gap-2 py-4 lg:col-span-5 lg:self-start 3xl:col-span-4" style={beside ? { maxHeight: height } : undefined}>
         <CardContent className="flex shrink-0 items-center gap-3">
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={() => (head.playing ? pause() : play())}
-            aria-label={head.playing ? 'Pause' : 'Play'}
-            title={head.playing ? 'Pause' : 'Play'}
-          >
-            <svg aria-hidden viewBox="0 0 10 10" className="fill-current">
-              {head.playing ? <path d="M1.5 1h2.5v8H1.5zM6 1h2.5v8H6z" /> : <path d="M2 1l7 4-7 4z" />}
-            </svg>
-          </Button>
+          <Tip content={head.playing ? 'Pause' : 'Play'}>
+            <Button variant="outline" size="icon-sm" onClick={() => (head.playing ? pause() : play())} aria-label={head.playing ? 'Pause' : 'Play'}>
+              {head.playing ? <PauseIcon className="fill-current" /> : <PlayIcon className="fill-current" />}
+            </Button>
+          </Tip>
           <Slider
             aria-label="Game time"
             min={0}
@@ -190,13 +187,15 @@ export function Centerpiece({
             onValueCommit={([v]) => head.settle(v)}
             className="min-w-0 flex-1"
           />
-          <span className="shrink-0 text-right text-sm text-muted-foreground tabular-nums" title={`Tick ${formatInt(Math.round(head.tick))}`}>
-            {gameTime(e, head.tick)}
-          </span>
+          <Tip content={`Tick ${formatInt(Math.round(head.tick))}`}>
+            <span className="shrink-0 text-right text-sm text-muted-foreground tabular-nums">{gameTime(e, head.tick)}</span>
+          </Tip>
         </CardContent>
-        <CardContent className="min-h-0 overflow-y-auto">
-          <Standings e={e} rows={lanes} max={top} perRun={agg === 'runs'} lit={lit} stages={target != null ? stages : []} />
-        </CardContent>
+        <ScrollArea className="min-h-0 flex-1">
+          <CardContent>
+            <Standings e={e} rows={lanes} max={top} perRun={agg === 'runs'} lit={lit} stages={target != null ? stages : []} />
+          </CardContent>
+        </ScrollArea>
       </div>
       <div className="relative min-w-0 border-t lg:col-span-7 lg:border-t-0 3xl:col-span-8 lg:border-l" onPointerMove={onPointerMove} onPointerLeave={() => setHovered(undefined)}>
         {width === 0 || !grid ? (

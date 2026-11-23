@@ -12,6 +12,7 @@
  * (Playback.tsx) is the card's footer.
  */
 
+import { Skeleton } from '@/components/ui/skeleton';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RunDetail } from '@/data/types';
 import { cn } from '@/lib/utils';
@@ -97,9 +98,9 @@ export function Player({ run, head, autoplay, account }: { run: RunDetail; head:
   return (
     <div className="relative aspect-video w-full overflow-hidden bg-muted">
       {/* Until rs-world has drawn the character: the closest frame we have, dimmed and breathing */}
-      <div className={cn('absolute inset-0 animate-pulse transition-opacity', drawn && 'opacity-0')}>
+      <Skeleton className={cn('absolute inset-0 rounded-none bg-transparent transition-opacity', drawn && 'opacity-0')}>
         <div className="size-full opacity-40">{still('')}</div>
-      </div>
+      </Skeleton>
       <iframe
         ref={frame}
         key={session}

@@ -6,7 +6,7 @@ import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { Line, LineChart, YAxis, XAxis } from 'recharts';
 import { cn } from '@/lib/utils';
 import { DataTable } from '@/components/DataTable';
-import { Empty } from '@/components/bits';
+import { Empty, Tip } from '@/components/bits';
 import { VariantLabel } from '@/components/marks';
 import type { Eval, Run } from '@/data/types';
 import { cssColor } from '@/lib/chartSeries';
@@ -58,10 +58,12 @@ function columns(e: Eval, curves: Map<string, RunCurve>): ColumnDef<Run, unknown
         const value = resultText(run, e);
         if (!target) return value;
         return (
-          <span className="inline-flex items-center gap-1.5" title={run.success ? 'Finished' : 'Not finished'}>
-            <span aria-hidden className={cn('size-2 rounded-full', run.success ? 'bg-success' : 'border-2 border-destructive')} />
-            {value}
-          </span>
+          <Tip content={run.success ? 'Finished' : 'Not finished'}>
+            <span className="inline-flex items-center gap-1.5">
+              <span aria-hidden className={cn('size-2 rounded-full', run.success ? 'bg-success' : 'border-2 border-destructive')} />
+              {value}
+            </span>
+          </Tip>
         );
       },
     }),

@@ -7,6 +7,7 @@
  * pairing by the eval's score, its swatch keying its line; a row lights its line, a click isolates it.
  */
 
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
@@ -239,15 +240,17 @@ export function FinishChart({
       </Card>
       {/* Beside the chart, as tall as it, its rows scrolling inside; under it on a narrower screen */}
       <Card className="min-w-0 xl:col-span-5 xl:h-0 xl:min-h-full">
-        <CardContent className="min-h-0 flex-1 overflow-y-auto px-0">
-          <DataTable
-            data={standings}
-            columns={columns}
-            getRowId={s => s.r.variant.key}
-            hoverId={s => s.r.variant.key}
-            onRowClick={s => legend.isolate(s.r.variant.key)}
-          />
-        </CardContent>
+        <ScrollArea className="min-h-0 flex-1">
+          <CardContent className="px-0">
+            <DataTable
+              data={standings}
+              columns={columns}
+              getRowId={s => s.r.variant.key}
+              hoverId={s => s.r.variant.key}
+              onRowClick={s => legend.isolate(s.r.variant.key)}
+            />
+          </CardContent>
+        </ScrollArea>
       </Card>
     </div>
   );

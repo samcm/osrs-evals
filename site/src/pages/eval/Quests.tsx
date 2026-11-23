@@ -8,7 +8,7 @@
  */
 
 import { Link } from '@tanstack/react-router';
-import { Empty } from '@/components/bits';
+import { Empty, Tip } from '@/components/bits';
 import { Sprite, VariantLabel } from '@/components/marks';
 import { PageSection } from '@/components/page';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -32,10 +32,12 @@ function stepOf(s: Step): { key: string; label: string; quest: string; badge?: s
 
 function StepCell({ step, time }: { step: ReturnType<typeof stepOf>; time?: string }) {
   return (
-    <li className="relative flex size-9 items-center justify-center rounded-sm bg-muted/60" title={time ? `${step.label}, ${time}` : step.label}>
+    <Tip content={time ? `${step.label}, ${time}` : step.label}>
+    <li className="relative flex size-9 items-center justify-center rounded-sm bg-muted/60">
       <Sprite src={questSrc(step.quest)} size={32} alt={step.label} />
       {step.badge && <span className="absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums text-shadow-sm text-shadow-card">{step.badge}</span>}
     </li>
+    </Tip>
   );
 }
 
@@ -107,7 +109,7 @@ export function QuestsView({ e, ranked, grid }: { e: Eval; ranked: RankedVariant
                   <VariantLabel run={r.run} variant={r.variant} compact />
                   <span className="text-muted-foreground tabular-nums">#{r.run.epoch}</span>
                 </Link>
-                <span className="text-sm tabular-nums" title={e.measure}>
+                <span className="text-sm tabular-nums">
                   {resultText(r.run, e)}
                 </span>
               </span>

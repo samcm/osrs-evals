@@ -5,13 +5,14 @@
  *   <SeriesLabel series={variantSeries(run)} size={14} />
  */
 
+import { Tip } from '@/components/bits';
 import { cn } from '@/lib/utils';
 import type { SeriesSpec } from '@/lib/chartSeries';
 import { BrandMark, Sprite, ThinkingLevel, type BrandSize } from '@/components/marks';
 
 export function SeriesLabel({ series, size = 14, className }: { series: SeriesSpec; size?: BrandSize; className?: string }) {
   return (
-    <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)} title={series.name}>
+    <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
       {series.sprite ? (
         <Sprite src={series.sprite} size={size} alt="" />
       ) : series.vendor ? (
@@ -22,7 +23,11 @@ export function SeriesLabel({ series, size = 14, className }: { series: SeriesSp
       )}
       {series.label && <span className="truncate">{series.label}</span>}
       {series.thinking && <ThinkingLevel level={series.thinking} />}
-      {series.harness && (series.vendor || series.sprite) && <BrandMark slug={series.harness.slug} size={size} title={series.harness.name} className="bg-muted-foreground" />}
+      {series.harness && (series.vendor || series.sprite) && (
+        <Tip content={series.harness.name}>
+          <BrandMark slug={series.harness.slug} size={size} title={series.harness.name} className="bg-muted-foreground" />
+        </Tip>
+      )}
     </span>
   );
 }

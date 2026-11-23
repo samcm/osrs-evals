@@ -210,7 +210,6 @@ function ThemeToggle() {
       size="icon"
       className="ml-auto size-8"
       aria-label={label}
-      title={label}
       onClick={() => {
         setTheme(next);
         update({ theme: undefined });

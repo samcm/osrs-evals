@@ -1,5 +1,6 @@
 /** What each variant spent for its result (a Pareto), how soon runs finished (a success CDF), and attempts. */
 
+import { Tip } from '@/components/bits';
 import { useMemo, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
@@ -363,20 +364,21 @@ export function AttemptsTable({ e, ranked, legend }: { e: Eval; ranked: RankedVa
             if (!result) return null;
             if (result.ticks != null) {
               return (
-                <span className="inline-flex items-center gap-1.5" title={`Finished attempt ${i + 1} in ${formatInt(result.ticks)} ticks`}>
-                  <span aria-hidden className="size-2 rounded-full bg-success" />
-                  {formatInt(result.ticks)}
-                </span>
+                <Tip content={`Finished attempt ${i + 1} in ${formatInt(result.ticks)} ticks`}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span aria-hidden className="size-2 rounded-full bg-success" />
+                    {formatInt(result.ticks)}
+                  </span>
+                </Tip>
               );
             }
             return (
-              <span
-                className="inline-flex items-center gap-1.5 text-muted-foreground"
-                title={`Not finished: ${e.measure.toLowerCase()} ${formatInt(result.best_value)}`}
-              >
-                <span aria-hidden className="size-2 rounded-full border-2 border-destructive" />
-                {reached} {formatInt(result.best_value)}
-              </span>
+              <Tip content={`Not finished: ${e.measure.toLowerCase()} ${formatInt(result.best_value)}`}>
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <span aria-hidden className="size-2 rounded-full border-2 border-destructive" />
+                  {reached} {formatInt(result.best_value)}
+                </span>
+              </Tip>
             );
           },
         })

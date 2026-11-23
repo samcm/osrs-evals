@@ -10,11 +10,14 @@
  * chapter's calls under it.
  */
 
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { memo, useEffect, useMemo, useRef, type ReactElement, type ReactNode } from 'react';
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock, linkClassName } from '@/components/bits';
+import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Toggle } from '@/components/ui/toggle';
 import { useSearchUpdate } from '@/lib/search';
 import type { RunDetail, RunSummary, ToolCategory } from '@/data/types';
@@ -42,11 +45,13 @@ const MARKDOWN: Components = {
   ),
   code: ({ children }) => <code className="rounded-sm bg-muted px-1 font-mono text-xs">{children}</code>,
   pre: ({ children }) => <CodeBlock>{(children as ReactElement<{ children: ReactNode }>).props.children}</CodeBlock>,
-  table: ({ children }) => (
-    <div className="overflow-x-auto">
-      <table className="text-xs [&_td]:border-t [&_td]:py-1 [&_td]:pr-3 [&_th]:pr-3 [&_th]:text-left [&_th]:font-medium">{children}</table>
-    </div>
-  ),
+  // A table the agent wrote, as the site's tables are: shadcn's Table, small
+  table: ({ children }) => <Table className="text-xs">{children}</Table>,
+  thead: ({ children }) => <TableHeader>{children}</TableHeader>,
+  tbody: ({ children }) => <TableBody>{children}</TableBody>,
+  tr: ({ children }) => <TableRow>{children}</TableRow>,
+  th: ({ children }) => <TableHead className="h-8">{children}</TableHead>,
+  td: ({ children }) => <TableCell className="py-1">{children}</TableCell>,
 };
 
 function Prose({ text }: { text: string }) {
@@ -91,7 +96,7 @@ function Line({ row }: { row: Extract<Row, { kind: 'did' }> }) {
   return (
     <span className={cn('flex w-full min-w-0 items-center gap-2 text-muted-foreground', row.failed && 'text-destructive')}>
       <span aria-hidden className={cn('size-1.5 shrink-0 rounded-full', TOOL_CATEGORY[row.category].color.swatchClassName)} />
-      <span className="min-w-0 flex-1 truncate" title={row.input}>
+      <span className="min-w-0 flex-1 truncate">
         {row.clauses.map((c, n) => (
           <span key={n}>
             {n > 0 && ', '}
@@ -131,7 +136,7 @@ export const Transcript = memo(function Transcript({
   const told = Boolean(chapters && chapters.length > 0);
   const calls = !told || search.calls === '1';
   const chapterIndex = chapters ? chapters.findLastIndex(c => c.from_tick <= tick) : -1;
-  const list = useRef<HTMLOListElement>(null);
+  const list = useRef<HTMLDivElement>(null);
   const current = currentTurn(run.turns, clock, tick, search.turn);
   const rows = useMemo(() => feedRows(run), [run]);
 
@@ -148,11 +153,11 @@ export const Transcript = memo(function Transcript({
     const state = current >= row.first && current <= row.last ? 'current' : row.first > current ? 'future' : 'past';
     return (
       <li key={n} data-current={state === 'current' || undefined} aria-current={state === 'current' ? 'step' : undefined} className={cn(row.kind === 'said' && 'pt-2')}>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => settle(turnTick(run.turns[row.first], clock), row.first + 1)}
           className={cn(
-            'flex w-full min-w-0 border-l-2 border-transparent px-4 text-left transition-colors outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset',
+            'h-auto w-full min-w-0 justify-start rounded-none border-0 border-l-2 border-transparent px-4 text-left font-normal whitespace-normal hover:bg-muted/50 focus-visible:ring-inset active:not-aria-[haspopup]:translate-y-0',
             row.kind === 'said' ? 'py-1.5' : 'py-0.5',
             state === 'current' && 'border-primary bg-muted/50',
             state === 'future' && 'opacity-50'
@@ -161,7 +166,7 @@ export const Transcript = memo(function Transcript({
           {row.kind === 'said' && <Prose text={row.text} />}
           {row.kind === 'error' && <span className="min-w-0 truncate text-destructive">{row.text}</span>}
           {row.kind === 'did' && <Line row={row} />}
-        </button>
+        </Button>
       </li>
     );
   };
@@ -177,12 +182,12 @@ export const Transcript = memo(function Transcript({
         const future = g.index > chapterIndex;
         return (
           <li key={`chapter-${g.chapter.from_tick}`} data-current={(!calls && now) || undefined} className={cn(calls && 'border-b last:border-b-0')}>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               onClick={() => settle(g.chapter!.from_tick)}
               aria-current={now ? 'step' : undefined}
               className={cn(
-                'flex w-full min-w-0 flex-col items-start gap-0.5 border-l-2 border-transparent bg-card px-4 py-2 text-left transition-colors outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset',
+                'h-auto w-full min-w-0 flex-col items-start gap-0.5 rounded-none border-0 border-l-2 border-transparent bg-card px-4 py-2 text-left font-normal whitespace-normal hover:bg-muted/50 focus-visible:ring-inset active:not-aria-[haspopup]:translate-y-0',
                 now && 'border-primary',
                 // Pinned over the calls, it stays solid; in the chapters alone the current one is shaded
                 now && !calls && 'bg-muted/50',
@@ -197,7 +202,7 @@ export const Transcript = memo(function Transcript({
                 </span>
               </span>
               <span className="text-xs text-pretty text-muted-foreground">{g.chapter.text}</span>
-            </button>
+            </Button>
             {calls && <ol className="pb-2">{rows.slice(g.from, g.to).map((row, k) => rowItem(row, g.from + k))}</ol>}
           </li>
         );
@@ -233,7 +238,8 @@ export const Transcript = memo(function Transcript({
           </CardAction>
         )}
       </CardHeader>
-      <ol ref={list} aria-label="What the agent was doing" className="relative min-h-0 flex-1 overflow-y-auto border-t pb-3">
+      <ScrollArea viewportRef={list} className="min-h-0 flex-1 border-t">
+      <ol aria-label="What the agent was doing" className="relative pb-3">
         {body}
         {run.answer && (
           <li className="mx-4 mt-3 border-t pt-3">
@@ -241,6 +247,7 @@ export const Transcript = memo(function Transcript({
           </li>
         )}
       </ol>
+      </ScrollArea>
     </Card>
   );
 });

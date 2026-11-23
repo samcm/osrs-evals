@@ -6,6 +6,8 @@
  * level, else the inventory).
  */
 
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tip } from '@/components/bits';
 import { useMemo } from 'react';
 import { Sprite } from '@/components/marks';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -37,10 +39,12 @@ export const defaultPanel = (evalId: string): PanelTab => (evalBase(evalId) === 
 
 function Slot({ id, count }: { id?: string; count?: number }) {
   return (
-    <span className="relative flex size-9 items-center justify-center rounded-sm bg-muted/60" title={id ? `${itemName(id)}${count && count > 1 ? `, ${formatInt(count)}` : ''}` : undefined}>
-      {id && <Sprite src={itemSprite(id, count)} size={32} alt={itemName(id)} />}
-      {id && count != null && count > 1 && <span className="absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums text-shadow-sm text-shadow-card">{stackCount(count)}</span>}
-    </span>
+    <Tip content={id ? `${itemName(id)}${count && count > 1 ? `, ${formatInt(count)}` : ''}` : undefined}>
+      <span className="relative flex size-9 items-center justify-center rounded-sm bg-muted/60">
+        {id && <Sprite src={itemSprite(id, count)} size={32} alt={itemName(id)} />}
+        {id && count != null && count > 1 && <span className="absolute top-0 left-0.5 text-xs leading-none font-medium tabular-nums text-shadow-sm text-shadow-card">{stackCount(count)}</span>}
+      </span>
+    </Tip>
   );
 }
 
@@ -76,12 +80,14 @@ export function Held({ run, clock, account, tab }: { run: RunDetail; clock: Cloc
         aria-label="What it held"
       >
         {tabs.map(t => (
-          <ToggleGroupItem key={t.value} value={t.value} aria-label={t.label} title={t.label} className="flex-1">
-            {t.icon ? <Sprite src={t.icon} size={20} alt="" /> : t.label}
-          </ToggleGroupItem>
+          <Tip key={t.value} content={t.label}>
+            <ToggleGroupItem value={t.value} aria-label={t.label} className="flex-1">
+              {t.icon ? <Sprite src={t.icon} size={20} alt="" /> : t.label}
+            </ToggleGroupItem>
+          </Tip>
         ))}
       </ToggleGroup>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <ScrollArea className="min-h-0 flex-1">
         {open === 'inv' && (
           <ol className="grid w-max grid-cols-4 gap-1.5 max-md:grid-cols-7" aria-label="Inventory">
             {Array.from({ length: Math.max(INVENTORY_SLOTS, held.inv.length) }, (_, i) => (
@@ -107,10 +113,12 @@ export function Held({ run, clock, account, tab }: { run: RunDetail; clock: Cloc
           <div className="flex w-max flex-col gap-2">
             <ol className="grid grid-cols-3 gap-x-3 gap-y-1" aria-label="Skills">
               {SKILLS.map(s => (
-                <li key={s} className="flex items-center gap-1.5 text-sm tabular-nums" title={s.charAt(0).toUpperCase() + s.slice(1)}>
-                  <Sprite src={skillSrc(s)} size={20} alt={s} />
-                  {levels.get(s) ?? 1}
-                </li>
+                <Tip key={s} content={s.charAt(0).toUpperCase() + s.slice(1)}>
+                  <li className="flex items-center gap-1.5 text-sm tabular-nums">
+                    <Sprite src={skillSrc(s)} size={20} alt={s} />
+                    {levels.get(s) ?? 1}
+                  </li>
+                </Tip>
               ))}
             </ol>
             <p className="text-sm">
@@ -118,7 +126,7 @@ export function Held({ run, clock, account, tab }: { run: RunDetail; clock: Cloc
             </p>
           </div>
         )}
-      </div>
+      </ScrollArea>
     </div>
   );
 }
