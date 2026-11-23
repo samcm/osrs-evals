@@ -342,18 +342,21 @@ export function FinishChart({
       {/* Beside the chart, as tall as it, its rows scrolling inside; under it on a narrower screen. The card's
           one grid row holds its body to the chart's height, and the scroll area covers the body */}
       <Card className="min-w-0 xl:col-span-5 xl:grid xl:h-0 xl:min-h-full xl:grid-rows-1">
-        <ScrollArea className="mx-card-bleed my-card-bleed xl:absolute xl:inset-0 xl:m-0">
-          {/* The table bleeds to the card's edges by the inset; this gives it back inside the scroll area */}
-          <div className="px-card-inset py-4 sm:py-5">
-            <DataTable
-              data={standings}
-              columns={columns}
-              getRowId={s => s.r.variant.key}
-              hoverId={s => s.r.variant.key}
-              onRowClick={s => legend.isolate(s.r.variant.key)}
-            />
-          </div>
-        </ScrollArea>
+        {/* Radix positions the scroll area itself, so a wrapper covers the body */}
+        <div className="mx-card-bleed-inner my-card-bleed-inner xl:absolute xl:inset-px xl:m-0">
+          <ScrollArea className="xl:h-full">
+            {/* The table bleeds to the card's edges by the inset; this gives it back inside the scroll area */}
+            <div className="px-card-inset py-4 sm:py-5">
+              <DataTable
+                data={standings}
+                columns={columns}
+                getRowId={s => s.r.variant.key}
+                hoverId={s => s.r.variant.key}
+                onRowClick={s => legend.isolate(s.r.variant.key)}
+              />
+            </div>
+          </ScrollArea>
+        </div>
       </Card>
     </div>
   );

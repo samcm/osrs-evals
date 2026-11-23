@@ -11,9 +11,9 @@ import { WorldMap, type MapOverlay, type MapPath } from '@/components/WorldMap';
 import type { PathPoint } from '@/data/types';
 import { brandSrc, loadTrimmedSprite, type TrimmedSprite } from '@/lib/assets';
 import { positionAt, surfaceZ, type MapView } from '@/lib/map';
-import type { AgentLine } from '@/lib/series';
+import { levelName, modelInfo, type AgentLine } from '@/lib/series';
 import { useThemeColors } from '@/lib/theme';
-import { PIN, type Bounds, type PlacedPin, type Track } from '@/pages/eval/centerpiece/mapData';
+import { PIN, type Bounds, type PlacedPin, type PointedPin, type Track } from '@/pages/eval/centerpiece/mapData';
 
 const MARK = 12;
 const DASH: Record<AgentLine, number[]> = { solid: [], dashed: [7, 5], dotted: [0.5, 4.5] };
@@ -91,6 +91,7 @@ export function RaceMap({
   minHeight,
   lit,
   placedRef,
+  pointed,
 }: {
   tracks: Track[];
   /** What the view is fitted to: where every run of the eval went */
@@ -100,6 +101,8 @@ export function RaceMap({
   lit: string | null;
   /** Filled with where each pin was drawn */
   placedRef: RefObject<PlacedPin[]>;
+  /** The pin under the pointer, which a lit run's label sits on */
+  pointed: PointedPin | null;
   /** Ticks of trail drawn bold behind each pin */
   trail: number;
   view: MapView | undefined;
@@ -235,7 +238,13 @@ export function RaceMap({
       const order = drawn
         .map((a, i) => ({ ...a, s: spot[i] }))
         .sort((a, b) => isLit(a.t) - isLit(b.t) || b.t.rank - a.t.rank);
-      placedRef.current = order.map(({ t, s, account }) => ({ x: s[0], y: s[1], key: t.curve.variant.key, account }));
+      placedRef.current = order.map(({ t, s, account }) => ({
+        x: s[0],
+        y: s[1],
+        key: t.curve.variant.key,
+        run: t.curve.run.id,
+        account,
+      }));
       for (const { t, xy, s } of order) {
         const color = colors.resolve(t.curve.variant.color.token);
         ctx.globalAlpha = dim(t) < 1 ? 0.35 : 1;
@@ -267,13 +276,22 @@ export function RaceMap({
       }
       ctx.globalAlpha = 1;
 
-      // The lit pairing's pins say whose they are, as a tooltip would; a team's pins name their account under it
+      // The lit pairing's runs say whose they are, as a tooltip would: one label a run, at the pin under
+      // the pointer (naming its account in a team's run) or else at its first account's pin
       if (lit != null) {
         const font = getComputedStyle(document.body).fontFamily;
         ctx.textBaseline = 'middle';
-        for (const { t, s, account } of order) {
-          if (t.curve.variant.key !== lit) continue;
-          const text = t.curve.variant.short;
+        const labelled = order.filter(
+          (o, i) =>
+            o.t.curve.variant.key === lit &&
+            (pointed?.run === o.t.curve.run.id
+              ? o.account === pointed.account
+              : order.findIndex(p => p.t === o.t) === i)
+        );
+        for (const { t, s, account: pinAccount } of labelled) {
+          const account = pointed?.run === t.curve.run.id ? pinAccount : null;
+          const v = t.curve.variant;
+          const text = `${modelInfo(v.model).short} ${levelName(v.thinking)}`;
           ctx.font = `500 12px ${font}`;
           const nameWidth = ctx.measureText(text).width;
           ctx.font = `400 12px ${font}`;
@@ -302,7 +320,7 @@ export function RaceMap({
         }
       }
     },
-    [colors, images, lit, placedRef, tick, trail, tracks]
+    [colors, images, lit, placedRef, pointed, tick, trail, tracks]
   );
 
   return (

@@ -81,6 +81,14 @@ export interface PlacedPin {
   x: number;
   y: number;
   key: string;
+  /** The run it belongs to */
+  run: string;
   /** The account it is, named on hover in a team's run */
+  account: string | null;
+}
+
+/** The pin under the pointer: its run and, in a team's run, its account. */
+export interface PointedPin {
+  run: string;
   account: string | null;
 }

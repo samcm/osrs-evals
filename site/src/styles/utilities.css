@@ -282,3 +282,7 @@
     grid-column: span 8 / span 8;
   }
 }
+
+@utility my-card-bleed-inner {
+  margin-block: calc((var(--card-inset-y) - 1px) * -1);
+}

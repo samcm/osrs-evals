@@ -40,7 +40,14 @@ import { niceMax, rankVariants, valueAt, type Agg, type RunCurve } from '@/pages
 import { pause, play, seek, useEvalPlayhead } from '@/pages/eval/playhead';
 import { raceRows } from '@/pages/eval/centerpiece/race';
 import { gameTime, laneMarks, laneStages, statusAt } from '@/pages/eval/centerpiece/lanes';
-import { marksOf, pathBounds, PIN, type PlacedPin, type Track } from '@/pages/eval/centerpiece/mapData';
+import {
+  marksOf,
+  pathBounds,
+  PIN,
+  type PlacedPin,
+  type PointedPin,
+  type Track,
+} from '@/pages/eval/centerpiece/mapData';
 import { RaceMap } from '@/pages/eval/centerpiece/RaceMap';
 import { Standings, type Lane } from '@/pages/eval/centerpiece/Standings';
 
@@ -93,6 +100,7 @@ export function Centerpiece({
   const boxRef = useRef<HTMLElement | null>(null);
   const lit = useLit(legend.focus);
   const placedRef = useRef<PlacedPin[]>([]);
+  const [pointed, setPointed] = useState<PointedPin | null>(null);
 
   const runners = curves;
   // The eval's ranking, as the leaderboard everywhere: by its score over game ticks
@@ -215,6 +223,8 @@ export function Centerpiece({
     const y = event.clientY - rect.top;
     const hit = placedRef.current.findLast(p => Math.hypot(p.x - x, p.y - y) <= PIN + 2);
     setHovered(hit?.key);
+    if (hit?.run !== pointed?.run || (hit?.account ?? null) !== (pointed?.account ?? null))
+      setPointed(hit ? { run: hit.run, account: hit.account } : null);
   };
 
   return (
@@ -283,7 +293,10 @@ export function Centerpiece({
         <div
           className="relative min-w-0 border-t border-border lg:col-span-race-map lg:border-t-0 lg:border-l"
           onPointerMove={onPointerMove}
-          onPointerLeave={() => setHovered(undefined)}
+          onPointerLeave={() => {
+            setHovered(undefined);
+            setPointed(null);
+          }}
         >
           {width === 0 || !grid ? (
             <div style={{ height }}>
@@ -297,6 +310,7 @@ export function Centerpiece({
               trail={span * 0.03}
               lit={lit}
               placedRef={placedRef}
+              pointed={pointed}
               view={view}
               onViewChange={v => update({ map: v })}
               height={height}
