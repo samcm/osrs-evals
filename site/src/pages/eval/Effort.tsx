@@ -18,7 +18,7 @@ import {
   SeriesTooltip,
   gridProps,
   xAxisProps,
-} from '@/components/Charts';
+} from '@/components/Charts/legacy';
 import type { Run } from '@/data/types';
 import { extraLabelWidth, toolSeries } from '@/lib/chartSeries';
 import { FADED_OPACITY, setHovered } from '@/lib/hover';

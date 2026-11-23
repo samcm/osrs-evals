@@ -11,7 +11,7 @@ import type { ReactNode } from 'react';
 import type { SeriesSpec } from '@/lib/chartSeries';
 import { formatAxisNumber } from '@/lib/format';
 import { ChartTooltipContent } from '@/components/ui/chart';
-import { SeriesLabel } from './SeriesLabel';
+import { SeriesLabel } from '@/components/Charts/SeriesLabel';
 
 type ContentProps = React.ComponentProps<typeof ChartTooltipContent>;
 
