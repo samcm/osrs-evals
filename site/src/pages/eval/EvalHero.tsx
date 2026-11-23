@@ -4,10 +4,11 @@
  * the eval's settings.
  */
 
-import { ChevronRight } from 'lucide-react';
+import { Fragment, type JSX, type ReactNode } from 'react';
+import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react';
+import { ChevronRightIcon } from '@heroicons/react/16/solid';
 import { CodeBlock, linkClassName } from '@/components/bits';
 import { EvalMark } from '@/components/marks';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { PageHero, type MetaItem } from '@/components/page';
 import type { Eval, Run } from '@/data/types';
 import { evalArt } from '@/lib/evals';
@@ -29,64 +30,64 @@ export function EvalHero({
   meta: MetaItem[];
   setup: boolean;
   onSetup: (open: boolean) => void;
-}) {
+}): JSX.Element {
   const art = evalArt(e.id);
   return (
     <PageHero mark={<EvalMark evalId={e.id} size={40} />} lead={e.goal} detail={art.why} meta={meta}>
-      {/* What happened across its runs (site/summarize.py's cross-run pass) */}
+      {/* What happened across its runs (site/summarize.py's cross-run pass), lined up with the lead past the mark's tile */}
       {e.note && (
-        <div className="flex flex-col gap-1 border-t px-6 py-4 sm:pl-[calc(--spacing(6)+--spacing(16)+--spacing(5))]">
-          <h3 className="text-sm text-muted-foreground">What happened</h3>
-          <p className="max-w-3xl text-pretty">{e.note}</p>
+        <div className="flex flex-col gap-1 border-t border-border px-card-inset py-4 sm:pl-26">
+          <h3 className="text-xs text-muted">What happened</h3>
+          <p className="max-w-3xl text-sm/6 text-pretty text-foreground">{e.note}</p>
         </div>
       )}
-      <Collapsible open={setup} onOpenChange={onSetup}>
-        <CollapsibleTrigger className="group flex w-full items-center gap-2 border-t px-6 py-3 text-left text-sm font-medium transition-colors hover:bg-muted/50">
-          <ChevronRight className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+      {/* Headless UI's Disclosure, as lab's is built, flush in the card; keyed on `?setup=` so the URL opens it */}
+      <Disclosure key={String(setup)} defaultOpen={setup}>
+        <DisclosureButton
+          onClick={() => onSetup(!setup)}
+          className="group flex w-full items-center gap-2 border-t border-border px-card-inset py-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-surface-hover focus:outline-hidden focus-visible:bg-surface-hover"
+        >
+          <ChevronRightIcon className="size-4 text-muted transition-transform group-data-open:rotate-90" />
           Setup
-          <span className="hidden font-normal text-muted-foreground sm:inline">
-            The prompt and settings every run got
-          </span>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="border-t">
-          <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-            <section className="flex min-w-0 flex-col gap-2">
-              <h3 className="text-sm font-medium">Prompt</h3>
-              <CodeBlock className="max-h-none">{e.prompt ?? e.goal}</CodeBlock>
-            </section>
-            <section className="flex min-w-0 flex-col gap-2">
-              <h3 className="text-sm font-medium">Settings</h3>
-              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
-                {settings(e, runs).map(([term, value]) => (
-                  <div key={term} className="contents">
-                    <dt className="text-muted-foreground">{term}</dt>
-                    <dd className="text-pretty">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+          <span className="hidden font-normal text-muted sm:inline">The prompt and settings every run got</span>
+        </DisclosureButton>
+        <DisclosurePanel className="grid gap-6 border-t border-border px-card-inset py-5 lg:grid-cols-fill-3-2">
+          <section className="flex min-w-0 flex-col gap-2">
+            <h3 className="text-sm font-medium text-foreground">Prompt</h3>
+            <CodeBlock className="max-h-none">{e.prompt ?? e.goal}</CodeBlock>
+          </section>
+          <section className="flex min-w-0 flex-col gap-2">
+            <h3 className="text-sm font-medium text-foreground">Settings</h3>
+            <dl className="grid grid-cols-auto-fill gap-x-6 gap-y-2 text-sm">
+              {settings(e, runs).map(([term, value]) => (
+                <div key={term} className="contents">
+                  <dt className="text-muted">{term}</dt>
+                  <dd className="text-pretty text-foreground">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        </DisclosurePanel>
+      </Disclosure>
     </PageHero>
   );
 }
 
 /** The eval's settings as term and value, in the order a reader rebuilding the eval needs them. */
-function settings(e: Eval, runs: Run[]): [string, React.ReactNode][] {
+function settings(e: Eval, runs: Run[]): [string, ReactNode][] {
   const art = evalArt(e.id);
   const seconds = (e.budget_ticks * e.tick_ms) / 1000;
   const versions = [...new Set(runs.map(r => `${r.agent_name} ${r.agent_version ?? ''}`.trim()))];
   const levels = [...new Set(runs.map(r => r.thinking).filter((l): l is string => !!l))].sort(compareThinking);
   const ge = e.world?.GE_ENABLED;
-  const mono = (s: string) => <span className="font-mono text-xs">{s}</span>;
+  const mono = (s: string): JSX.Element => <span className="font-mono text-xs">{s}</span>;
   return [
     [
       'Start',
-      <>
+      <Fragment key="start">
         New {e.accounts.length > 1 ? 'characters' : 'character'} from {mono(e.start?.save ?? 'a fresh save')}
         {e.start?.tile ? `, at tile ${e.start.tile.join(', ')}` : ''}
-      </>,
+      </Fragment>,
     ],
     ['Accounts', mono(e.accounts.join(', '))],
     [
@@ -108,7 +109,7 @@ function settings(e: Eval, runs: Run[]): [string, React.ReactNode][] {
     ['Thinking', levels.map(levelName).join(', ')],
     [
       'Definition',
-      <a className={linkClassName} href={`${SOURCE}/${e.base}.py`} target="_blank" rel="noreferrer">
+      <a key="definition" className={linkClassName} href={`${SOURCE}/${e.base}.py`} target="_blank" rel="noreferrer">
         {mono(`evals/${e.base}.py`)}
       </a>,
     ],

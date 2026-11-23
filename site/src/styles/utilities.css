@@ -262,3 +262,27 @@
 @utility flex-share-* {
   flex: calc(--value(integer) / 10);
 }
+
+@utility grid-cols-fill-3-2 {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+/* The eval race's standings and map share twelve columns: five and seven, then four and eight from 1800px, where
+   lab's breakpoints (3xl is 1920px) have no step. */
+@utility col-span-race-standings {
+  grid-column: span 5 / span 5;
+  @media (width >= 112.5rem) {
+    grid-column: span 4 / span 4;
+  }
+}
+
+@utility col-span-race-map {
+  grid-column: span 7 / span 7;
+  @media (width >= 112.5rem) {
+    grid-column: span 8 / span 8;
+  }
+}
+
+@utility my-card-bleed-inner {
+  margin-block: calc((var(--card-inset-y) - 1px) * -1);
+}
