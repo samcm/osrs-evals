@@ -1,12 +1,13 @@
-/** shadcn's faceted filter (the tasks example's DataTableFacetedFilter), bound by its caller to a URL list. */
+/**
+ * A faceted filter, bound by its caller to a URL list: a button naming the filter and its picks,
+ * opening a lab Popover with a CheckboxGroup of the options and their counts.
+ */
 
-import type { ReactNode } from 'react';
-import { CirclePlus } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Separator } from '@/components/ui/separator';
+import type { JSX, ReactNode } from 'react';
+import { PlusCircleIcon } from '@heroicons/react/20/solid';
+import { Popover, PopoverButton, PopoverPanel } from '@/components/Overlays/Popover';
+import { CheckboxGroup } from '@/components/Forms/CheckboxGroup/CheckboxGroup';
+import { Button } from '@/components/Elements/Button';
 
 export interface FacetOption {
   value: string;
@@ -14,7 +15,7 @@ export interface FacetOption {
   mark?: ReactNode;
 }
 
-/** shadcn's faceted filter: a dashed button naming the filter and its picks, opening a checklist with counts. */
+/** A button naming the filter and what it picks, opening a checklist with counts. */
 export function FacetFilter({
   title,
   options,
@@ -27,63 +28,48 @@ export function FacetFilter({
   selected: string[];
   counts: Map<string, number>;
   onChange: (values: string[]) => void;
-}) {
+}): JSX.Element {
   const picked = options.filter(o => selected.includes(o.value));
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" className="border-dashed">
-          <CirclePlus />
-          {title}
-          {picked.length > 0 && (
-            <>
-              <Separator orientation="vertical" className="h-4 data-vertical:self-center" />
-              <Badge variant="secondary" className="rounded-sm sm:hidden">
-                {picked.length}
-              </Badge>
-              <Badge variant="secondary" className="max-w-40 rounded-sm max-sm:hidden">
-                <span className="truncate">{picked.length > 1 ? `${picked.length} selected` : picked[0].label}</span>
-              </Badge>
-            </>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-64 p-0" align="start">
-        <Command>
-          {options.length > 6 && <CommandInput placeholder={title} />}
-          <CommandList>
-            <CommandEmpty>No match.</CommandEmpty>
-            <CommandGroup>
-              {options.map(o => {
-                const on = selected.includes(o.value);
-                return (
-                  <CommandItem
-                    key={o.value}
-                    value={o.label}
-                    data-checked={on}
-                    onSelect={() => onChange(on ? selected.filter(v => v !== o.value) : [...selected, o.value])}
-                  >
-                    {o.mark}
-                    <span className="flex-1 truncate">{o.label}</span>
-                    <span className="text-xs text-muted-foreground tabular-nums">{counts.get(o.value) ?? 0}</span>
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-            {picked.length > 0 && (
-              <>
-                <CommandSeparator />
-                <CommandGroup>
-                  <CommandItem onSelect={() => onChange([])}>
-                    Clear
-                  </CommandItem>
-                </CommandGroup>
-              </>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
+      <PopoverButton variant="secondary" size="sm" leadingIcon={<PlusCircleIcon />} nowrap>
+        {title}
+        {picked.length > 0 && (
+          <span className="max-w-40 truncate font-normal text-muted">
+            {picked.length > 1 ? `${picked.length} selected` : picked[0]?.label}
+          </span>
+        )}
+      </PopoverButton>
+      <PopoverPanel anchor={{ to: 'bottom start', gap: 4, padding: 8 }} className="w-64 p-1.5 shadow-lg">
+        <CheckboxGroup
+          legend={title}
+          srOnlyLegend
+          variant="menu"
+          options={options.map(o => {
+            const on = selected.includes(o.value);
+            return {
+              id: `${title}-${o.value}`,
+              name: title,
+              label: (
+                <>
+                  {o.mark}
+                  <span className="truncate">{o.label}</span>
+                </>
+              ),
+              description: String(counts.get(o.value) ?? 0),
+              checked: on,
+              onChange: () => onChange(on ? selected.filter(v => v !== o.value) : [...selected, o.value]),
+            };
+          })}
+        />
+        {picked.length > 0 && (
+          <div className="mt-1.5 border-t border-border pt-1.5">
+            <Button variant="blank" size="xs" className="w-full justify-center" onClick={() => onChange([])}>
+              Clear
+            </Button>
+          </div>
+        )}
+      </PopoverPanel>
     </Popover>
   );
 }
-

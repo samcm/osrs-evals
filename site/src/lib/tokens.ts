@@ -5,7 +5,7 @@ import type { SeriesColor } from './series';
 // Literal class names so Tailwind generates them:
 // bg-data-blue border-data-blue fill-data-blue bg-data-violet border-data-violet fill-data-violet
 // bg-data-cyan border-data-cyan fill-data-cyan bg-data-rose border-data-rose fill-data-rose
-// bg-data-sky border-data-sky fill-data-sky bg-destructive border-destructive fill-destructive
+// bg-data-sky border-data-sky fill-data-sky bg-danger border-danger fill-danger
 const hue = (name: string): SeriesColor => ({
   token: `--color-data-${name}`,
   swatchClassName: `bg-data-${name}`,
@@ -37,6 +37,11 @@ export const SDK_OUTCOMES = {
   failed: {
     id: 'failed',
     label: 'Failed',
-    color: { token: '--destructive', swatchClassName: 'bg-destructive', borderClassName: 'border-destructive', fillClassName: 'fill-destructive' },
+    color: {
+      token: '--color-danger',
+      swatchClassName: 'bg-danger',
+      borderClassName: 'border-danger',
+      fillClassName: 'fill-danger',
+    },
   },
 } as const;

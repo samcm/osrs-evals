@@ -1,8 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, type JSX, type ReactNode } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
-import { useQueries, useQuery, useSuspenseQuery } from '@tanstack/react-query';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Empty, ParamSegmented } from '@/components/bits';
+import { useQueries, useQuery, useSuspenseQuery, type UseQueryResult } from '@tanstack/react-query';
+import { Empty, ParamSegmented, Tip } from '@/components/bits';
 import { SelectField } from '@/components/SelectField';
 import { EvalMark } from '@/components/marks';
 import { PairingFilters } from '@/components/PairingFilters';
@@ -11,37 +10,63 @@ import { variantKey } from '@/lib/series';
 import { bestLevelKeys } from '@/lib/score';
 import { evalArt, evalBySlug, evalIdOf } from '@/lib/evals';
 import { evalRunsQuery, indexQuery, runQuery } from '@/data/queries';
-import type { Eval, Run } from '@/data/types';
+import type { Eval, Run, RunDetail } from '@/data/types';
 import { formatDuration, formatInt } from '@/lib/format';
 import { useLegend, type LegendState } from '@/lib/legend';
 import { inScope, useDocumentTitle, useEffort, useScope, useScopeUpdate, useSearchUpdate } from '@/lib/search';
-import { AttemptsTable, CdfChart, ParetoChart } from './Cuts';
-import { EffortStrips, GROUP_OPTIONS, ToolMix } from './Effort';
-import { buildCurves, callsByTick, rankVariants, totalBudgetTicks, X_OPTIONS, xRange } from './model';
-import { Centerpiece } from './Centerpiece';
-import { pickRunners } from './centerpiece/race';
-import { ProgressChart } from './Progress';
-import { FinishChart } from './Finish';
-import { RunsTable } from './RunsTable';
-import { WhereMap } from './Where';
-import { HeldView, heldTab } from './Held';
-import { EvalHero } from './EvalHero';
+import { AttemptsTable, CdfChart, ParetoChart } from '@/pages/eval/Cuts';
+import { EffortStrips, ToolMix } from '@/pages/eval/Effort';
+import {
+  buildCurves,
+  callsByTick,
+  GROUP_OPTIONS,
+  heldTab,
+  rankVariants,
+  totalBudgetTicks,
+  X_OPTIONS,
+  xRange,
+} from '@/pages/eval/model';
+import { Centerpiece } from '@/pages/eval/Centerpiece';
+import { pickRunners } from '@/pages/eval/centerpiece/race';
+import { ProgressChart } from '@/pages/eval/Progress';
+import { FinishChart } from '@/pages/eval/Finish';
+import { RunsTable } from '@/pages/eval/RunsTable';
+import { WhereMap } from '@/pages/eval/Where';
+import { HeldView } from '@/pages/eval/Held';
+import { EvalHero } from '@/pages/eval/EvalHero';
 
 const route = getRouteApi('/evals/$evalId');
 
 /** A tooltip on a value, for the one line of how it is known. */
-function Hint({ children, hint }: { children: React.ReactNode; hint: React.ReactNode }) {
+function Hint({ children, hint }: { children: ReactNode; hint: ReactNode }): JSX.Element {
   return (
-    <Tooltip>
-      <TooltipTrigger className="cursor-help underline decoration-dotted underline-offset-4">{children}</TooltipTrigger>
-      <TooltipContent className="max-w-72">{hint}</TooltipContent>
-    </Tooltip>
+    <Tip content={hint}>
+      {/* Focusable, so the hint is reachable from the keyboard too */}
+      <span tabIndex={0} className="cursor-help underline decoration-dotted underline-offset-4 outline-hidden">
+        {children}
+      </span>
+    </Tip>
   );
+}
+
+/** Each run's model calls by tick, from the details loaded so far; the same map while nothing new loads. */
+function callsOf(details: UseQueryResult<RunDetail>[]): {
+  calls: Map<string, (tick: number) => number>;
+  pending: boolean;
+} {
+  const calls = new Map<string, (tick: number) => number>();
+  for (const d of details) if (d.data) calls.set(d.data.id, callsByTick(d.data));
+  return { calls, pending: details.some(d => d.isPending) };
 }
 
 /** "lumbridge.sav" → "Lumbridge": the start saves are named for where they put the character. */
 const placeOf = (save: string | null | undefined): string | null =>
-  save ? save.replace(/\.sav$/, '').replace(/[_-]+/g, ' ').replace(/^./, c => c.toUpperCase()) : null;
+  save
+    ? save
+        .replace(/\.sav$/, '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/^./, c => c.toUpperCase())
+    : null;
 
 /**
  * What a visitor needs beside the goal (which already says what wins): the budget as game time (its
@@ -54,10 +79,23 @@ function facts(e: Eval, runs: Run[]): MetaItem[] {
   return [
     {
       term: e.attempts > 1 ? 'Budget per attempt' : 'Budget',
-      value: <Hint hint={`${formatInt(e.budget_ticks)} game ticks`}>{formatDuration((e.budget_ticks * e.tick_ms) / 1000)}</Hint>,
+      value: (
+        <Hint hint={`${formatInt(e.budget_ticks)} game ticks`}>
+          {formatDuration((e.budget_ticks * e.tick_ms) / 1000)}
+        </Hint>
+      ),
     },
     ...(e.attempts > 1 ? [{ term: 'Attempts', value: formatInt(e.attempts) }] : []),
-    ...(team ? [{ term: 'Team', value: place ? `${formatInt(e.accounts.length)} characters in ${place}` : `${formatInt(e.accounts.length)} characters` }] : []),
+    ...(team
+      ? [
+          {
+            term: 'Team',
+            value: place
+              ? `${formatInt(e.accounts.length)} characters in ${place}`
+              : `${formatInt(e.accounts.length)} characters`,
+          },
+        ]
+      : []),
     { term: 'Runs', value: <Hint hint={`${formatInt(pairings)} pairings`}>{formatInt(runs.length)}</Hint> },
   ];
 }
@@ -85,7 +123,7 @@ const PX_OPTIONS = [
   { value: 'ticks' as const, label: 'Ticks' },
 ];
 
-export function EvalPage() {
+export function EvalPage(): JSX.Element {
   const { evalId: slug } = route.useParams();
   const search = route.useSearch();
   const { data } = useSuspenseQuery(indexQuery);
@@ -109,16 +147,10 @@ export function EvalPage() {
   }, [scoped, effort, e, search.x]);
 
   // Model calls as x need each run's calls, from its detail: loaded only when asked for
-  const details = useQueries({
+  const { calls, pending: callsPending } = useQueries({
     queries: (search.x === 'calls' ? runs.filter(r => r.model_calls > 0) : []).map(r => runQuery(r.id)),
+    combine: callsOf,
   });
-  const callsKey = details.map(d => (d.data ? '1' : '0')).join('');
-  const calls = useMemo(() => {
-    const map = new Map<string, (tick: number) => number>();
-    for (const d of details) if (d.data) map.set(d.data.id, callsByTick(d.data));
-    return map;
-    // details is a new array every render; its loaded state is what matters
-  }, [callsKey]);
 
   const curves = useMemo(() => (e ? buildCurves(e, grid, runs, calls) : []), [e, grid, runs, calls]);
   const ranked = useMemo(() => (e ? rankVariants(e, runs, search.x) : []), [e, runs, search.x]);
@@ -131,7 +163,11 @@ export function EvalPage() {
   // The runs the overview shows, the same in every part of it: every run, or each pairing's median
   // or best run. A focus keeps the other pairings, faded, so the focused one reads against them
   const shownCurves = useMemo(
-    () => pickRunners(curves.filter(cv => !legend.hidden.includes(cv.variant.key) || legend.focus === cv.variant.key), search.agg),
+    () =>
+      pickRunners(
+        curves.filter(cv => !legend.hidden.includes(cv.variant.key) || legend.focus === cv.variant.key),
+        search.agg
+      ),
     [curves, legend, search.agg]
   );
 
@@ -140,13 +176,18 @@ export function EvalPage() {
     const art = evalArt(evalIdOf(slug));
     return (
       <div className={SECTIONS}>
-        {art.score && <PageHeader mark={<EvalMark evalId={evalIdOf(slug)} size={40} />} meta={[{ term: 'Score', value: art.score }]} />}
+        {art.score && (
+          <PageHeader
+            mark={<EvalMark evalId={evalIdOf(slug)} size={40} />}
+            meta={[{ term: 'Score', value: art.score }]}
+          />
+        )}
         <Empty>{art.title ? 'No runs yet.' : 'No eval with this id.'}</Empty>
       </div>
     );
   }
   const target = e.target != null;
-  const pending = search.x === 'calls' && details.some(d => d.isPending);
+  const pending = search.x === 'calls' && callsPending;
   const maxTick = totalBudgetTicks(e);
 
   const visibleRuns = runs.filter(r => legend.visible(variantKey(r)));
@@ -163,10 +204,23 @@ export function EvalPage() {
 
   return (
     <div className={SECTIONS}>
-      <EvalHero e={e} runs={all} meta={facts(e, all)} setup={search.setup === '1'} onSetup={open => update({ setup: open ? '1' : undefined })} />
-      {/* The views and the controls that drive the open one share a row, as shadcn's dashboards do */}
+      <EvalHero
+        e={e}
+        runs={all}
+        meta={facts(e, all)}
+        setup={search.setup === '1'}
+        onSetup={open => update({ setup: open ? '1' : undefined })}
+      />
+      {/* The views and the controls that drive the open one share a row */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PageTabs value={search.tab} tabs={heldTab(e) ? [...TABS.slice(0, 2), { value: 'held' as const, label: heldTab(e)! }, ...TABS.slice(2)] : [...TABS]} />
+        <PageTabs
+          value={search.tab}
+          tabs={
+            heldTab(e)
+              ? [...TABS.slice(0, 2), { value: 'held' as const, label: heldTab(e)! }, ...TABS.slice(2)]
+              : [...TABS]
+          }
+        />
         <PageToolbar label="View controls">
           {runs.length > 0 && controls}
           <PairingFilters runs={all} thinking={scope.thinking} agent={scope.agent} onChange={setScope} />
@@ -179,8 +233,22 @@ export function EvalPage() {
         <FinishChart e={e} curves={curves} ranked={ranked} agg={search.agg} legend={legend} />
       ) : search.tab === 'race' ? (
         <>
-          <Centerpiece e={e} runs={runs} curves={shownCurves} grid={grid} legend={legend} view={search.map} t={search.t} maxTick={maxTick} agg={search.agg} />
-          <PageSection title={e.measure} actions={<ParamSegmented param="x" value={search.x} label="Along" options={X_OPTIONS} />}>
+          <Centerpiece
+            key={e.id}
+            e={e}
+            runs={runs}
+            curves={shownCurves}
+            grid={grid}
+            legend={legend}
+            view={search.map}
+            t={search.t}
+            maxTick={maxTick}
+            agg={search.agg}
+          />
+          <PageSection
+            title={e.measure}
+            actions={<ParamSegmented param="x" value={search.x} label="Along" options={X_OPTIONS} />}
+          >
             <ProgressChart
               e={e}
               curves={shownCurves}
@@ -215,7 +283,14 @@ export function EvalPage() {
       ) : search.tab === 'behaviour' ? (
         <>
           <PageSection title="Effort per run">
-            <EffortStrips runs={visibleRuns} by={search.by} ranked={ranked} focus={legend.focus} measure={search.measure} onMeasure={m => update({ measure: m === 'calls' ? undefined : m })} />
+            <EffortStrips
+              runs={visibleRuns}
+              by={search.by}
+              ranked={ranked}
+              focus={legend.focus}
+              measure={search.measure}
+              onMeasure={m => update({ measure: m === 'calls' ? undefined : m })}
+            />
           </PageSection>
           <PageSection title="Tool calls">
             <ToolMix runs={visibleRuns} by={search.by} ranked={ranked} />

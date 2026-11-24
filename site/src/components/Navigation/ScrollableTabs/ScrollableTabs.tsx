@@ -1,0 +1,130 @@
+import { useRef, useState, useEffect, type JSX } from 'react';
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { TabList } from '@headlessui/react';
+import clsx from 'clsx';
+import type { ScrollableTabsProps } from './ScrollableTabs.types';
+
+/** Room kept beside the selected tab for the arrow buttons that overlay the strip's edges */
+const ARROW_INSET = 40;
+
+/**
+ * ScrollableTabs component - wraps TabList with horizontal scroll and navigation arrows
+ *
+ * Provides a scrollable container for tabs that may overflow horizontally.
+ * Shows left/right navigation arrows when content is scrollable, and scrolls the selected tab clear of them
+ * whenever the selection changes, including a tab selected on load.
+ *
+ * @example
+ * ```tsx
+ * <TabGroup selectedIndex={selectedIndex} onChange={onChange}>
+ *   <ScrollableTabs>
+ *     <Tab hash="overview">Overview</Tab>
+ *     <Tab hash="details">Details</Tab>
+ *     <Tab hash="more">More</Tab>
+ *   </ScrollableTabs>
+ *   <TabPanels>
+ *     <TabPanel>Overview content</TabPanel>
+ *     <TabPanel>Details content</TabPanel>
+ *     <TabPanel>More content</TabPanel>
+ *   </TabPanels>
+ * </TabGroup>
+ * ```
+ */
+export function ScrollableTabs({ children, className }: ScrollableTabsProps): JSX.Element {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+
+  /**
+   * Check if scroll arrows should be visible
+   */
+  const updateArrowVisibility = (): void => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const { scrollLeft, scrollWidth, clientWidth } = container;
+    setShowLeftArrow(scrollLeft > 0);
+    setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 1);
+  };
+
+  /**
+   * Scroll the container by a fixed amount
+   */
+  const scroll = (direction: 'left' | 'right'): void => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const scrollAmount = 200;
+    const targetScroll =
+      direction === 'left' ? container.scrollLeft - scrollAmount : container.scrollLeft + scrollAmount;
+
+    container.scrollTo({
+      left: targetScroll,
+      behavior: 'smooth',
+    });
+  };
+
+  // Update arrow visibility on mount and when children change
+  useEffect(() => {
+    updateArrowVisibility();
+
+    // Also update on window resize
+    const handleResize = (): void => updateArrowVisibility();
+    window.addEventListener('resize', handleResize);
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, [children]);
+
+  // Scroll the selected tab into view, along the strip only so the page keeps its scroll position. Headless UI marks
+  // the selection after mounting, so watch for it rather than reading it once.
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const reveal = (): void => {
+      const tab = container.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+      if (!tab) return;
+      const start = tab.getBoundingClientRect().left - container.getBoundingClientRect().left + container.scrollLeft;
+      const end = start + tab.offsetWidth;
+      const { scrollLeft, clientWidth } = container;
+      if (start < scrollLeft + ARROW_INSET) container.scrollLeft = Math.max(0, start - ARROW_INSET);
+      else if (end > scrollLeft + clientWidth - ARROW_INSET) container.scrollLeft = end - clientWidth + ARROW_INSET;
+    };
+    reveal();
+    const observer = new MutationObserver(reveal);
+    observer.observe(container, { attributes: true, attributeFilter: ['aria-selected'], subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div className={clsx('relative', className)}>
+      {/* Left Arrow */}
+      {showLeftArrow && (
+        <button
+          type="button"
+          onClick={() => scroll('left')}
+          className="absolute top-0 left-0 z-10 flex h-full items-center border-r border-border bg-surface px-2 transition-colors hover:text-primary"
+          aria-label="Scroll tabs left"
+        >
+          <ChevronLeftIcon className="size-5 text-foreground" />
+        </button>
+      )}
+
+      {/* Scrollable TabList Container */}
+      <div ref={scrollContainerRef} onScroll={updateArrowVisibility} className="overflow-x-auto">
+        <TabList className="flex gap-2 border-b border-border">{children}</TabList>
+      </div>
+
+      {/* Right Arrow */}
+      {showRightArrow && (
+        <button
+          type="button"
+          onClick={() => scroll('right')}
+          className="absolute top-0 right-0 z-10 flex h-full items-center border-l border-border bg-surface px-2 transition-colors hover:text-primary"
+          aria-label="Scroll tabs right"
+        >
+          <ChevronRightIcon className="size-5 text-foreground" />
+        </button>
+      )}
+    </div>
+  );
+}

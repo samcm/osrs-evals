@@ -1,13 +1,14 @@
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type JSX, type ReactNode } from 'react';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
-import { Outcome, Segmented } from '@/components/bits';
+import clsx from 'clsx';
+import { ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/20/solid';
+import { Outcome, Segmented, Tip } from '@/components/bits';
 import { PageHero, type MetaItem } from '@/components/page';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Sprite } from '@/components/marks';
-import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Button, buttonClassName } from '@/components/Elements/Button';
+import { Card } from '@/components/Layout/Card';
+import { Popover, PopoverButton, PopoverPanel } from '@/components/Overlays/Popover';
 import { indexQuery, runQuery, runSummaryQuery } from '@/data/queries';
 import type { Eval, Run, RunDetail } from '@/data/types';
 import { questSrc, uiSrc } from '@/lib/assets';
@@ -15,7 +16,6 @@ import { formatCost, formatDate, formatDuration, formatInt } from '@/lib/format'
 import { levelName, modelInfo, variantKey } from '@/lib/series';
 import { endedWord, resultValue } from '@/lib/runResult';
 import { useDocumentTitle, useSearchUpdate } from '@/lib/search';
-import { cn } from '@/lib/utils';
 import { Lanes } from './Lanes';
 import { makeClock, turnTick, type XMeasure } from './model';
 import { usePlayhead } from './playhead';
@@ -29,7 +29,7 @@ import { Held } from './Held';
 const route = getRouteApi('/runs/$runId');
 
 /** Each quest the run completed, as its icon; an inferred one is underlined and says why. */
-function QuestIcons({ quests }: { quests: RunDetail['metrics']['quests'] }) {
+function QuestIcons({ quests }: { quests: RunDetail['metrics']['quests'] }): JSX.Element {
   return (
     <ul className="flex flex-wrap items-center gap-1.5">
       {quests.map(q => {
@@ -37,14 +37,21 @@ function QuestIcons({ quests }: { quests: RunDetail['metrics']['quests'] }) {
         const name = q.name ?? 'A quest';
         return (
           <li key={`${q.quest}-${q.tick}`} className="flex">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span tabIndex={0} className={cn('inline-flex rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50', inferred && 'border-b border-dashed border-muted-foreground')}>
-                  <Sprite src={q.quest ? questSrc(q.quest) : uiSrc('quests')} size={20} alt={inferred ? `≈ ${name}` : name} />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>{inferred ? `≈ ${name}: guessed from the quest-points jump` : name}</TooltipContent>
-            </Tooltip>
+            <Tip content={inferred ? `≈ ${name}: guessed from the quest-points jump` : name}>
+              <span
+                tabIndex={0}
+                className={clsx(
+                  'inline-flex rounded-xs focus:outline-hidden focus-visible:outline-2 focus-visible:outline-primary',
+                  inferred && 'border-b border-dashed border-muted'
+                )}
+              >
+                <Sprite
+                  src={q.quest ? questSrc(q.quest) : uiSrc('quests')}
+                  size={20}
+                  alt={inferred ? `≈ ${name}` : name}
+                />
+              </span>
+            </Tip>
           </li>
         );
       })}
@@ -80,10 +87,11 @@ function resultMeta(run: RunDetail, evalInfo: Eval | undefined): MetaItem[] {
     meta.push({
       term: 'Time',
       value: (
-        <Tooltip>
-          <TooltipTrigger className="cursor-help underline decoration-dotted underline-offset-4">{formatDuration(run.seconds)}</TooltipTrigger>
-          <TooltipContent>{formatInt(run.ticks)} game ticks</TooltipContent>
-        </Tooltip>
+        <Tip content={`${formatInt(run.ticks)} game ticks`}>
+          <span tabIndex={0} className="cursor-help underline decoration-muted decoration-dotted underline-offset-4">
+            {formatDuration(run.seconds)}
+          </span>
+        </Tip>
       ),
     });
     const won = run.attempt_results?.find(a => a.ticks != null);
@@ -95,8 +103,8 @@ function resultMeta(run: RunDetail, evalInfo: Eval | undefined): MetaItem[] {
 }
 
 /** The facts a reader rarely needs but a debugger does (where the log is, which commit), behind the run id. */
-function RunFacts({ run }: { run: RunDetail }) {
-  const mono = (text: string) => <span className="font-mono text-xs break-all">{text}</span>;
+function RunFacts({ run }: { run: RunDetail }): JSX.Element {
+  const mono = (text: string): JSX.Element => <span className="font-mono text-xs break-all">{text}</span>;
   const facts: [string, ReactNode][] = [];
   if (run.model_calls > 0) facts.push(['Model', mono(run.model)]);
   if (run.agent_version) facts.push([run.agent_name, mono(run.agent_version)]);
@@ -107,30 +115,31 @@ function RunFacts({ run }: { run: RunDetail }) {
   facts.push(['Log', mono(run.log)]);
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="font-mono text-muted-foreground">
-          {run.id}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-80">
-        <dl className="flex flex-col gap-2">
+      <PopoverButton variant="blank" size="sm" className="font-mono text-muted">
+        {run.id}
+      </PopoverButton>
+      <PopoverPanel anchor={{ to: 'bottom end', gap: 4, padding: 8 }} className="w-80 p-4 shadow-lg">
+        <dl className="flex flex-col gap-2 text-sm">
           {facts.map(([term, value]) => (
             <div key={term} className="flex min-w-0 flex-col">
-              <dt className="text-xs text-muted-foreground">{term}</dt>
-              <dd>{value}</dd>
+              <dt className="text-xs text-muted">{term}</dt>
+              <dd className="text-foreground">{value}</dd>
             </div>
           ))}
         </dl>
-      </PopoverContent>
+      </PopoverPanel>
     </Popover>
   );
 }
 
 /** The run before and after this one of the same eval and variant, by epoch; ← and → go there. */
-function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure: XMeasure }) {
+function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure: XMeasure }): JSX.Element | null {
   const navigate = useNavigate();
   const siblings = useMemo(
-    () => runs.filter(r => r.eval === run.eval && variantKey(r) === variantKey(run)).sort((a, b) => a.epoch - b.epoch || a.id.localeCompare(b.id)),
+    () =>
+      runs
+        .filter(r => r.eval === run.eval && variantKey(r) === variantKey(run))
+        .sort((a, b) => a.epoch - b.epoch || a.id.localeCompare(b.id)),
     [runs, run]
   );
   const at = siblings.findIndex(r => r.id === run.id);
@@ -140,7 +149,8 @@ function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-      if ((event.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable], [role=slider]')) return;
+      if ((event.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable], [role=slider]'))
+        return;
       const to = event.key === 'ArrowLeft' ? prev : event.key === 'ArrowRight' ? next : undefined;
       if (!to) return;
       event.preventDefault();
@@ -151,31 +161,44 @@ function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure
   }, [navigate, prev, next, measure]);
 
   if (siblings.length < 2) return null;
-  const arrow = (to: Run | undefined, text: string, label: string) =>
-    to ? (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="outline" size="icon" asChild>
-            <Link to="/runs/$runId" params={{ runId: to.id }} search={{ x: measure } as never} aria-label={`${label}: epoch ${to.epoch}`}>
-              {text}
-            </Link>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Epoch {to.epoch}</TooltipContent>
-      </Tooltip>
-    ) : (
-      <Button variant="outline" size="icon" disabled aria-label={label}>
-        {text}
-      </Button>
-    );
   return (
     <nav aria-label="Epochs of this pairing" className="flex items-center gap-2">
-      {arrow(prev, '←', 'Previous epoch')}
-      <span className="text-sm whitespace-nowrap text-muted-foreground tabular-nums">
+      <EpochLink to={prev} measure={measure} label="Previous epoch" icon={<ArrowLeftIcon />} />
+      <span className="text-sm whitespace-nowrap text-muted tabular-nums">
         Epoch <span className="text-foreground">{formatInt(run.epoch)}</span> of {formatInt(siblings.length)}
       </span>
-      {arrow(next, '→', 'Next epoch')}
+      <EpochLink to={next} measure={measure} label="Next epoch" icon={<ArrowRightIcon />} />
     </nav>
+  );
+}
+
+/** An arrow to the run of another epoch, named on hover; a disabled one at either end. */
+function EpochLink({
+  to,
+  measure,
+  label,
+  icon,
+}: {
+  to: Run | undefined;
+  measure: XMeasure;
+  label: string;
+  icon: JSX.Element;
+}): JSX.Element {
+  if (!to) return <Button variant="secondary" size="sm" iconOnly leadingIcon={icon} disabled aria-label={label} />;
+  return (
+    <Tip content={`Epoch ${to.epoch}`}>
+      <Link
+        to="/runs/$runId"
+        params={{ runId: to.id }}
+        search={{ x: measure } as never}
+        aria-label={`${label}: epoch ${to.epoch}`}
+        className={buttonClassName({ variant: 'secondary', size: 'sm', iconOnly: true })}
+      >
+        <span aria-hidden className="contents *:size-4">
+          {icon}
+        </span>
+      </Link>
+    </Tip>
   );
 }
 
@@ -185,7 +208,10 @@ function Siblings({ run, runs, measure }: { run: RunDetail; runs: Run[]; measure
  */
 function placeAmong(run: Run, runs: Run[]): { place: number; of: number } {
   const own = runs.filter(r => r.eval === run.eval);
-  const key = (r: Run): [number, number] => [r.success ? 0 : 1, r.success ? (r.ticks ?? Infinity) : -(resultValue(r) ?? 0)];
+  const key = (r: Run): [number, number] => [
+    r.success ? 0 : 1,
+    r.success ? (r.ticks ?? Infinity) : -(resultValue(r) ?? 0),
+  ];
   const [a, b] = key(run);
   const ahead = own.filter(r => {
     const [x, y] = key(r);
@@ -196,9 +222,11 @@ function placeAmong(run: Run, runs: Run[]): { place: number; of: number } {
 
 /** Model calls that failed in the run, said once in its header; nothing when every call answered. */
 function callTrouble(run: RunDetail): string | undefined {
-  const calls = (n: number) => (n === 1 ? 'One model call' : `${formatInt(n)} model calls`);
+  const calls = (n: number): string => (n === 1 ? 'One model call' : `${formatInt(n)} model calls`);
   const parts = [
-    run.model_timeouts ? `${calls(run.model_timeouts)} got no reply within 10 minutes and timed out${run.ended_by === 'model timed out' ? '; the game ended on the last one' : ''}.` : null,
+    run.model_timeouts
+      ? `${calls(run.model_timeouts)} got no reply within 10 minutes and timed out${run.ended_by === 'model timed out' ? '; the game ended on the last one' : ''}.`
+      : null,
     run.model_errors ? `${calls(run.model_errors)} failed with a provider error, and the agent carried on.` : null,
   ].filter(Boolean);
   return parts.length ? parts.join(' ') : undefined;
@@ -209,7 +237,19 @@ function callTrouble(run: RunDetail): string | undefined {
  * place among the eval's runs and its cost; the run id (its facts behind it) and the epochs on the
  * right. The header bar already names the eval and the pairing, with its marks.
  */
-function Header({ run, evalInfo, runs, measure, summary }: { run: RunDetail; evalInfo: Eval | undefined; runs: Run[]; measure: XMeasure; summary?: string }) {
+function Header({
+  run,
+  evalInfo,
+  runs,
+  measure,
+  summary,
+}: {
+  run: RunDetail;
+  evalInfo: Eval | undefined;
+  runs: Run[];
+  measure: XMeasure;
+  summary?: string;
+}): JSX.Element {
   const { place, of } = placeAmong(run, runs);
   return (
     <PageHero
@@ -231,7 +271,7 @@ function Header({ run, evalInfo, runs, measure, summary }: { run: RunDetail; eva
   );
 }
 
-export function RunPage() {
+export function RunPage(): JSX.Element {
   const { runId } = route.useParams();
   const search = route.useSearch();
   const { data: detail } = useSuspenseQuery(runQuery(runId));
@@ -239,10 +279,17 @@ export function RunPage() {
   // The index summary may carry fields the detail file lacks, such as a screenshot added later
   const run = useMemo<RunDetail>(() => {
     const summary = index.runs.find(r => r.id === runId);
-    return { ...summary, ...detail, screenshot: detail.screenshot ?? summary?.screenshot, replay_url: detail.replay_url ?? summary?.replay_url };
+    return {
+      ...summary,
+      ...detail,
+      screenshot: detail.screenshot ?? summary?.screenshot,
+      replay_url: detail.replay_url ?? summary?.replay_url,
+    };
   }, [detail, index.runs, runId]);
   const evalInfo = index.evals.find(e => e.id === run.eval);
-  useDocumentTitle(`${modelInfo(run.model).name} ${levelName(run.thinking)}, ${evalInfo?.title ?? run.eval}, epoch ${run.epoch}`);
+  useDocumentTitle(
+    `${modelInfo(run.model).name} ${levelName(run.thinking)}, ${evalInfo?.title ?? run.eval}, epoch ${run.epoch}`
+  );
 
   const clock = useMemo(() => makeClock(run), [run]);
   const selectedTurn = search.turn != null ? run.turns[search.turn - 1] : undefined;
@@ -251,8 +298,11 @@ export function RunPage() {
   const update = useSearchUpdate(runSearch);
   const head = usePlayhead(clock, selected, tick => update({ t: tick || undefined }));
   // Opened at no moment in particular (a click into the run), it plays from the start; a link to a
-  // moment (`?t=`, `?turn=`) opens paused there
-  const autoplay = useMemo(() => search.t == null && search.turn == null, [runId]);
+  // moment (`?t=`, `?turn=`) opens paused there. Decided when the run opens, not as `?t=` changes
+  const atMoment = search.t != null || search.turn != null;
+  const [opened, setOpened] = useState({ runId, autoplay: !atMoment });
+  if (opened.runId !== runId) setOpened({ runId, autoplay: !atMoment });
+  const autoplay = opened.runId === runId ? opened.autoplay : !atMoment;
   // A team's runs: the game and the map follow one account, the first unless the reader picks another
   const accounts = run.accounts ?? [run.account];
   const account = search.acct && accounts.includes(search.acct) ? search.acct : run.account;
@@ -270,16 +320,25 @@ export function RunPage() {
    */
   return (
     <>
-      <Header run={run} evalInfo={evalInfo} runs={index.runs} measure={search.x} summary={told?.summary ?? run.summary ?? undefined} />
-      <div className={cn('grid gap-gutter', held ? 'xl:grid-cols-12' : 'xl:grid-cols-5')}>
-        <Card className={cn('min-w-0 gap-0 pt-0', held ? 'xl:col-span-8' : 'xl:col-span-3')}>
-          {/* The game, and beside it what the followed account held, as the client's side panel */}
-          <div className="flex flex-col md:flex-row">
+      <Header
+        run={run}
+        evalInfo={evalInfo}
+        runs={index.runs}
+        measure={search.x}
+        summary={told?.summary ?? run.summary ?? undefined}
+      />
+      <div className={clsx('grid gap-6', held ? 'xl:grid-cols-12' : 'xl:grid-cols-5')}>
+        <Card
+          className={clsx('min-w-0', held ? 'xl:col-span-8' : 'xl:col-span-3')}
+          footer={<Playback run={run} clock={clock} measure={search.x} chapters={told?.chapters} />}
+        >
+          {/* The game edge to edge, and beside it what the followed account held, as the client's side panel */}
+          <div className="mx-card-bleed my-card-bleed flex flex-col md:flex-row">
             <div className="relative min-w-0 flex-1">
               <Player key={run.id} run={run} head={head} autoplay={autoplay} account={account} />
               {accounts.length > 1 && (
                 <Segmented
-                  className="absolute top-2 left-2 bg-card"
+                  className="absolute top-2 left-2"
                   label="Account followed"
                   value={account}
                   options={accounts.map(a => ({ value: a, label: a }))}
@@ -288,19 +347,16 @@ export function RunPage() {
               )}
             </div>
             {held && (
-              <div className="border-b py-4 md:relative md:w-56 md:shrink-0 md:border-b-0 md:border-l md:py-0">
-                <CardContent className="flex flex-col md:absolute md:inset-0 md:py-4">
+              <div className="border-t border-border md:relative md:w-56 md:shrink-0 md:border-t-0 md:border-l">
+                <div className="flex flex-col px-card-inset py-4 md:absolute md:inset-0">
                   <Held run={run} clock={clock} account={account} tab={search.panel} />
-                </CardContent>
+                </div>
               </div>
             )}
           </div>
-          <CardFooter>
-            <Playback run={run} clock={clock} measure={search.x} chapters={told?.chapters} />
-          </CardFooter>
         </Card>
         {run.turns.length > 0 && (
-          <div className={cn('h-120 min-w-0 xl:h-auto xl:contain-size', held ? 'xl:col-span-4' : 'xl:col-span-2')}>
+          <div className={clsx('h-120 min-w-0 xl:h-auto xl:contain-size', held ? 'xl:col-span-4' : 'xl:col-span-2')}>
             <Transcript run={run} clock={clock} search={search} tick={head.tick} chapters={told?.chapters} />
           </div>
         )}
@@ -311,8 +367,10 @@ export function RunPage() {
         search={search}
         price={index.prices[run.model]}
         aside={
-          <Card className="py-0">
-            <RunMap run={run} account={account} clock={clock} view={search.map} zoom={search.mz} height={420} />
+          <Card>
+            <div className="mx-card-bleed my-card-bleed">
+              <RunMap run={run} account={account} clock={clock} view={search.map} zoom={search.mz} height={420} />
+            </div>
           </Card>
         }
       />

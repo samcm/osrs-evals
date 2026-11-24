@@ -13,13 +13,21 @@
  *   <ModelLabel model={id} />             in table rows and inline (16)
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
+import { useEffect, useRef, useState, type JSX } from 'react';
+import clsx from 'clsx';
 import { Tip } from './bits';
 import type { Run } from '@/data/types';
 import { brandSrc, itemSrc, loadTrimmedSprite } from '@/lib/assets';
 import { evalArt } from '@/lib/evals';
-import { agentInfo, levelName, modelInfo, thinkingTitle, variantOf, type SeriesColor, type Variant } from '@/lib/series';
+import {
+  agentInfo,
+  levelName,
+  modelInfo,
+  thinkingTitle,
+  variantOf,
+  type SeriesColor,
+  type Variant,
+} from '@/lib/series';
 
 const SPRITE_SIZES = {
   14: 'size-3.5',
@@ -54,14 +62,15 @@ export function Sprite({
   /** Accessible name and tooltip; empty for a decorative sprite */
   alt: string;
   className?: string;
-}) {
+}): JSX.Element {
   const ref = useRef<HTMLCanvasElement>(null);
   const path = src ?? (item != null ? itemSrc(item) : '');
-  const [failed, setFailed] = useState(false);
+  // The path that failed to load, so a new path starts out unfailed
+  const [failedPath, setFailedPath] = useState<string>();
+  const failed = failedPath != null && failedPath === path;
 
   useEffect(() => {
     let live = true;
-    setFailed(false);
     const canvas = ref.current;
     if (!canvas || !path) return;
     const box = Math.round(size * (window.devicePixelRatio || 1));
@@ -82,7 +91,7 @@ export function Sprite({
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(sprite.image, Math.floor((box - w) / 2), Math.floor((box - h) / 2), w, h);
       },
-      () => live && setFailed(true)
+      () => live && setFailedPath(path)
     );
     return () => {
       live = false;
@@ -97,7 +106,7 @@ export function Sprite({
       aria-hidden={alt ? undefined : true}
       data-sprite
       data-failed={failed || undefined}
-      className={cn('inline-block shrink-0 align-middle', SPRITE_SIZES[size], className)}
+      className={clsx('inline-block shrink-0 align-middle', SPRITE_SIZES[size], className)}
     />
   );
 }
@@ -112,17 +121,31 @@ export type BrandSize = keyof typeof BRAND_SIZES;
  * A harness's mark is the site's; a maker's or provider's is the logo the data saved from models.dev.
  * `program` is the scripted baseline's game sprite. One without a logo gets a muted letter tile.
  */
-export function BrandMark({ slug, size = 16, title, className }: { slug: string; size?: BrandSize; title?: string; className?: string }) {
+export function BrandMark({
+  slug,
+  size = 16,
+  title,
+  tone = 'foreground',
+  className,
+}: {
+  slug: string;
+  size?: BrandSize;
+  title?: string;
+  /** The mark's colour: the text colour, or muted where it should not lead */
+  tone?: 'foreground' | 'muted';
+  className?: string;
+}): JSX.Element {
   // Its name for screen readers; a hover name is the caller's Tip where the mark stands alone
   const a11y = title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': true };
-  if (slug === 'program') return <Sprite src={brandSrc('program')!} size={size} alt={title ?? ''} className={className} />;
+  if (slug === 'program')
+    return <Sprite src={brandSrc('program')!} size={size} alt={title ?? ''} className={className} />;
   const src = brandSrc(slug);
   if (!src) {
     return (
       <span
         {...a11y}
-        className={cn(
-          'inline-flex shrink-0 items-center justify-center rounded-sm bg-muted align-middle font-semibold text-muted-foreground',
+        className={clsx(
+          'inline-flex shrink-0 items-center justify-center rounded-xs bg-muted-10 align-middle font-semibold text-muted',
           BRAND_SIZES[size],
           LETTER_SIZES[size],
           className
@@ -136,24 +159,25 @@ export function BrandMark({ slug, size = 16, title, className }: { slug: string;
   return (
     <span
       {...a11y}
-      className={cn('inline-block shrink-0 bg-foreground align-middle', BRAND_SIZES[size], className)}
-      style={{
-        maskImage: mask,
-        WebkitMaskImage: mask,
-        maskSize: 'contain',
-        WebkitMaskSize: 'contain',
-        maskRepeat: 'no-repeat',
-        WebkitMaskRepeat: 'no-repeat',
-        maskPosition: 'center',
-        WebkitMaskPosition: 'center',
-      }}
+      className={clsx(
+        'inline-block shrink-0 mask-contain mask-center mask-no-repeat align-middle',
+        tone === 'muted' ? 'bg-muted' : 'bg-foreground',
+        BRAND_SIZES[size],
+        className
+      )}
+      style={{ maskImage: mask, WebkitMaskImage: mask }}
     />
   );
 }
 
 /** A series colour as a small square: only where the colour is the key for a chart. */
-export function Swatch({ color, className }: { color: SeriesColor; className?: string }) {
-  return <span aria-hidden className={cn('inline-block size-2.5 shrink-0 rounded-[2px]', color.swatchClassName, className)} />;
+function Swatch({ color, className }: { color: SeriesColor; className?: string }): JSX.Element {
+  return (
+    <span
+      aria-hidden
+      className={clsx('inline-block size-2.5 shrink-0 rounded-2xs', color.swatchClassName, className)}
+    />
+  );
 }
 
 interface LabelProps {
@@ -169,9 +193,19 @@ interface LabelProps {
 const isProgram = (agent: string, fallback?: string): boolean => agentInfo(agent, fallback).slug === 'program';
 
 /** The scripted baseline: its game sprite and "Program". */
-function ProgramLabel({ size, swatch, color, className }: { size: BrandSize; swatch?: boolean; color?: SeriesColor; className?: string }) {
+function ProgramLabel({
+  size,
+  swatch,
+  color,
+  className,
+}: {
+  size: BrandSize;
+  swatch?: boolean;
+  color?: SeriesColor;
+  className?: string;
+}): JSX.Element {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap', className)}>
+    <span className={clsx('inline-flex items-center gap-1.5 whitespace-nowrap', className)}>
       {swatch && color && <Swatch color={color} />}
       <BrandMark slug="program" size={size} />
       <span>Program</span>
@@ -179,32 +213,29 @@ function ProgramLabel({ size, swatch, color, className }: { size: BrandSize; swa
   );
 }
 
-/** An agent harness as its mark, in the muted colour so the model's vendor mark leads; its name on hover. */
-export function HarnessMark({ agent, fallback, size = 14, className }: { agent: string; fallback?: string; size?: BrandSize; className?: string }) {
-  const info = agentInfo(agent, fallback);
-  return (
-    <Tip content={info.name}>
-      <BrandMark slug={info.slug} size={size} title={info.name} className={cn('bg-muted-foreground', className)} />
-    </Tip>
-  );
-}
-
 /** A thinking level: its word, muted, after the model it belongs to ("GPT-6.2 Astra high"). */
-export function ThinkingLevel({ level, className }: { level: string; className?: string }) {
+export function ThinkingLevel({ level, className }: { level: string; className?: string }): JSX.Element {
   return (
     <Tip content={thinkingTitle(level)}>
-      <span className={cn('shrink-0 font-normal text-muted-foreground', className)}>{levelName(level)}</span>
+      <span className={clsx('shrink-0 font-normal text-muted', className)}>{levelName(level)}</span>
     </Tip>
   );
 }
 
 /** A model: its vendor's mark and its name (compact: the short name). */
-export function ModelLabel({ model, compact, swatch, size = 16, className }: LabelProps & { model: string }) {
+export function ModelLabel({
+  model,
+  compact,
+  swatch,
+  size = 16,
+  className,
+}: LabelProps & { model: string }): JSX.Element {
   const info = modelInfo(model);
-  if (info.vendor.slug === 'program') return <ProgramLabel size={size} swatch={swatch} color={info.color} className={className} />;
+  if (info.vendor.slug === 'program')
+    return <ProgramLabel size={size} swatch={swatch} color={info.color} className={className} />;
   return (
     <Tip content={compact ? info.name : undefined}>
-      <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
+      <span className={clsx('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
         {swatch && <Swatch color={info.color} />}
         <BrandMark slug={info.vendor.slug} size={size} title={info.vendor.name} />
         <span className="truncate">{compact ? info.short : info.name}</span>
@@ -214,10 +245,15 @@ export function ModelLabel({ model, compact, swatch, size = 16, className }: Lab
 }
 
 /** An agent harness on its own: its mark and its name; the scripted baseline shows its sprite and "Program". */
-export function AgentLabel({ agent, fallback, size = 16, className }: Omit<LabelProps, 'swatch' | 'compact'> & { agent: string; fallback?: string; compact?: boolean }) {
+export function AgentLabel({
+  agent,
+  fallback,
+  size = 16,
+  className,
+}: Omit<LabelProps, 'swatch' | 'compact'> & { agent: string; fallback?: string; compact?: boolean }): JSX.Element {
   if (isProgram(agent, fallback)) return <ProgramLabel size={size} className={className} />;
   return (
-    <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
+    <span className={clsx('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
       <BrandMark slug={agentInfo(agent, fallback).slug} size={size} />
       <span className="truncate">{agentInfo(agent, fallback).name}</span>
     </span>
@@ -237,12 +273,13 @@ export function VariantLabel({
   swatch,
   size = 16,
   className,
-}: LabelProps & { run?: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thinking'>; variant?: Variant }) {
+}: LabelProps & { run?: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thinking'>; variant?: Variant }): JSX.Element {
   const v = variant ?? variantOf(run!);
   const model = modelInfo(v.model);
-  if (isProgram(v.agent, run?.agent_name)) return <ProgramLabel size={size} swatch={swatch} color={v.color} className={className} />;
+  if (isProgram(v.agent, run?.agent_name))
+    return <ProgramLabel size={size} swatch={swatch} color={v.color} className={className} />;
   return (
-    <span className={cn('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
+    <span className={clsx('inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap', className)}>
       {swatch && <Swatch color={v.color} />}
       <BrandMark slug={model.vendor.slug} size={size} title={model.vendor.name} />
       <span className="truncate">{compact ? model.short : model.name}</span>
@@ -252,8 +289,19 @@ export function VariantLabel({
 }
 
 /** The eval's sprite. */
-export function EvalMark({ evalId, size = 24, title, className }: { evalId: string; size?: SpriteSize; title?: string; className?: string }) {
+export function EvalMark({
+  evalId,
+  size = 24,
+  title,
+  className,
+}: {
+  evalId: string;
+  size?: SpriteSize;
+  title?: string;
+  className?: string;
+}): JSX.Element {
   const { mark } = evalArt(evalId);
-  if (!mark) return <span aria-hidden className={cn('inline-block shrink-0 align-middle', SPRITE_SIZES[size], className)} />;
+  if (!mark)
+    return <span aria-hidden className={clsx('inline-block shrink-0 align-middle', SPRITE_SIZES[size], className)} />;
   return <Sprite src={mark.src} size={size} alt={title ?? mark.name} className={className} />;
 }

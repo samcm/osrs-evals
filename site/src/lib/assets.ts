@@ -4,7 +4,7 @@ import { providerLogo } from './series';
 
 /** Harness marks: one-colour SVGs, drawn as masks by BrandMark. Makers' and inference providers'
  * logos come with the data (models.dev, saved by export.py), by their models.dev id. */
-export const BRAND_SLUGS = ['claude-code', 'codex', 'opencode', 'amp', 'bash', 'omp'] as const;
+const BRAND_SLUGS = ['claude-code', 'codex', 'opencode', 'amp', 'bash', 'omp'] as const;
 
 /** A mark's file: a harness's from the site, a maker's or provider's from the data; null when there is none. */
 export function brandSrc(slug: string): string | null {
@@ -19,8 +19,6 @@ export const skillSrc = (skill: string): string => `/assets/skills/${skill}.png`
 export const questSrc = (questId: string): string => `/assets/quests/${questId}.png`;
 /** An interface side icon ("quests", "stats", "inventory"). */
 export const uiSrc = (name: string): string => `/assets/ui/${name}.png`;
-/** The render of a run's character. */
-export const avatarSrc = (runId: string): string => `/data/runs/${encodeURIComponent(runId)}.avatar.png`;
 
 export interface TrimmedSprite {
   /** The sprite cropped to its opaque pixels */

@@ -9,7 +9,13 @@
  */
 
 import { useCallback, useEffect } from 'react';
-import { getRouteApi, stripSearchParams, useNavigate, type SearchMiddleware, type SearchSchemaInput } from '@tanstack/react-router';
+import {
+  getRouteApi,
+  stripSearchParams,
+  useNavigate,
+  type SearchMiddleware,
+  type SearchSchemaInput,
+} from '@tanstack/react-router';
 import type { Run } from '@/data/types';
 import { vendorOf } from './series';
 
@@ -28,6 +34,7 @@ export type ParamValues<P extends Record<string, Param<unknown>>> = { [K in keyo
 export interface SearchSchema<V extends object> {
   validate: (input: Partial<V> & SearchSchemaInput) => V;
   /** Strips defaults from every URL the route builds (typed loosely: the route's full search includes the root's) */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any route's search, as the router types its middlewares
   middlewares: SearchMiddleware<any>[];
   defaults: V;
 }
@@ -73,7 +80,10 @@ export function num(fallback: number | undefined): Param<number | undefined> {
 }
 
 /** One of a fixed set of words. */
-export function oneOf<const V extends string, const D extends V | undefined>(values: readonly V[], fallback: D): Param<V | D> {
+export function oneOf<const V extends string, const D extends V | undefined>(
+  values: readonly V[],
+  fallback: D
+): Param<V | D> {
   return { parse: value => values.find(v => v === raw(value)), fallback };
 }
 
@@ -113,6 +123,7 @@ function equal(a: unknown, b: unknown): boolean {
 }
 
 /** Declare a route's params. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- params of any value type; ParamValues keeps each one's
 export function defineSearch<P extends Record<string, Param<any>>>(params: P): SearchSchema<ParamValues<P>> {
   type V = ParamValues<P>;
   const defaults = Object.fromEntries(Object.entries(params).map(([k, p]) => [k, p.fallback])) as V;
@@ -123,6 +134,7 @@ export function defineSearch<P extends Record<string, Param<any>>>(params: P): S
       Object.fromEntries(
         Object.entries(params).map(([k, p]) => [k, p.parse((input as Record<string, unknown>)[k]) ?? p.fallback])
       ) as V,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- as SearchSchema's middlewares
     middlewares: [stripSearchParams(strippable as never) as SearchMiddleware<any>],
   };
 }
@@ -166,7 +178,7 @@ export function useSearchUpdate<V extends object = Record<string, unknown>>(
 export const legendParams = { hide: list(), focus: text() };
 
 /** Scope params, on the root route and carried on every internal link: they narrow every page. */
-export const scopeParams = { model: list(), agent: list(), vendor: list(), thinking: list() };
+const scopeParams = { model: list(), agent: list(), vendor: list(), thinking: list() };
 
 /** The root route's params: scope plus a theme override for shared links. */
 export const rootSearch = defineSearch({
@@ -221,7 +233,9 @@ export function stringifySearch(search: Record<string, unknown>): string {
   for (const [key, value] of Object.entries(search)) {
     if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) continue;
     const text = Array.isArray(value) ? value.map(String).join(',') : String(value);
-    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(text).replace(/%2C/g, ',').replace(/%2F/g, '/').replace(/%3A/g, ':').replace(/%7C/g, '|')}`);
+    parts.push(
+      `${encodeURIComponent(key)}=${encodeURIComponent(text).replace(/%2C/g, ',').replace(/%2F/g, '/').replace(/%3A/g, ':').replace(/%7C/g, '|')}`
+    );
   }
   return parts.length ? `?${parts.join('&')}` : '';
 }

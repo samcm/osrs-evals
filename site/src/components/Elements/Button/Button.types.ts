@@ -1,0 +1,66 @@
+import type { ComponentPropsWithoutRef, ReactNode, Ref } from 'react';
+import type { Button as HeadlessButton } from '@headlessui/react';
+
+type ButtonVariant = 'primary' | 'secondary' | 'soft' | 'outline' | 'danger' | 'blank';
+
+type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+
+type ButtonRounded = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
+
+export interface ButtonProps extends ComponentPropsWithoutRef<typeof HeadlessButton> {
+  /**
+   * Ref to the rendered button element
+   */
+  ref?: Ref<HTMLButtonElement>;
+
+  /**
+   * The visual style variant of the button
+   * @default 'primary'
+   */
+  variant?: ButtonVariant;
+
+  /**
+   * The size of the button
+   * @default 'md'
+   */
+  size?: ButtonSize;
+
+  /**
+   * The border radius amount
+   * - 'xs': Minimal rounding (rounded-xs)
+   * - 'sm': Small rounding (rounded-sm)
+   * - 'md': Same as sm (rounded-sm)
+   * - 'lg': Same as sm (rounded-sm)
+   * - 'xl': Same as sm (rounded-sm)
+   * - 'full': Fully rounded pill shape (rounded-full)
+   * @default 'sm'
+   */
+  rounded?: ButtonRounded;
+
+  /**
+   * Icon to display before the button text
+   */
+  leadingIcon?: ReactNode;
+
+  /**
+   * Icon to display after the button text
+   */
+  trailingIcon?: ReactNode;
+
+  /**
+   * Icon-only mode (circular button with just an icon)
+   * When true, children will be ignored
+   */
+  iconOnly?: boolean;
+
+  /**
+   * Prevent text wrapping
+   * @default false
+   */
+  nowrap?: boolean;
+
+  /**
+   * Button content
+   */
+  children?: ReactNode;
+}

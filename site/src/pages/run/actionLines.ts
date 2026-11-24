@@ -19,11 +19,25 @@ export interface Clause {
  */
 const STEPS: [string, string[]][] = [
   ['walk', ['walkTo', 'sendWalk']],
-  ['talk', ['talkTo', 'talk', 'sendTalkToNpc', 'sendClickDialog', 'clickDialogByText', 'navigateDialog', 'sendCountDialog']],
+  [
+    'talk',
+    ['talkTo', 'talk', 'sendTalkToNpc', 'sendClickDialog', 'clickDialogByText', 'navigateDialog', 'sendCountDialog'],
+  ],
   ['interact', ['interactLoc', 'sendInteractLoc', 'interactNpc', 'sendInteractNpc']],
   ['open door', ['openDoor']],
   ['pick up', ['pickupItem', 'sendPickup']],
-  ['use item', ['useItemOnLoc', 'sendUseItemOnLoc', 'useItemOnNpc', 'sendUseItemOnNpc', 'sendUseItem', 'sendUseItemOnItem', 'useItemOnItem']],
+  [
+    'use item',
+    [
+      'useItemOnLoc',
+      'sendUseItemOnLoc',
+      'useItemOnNpc',
+      'sendUseItemOnNpc',
+      'sendUseItem',
+      'sendUseItemOnItem',
+      'useItemOnItem',
+    ],
+  ],
   ['shop', ['openShop', 'buyFromShop', 'sendShopBuy', 'sellToShop']],
   ['bank', ['openBank', 'withdrawItem', 'depositItem']],
   ['equip', ['equipItem']],
@@ -134,12 +148,59 @@ const VERB: Record<Kind, string> = {
   fetch: 'Fetched',
 };
 
-const READERS = new Set(['cat', 'head', 'tail', 'less', 'more', 'nl', 'wc', 'jq', 'strings', 'xxd', 'od', 'file', 'stat', 'diff']);
+const READERS = new Set([
+  'cat',
+  'head',
+  'tail',
+  'less',
+  'more',
+  'nl',
+  'wc',
+  'jq',
+  'strings',
+  'xxd',
+  'od',
+  'file',
+  'stat',
+  'diff',
+]);
 const SEARCHERS = new Set(['grep', 'egrep', 'rg', 'ag']);
 const LISTERS = new Set(['ls', 'find', 'tree', 'du']);
 const RUNNERS = new Set(['bun', 'node', 'python', 'python3', 'tsx', 'deno', 'bash', 'sh', 'npx']);
 /** Commands that set up the line rather than do anything: `cd /work;`, `echo ---`, `X=1` */
-const QUIET = new Set(['cd', 'echo', 'printf', 'export', 'true', 'false', 'date', 'set', 'clear', 'tr', 'sort', 'uniq', 'for', 'while', 'until', 'done', 'fi', 'esac', 'case', '{', '}', '[', '[[', 'test', 'xargs', 'cp', 'mv', 'mkdir', 'rm', 'chmod', 'touch']);
+const QUIET = new Set([
+  'cd',
+  'echo',
+  'printf',
+  'export',
+  'true',
+  'false',
+  'date',
+  'set',
+  'clear',
+  'tr',
+  'sort',
+  'uniq',
+  'for',
+  'while',
+  'until',
+  'done',
+  'fi',
+  'esac',
+  'case',
+  '{',
+  '}',
+  '[',
+  '[[',
+  'test',
+  'xargs',
+  'cp',
+  'mv',
+  'mkdir',
+  'rm',
+  'chmod',
+  'touch',
+]);
 /** Words that open a loop or branch body: the command after them is the one that runs */
 const KEYWORDS = new Set(['do', 'then', 'else', 'if', '!', 'time', 'nohup', 'exec']);
 /** Flags whose value is the next word, by command */
@@ -174,14 +235,27 @@ function operands(cmd: string, args: string[]): string[] {
 /** What one shell command did, as a kind and the files it touched; null for set-up. */
 function shellStep(argv: string[]): { kind: Kind; targets: string[] } | { kind: 'other'; text: string } | null {
   let at = 0;
-  while (at < argv.length && (KEYWORDS.has(argv[at]) || /^\w+=/.test(argv[at]) || argv[at] === 'timeout' || argv[at] === 'env' || argv[at] === 'sudo' || /^\d+[smh]?$/.test(argv[at]))) at++;
+  while (
+    at < argv.length &&
+    (KEYWORDS.has(argv[at]) ||
+      /^\w+=/.test(argv[at]) ||
+      argv[at] === 'timeout' ||
+      argv[at] === 'env' ||
+      argv[at] === 'sudo' ||
+      /^\d+[smh]?$/.test(argv[at]))
+  )
+    at++;
   // `X=$(grep …)`: the command is the one inside
   const sub = argv[at - 1]?.match(/^\w+=\$\((.+)$/);
   const [cmd, ...args] = sub ? [sub[1], ...argv.slice(at)] : argv.slice(at);
   if (!cmd || QUIET.has(cmd)) return null;
-  const files = (list: string[]) => list.filter(f => f && f !== '-' && f !== '.' && !f.includes('*') && !f.startsWith('$')).flatMap(f => expand(baseName(f)));
+  const files = (list: string[]): string[] =>
+    list
+      .filter(f => f && f !== '-' && f !== '.' && !f.includes('*') && !f.startsWith('$'))
+      .flatMap(f => expand(baseName(f)));
   if (cmd === 'cat' && args.some(a => a.startsWith('>'))) {
-    const to = args.find(a => a.length > 2 && a.startsWith('>')) ?? args[args.indexOf('>') + 1] ?? args[args.indexOf('>>') + 1];
+    const to =
+      args.find(a => a.length > 2 && a.startsWith('>')) ?? args[args.indexOf('>') + 1] ?? args[args.indexOf('>>') + 1];
     return to ? { kind: 'write', targets: files([to.replace(/^>+/, '')]) } : null;
   }
   if (cmd === 'tee') return { kind: 'write', targets: files(operands(cmd, args)) };
@@ -243,7 +317,8 @@ function shellClauses(input: string, scripted = false): Clause[] {
     else kinds.delete(kind);
   }
   // Reading without naming a file (`grep -c x`, `cat <<EOF`) says little next to what else it did
-  for (const kind of ['read', 'search', 'list'] as const) if (kinds.size > 1 && kinds.get(kind)?.length === 0) kinds.delete(kind);
+  for (const kind of ['read', 'search', 'list'] as const)
+    if (kinds.size > 1 && kinds.get(kind)?.length === 0) kinds.delete(kind);
   const clauses: Clause[] = [...kinds].slice(0, 3).map(([kind, targets]) => ({
     verb: VERB[kind],
     object: targets.length ? names(targets) : kind === 'run' ? 'a script' : undefined,
@@ -280,7 +355,8 @@ export function actionClauses(action: Action): Clause[] {
   }
   if (args) {
     const path = args.file_path ?? args.path;
-    if (typeof path === 'string') return [{ verb: action.category === 'write' ? 'Wrote' : 'Read', object: baseName(path) }];
+    if (typeof path === 'string')
+      return [{ verb: action.category === 'write' ? 'Wrote' : 'Read', object: baseName(path) }];
     const command = args.command ?? args.cmd;
     if (typeof command === 'string') return shellClauses(command, scripted);
     return [{ verb: 'Used', object: action.tool }];

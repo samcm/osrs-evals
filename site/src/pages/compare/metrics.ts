@@ -2,7 +2,15 @@
 
 import type { Eval, Run } from '@/data/types';
 import { hasTarget } from '@/lib/evals';
-import { formatCost, formatCostTick, formatDecimal, formatInt, formatPercent, formatSeconds, formatTokens } from '@/lib/format';
+import {
+  formatCost,
+  formatCostTick,
+  formatDecimal,
+  formatInt,
+  formatPercent,
+  formatSeconds,
+  formatTokens,
+} from '@/lib/format';
 import { formatTick } from '@/lib/ticks';
 import { resultValue } from '@/lib/runResult';
 
@@ -59,16 +67,48 @@ export interface Metric {
 }
 
 /** A count from a run's measured facts. */
-function count(id: MetricId, label: string, get: (run: Run) => number | null | undefined, better: Metric['better'] = null): Metric {
-  return { id, label, group: 'How it worked', whole: true, get: r => get(r) ?? null, format: formatInt, tick: formatTick, better, scale: 'linear', log: false };
+function count(
+  id: MetricId,
+  label: string,
+  get: (run: Run) => number | null | undefined,
+  better: Metric['better'] = null
+): Metric {
+  return {
+    id,
+    label,
+    group: 'How it worked',
+    whole: true,
+    get: r => get(r) ?? null,
+    format: formatInt,
+    tick: formatTick,
+    better,
+    scale: 'linear',
+    log: false,
+  };
 }
 
 /** Minutes of game time from a run's measured facts. */
-function minutes(id: MetricId, label: string, get: (run: Run) => number | null | undefined, better: Metric['better'] = null): Metric {
-  return { id, label, group: 'How it worked', get: r => get(r) ?? null, format: v => `${formatDecimal(v)} min`, tick: v => `${formatTick(v)} min`, better, scale: 'linear', log: false };
+function minutes(
+  id: MetricId,
+  label: string,
+  get: (run: Run) => number | null | undefined,
+  better: Metric['better'] = null
+): Metric {
+  return {
+    id,
+    label,
+    group: 'How it worked',
+    get: r => get(r) ?? null,
+    format: v => `${formatDecimal(v)} min`,
+    tick: v => `${formatTick(v)} min`,
+    better,
+    scale: 'linear',
+    log: false,
+  };
 }
 
-const share = (part: number | null | undefined, whole: number | null | undefined): number | null => (part != null && whole ? part / whole : null);
+const share = (part: number | null | undefined, whole: number | null | undefined): number | null =>
+  part != null && whole ? part / whole : null;
 
 export const METRICS: Metric[] = [
   {

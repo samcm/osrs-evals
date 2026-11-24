@@ -24,7 +24,12 @@ export const Route = createFileRoute('/evals/$evalId_/$model')({
   search: { middlewares: modelSearch.middlewares },
   beforeLoad: ({ params, search }) => {
     if (params.evalId !== evalSlug(params.evalId))
-      throw redirect({ to: '/evals/$evalId/$model', params: { evalId: evalSlug(params.evalId), model: params.model }, search: search as never, replace: true });
+      throw redirect({
+        to: '/evals/$evalId/$model',
+        params: { evalId: evalSlug(params.evalId), model: params.model },
+        search: search as never,
+        replace: true,
+      });
   },
   loader: ({ context, params }) => void context.queryClient.prefetchQuery(evalRunsQuery(evalIdOf(params.evalId))),
   component: EvalModelPage,

@@ -1,0 +1,418 @@
+import { Fragment, type JSX, useMemo, useState } from 'react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  flexRender,
+  type ColumnFiltersState,
+  type SortingState,
+  type VisibilityState,
+  type PaginationState,
+} from '@tanstack/react-table';
+import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/20/solid';
+import clsx from 'clsx';
+import type { DataTableProps, DataTableColumnMeta } from './DataTable.types';
+import { ColumnFilter } from './components/ColumnFilter';
+import { TableToolbar } from './components/TableToolbar';
+import { LoadingContainer } from '@/components/Layout/LoadingContainer';
+import { Input } from '@/components/Forms/Input';
+import { MagnifyingGlassIcon } from '@heroicons/react/20/solid';
+
+/** The loading state's placeholder rows, which carry no data, only their place in the table */
+const LOADING_ROWS = ['loading-1', 'loading-2', 'loading-3', 'loading-4', 'loading-5'];
+
+export function DataTable<TData>({
+  data,
+  columns,
+  isLoading = false,
+  // Pagination
+  pageSize: controlledPageSize,
+  pageIndex: controlledPageIndex,
+  pageCount: controlledPageCount,
+  onPaginationChange,
+  // Filtering
+  columnFilters: controlledColumnFilters,
+  onColumnFiltersChange,
+  globalFilter: controlledGlobalFilter,
+  onGlobalFilterChange,
+  // Sorting
+  sorting: controlledSorting,
+  onSortingChange,
+  // Column visibility
+  columnVisibility: controlledColumnVisibility,
+  onColumnVisibilityChange,
+  // Row actions
+  onRowClick,
+  getRowId,
+  getRowClassName,
+  getRowProps,
+  renderExpandedRow,
+  // Manual mode
+  manualPagination = false,
+  manualFiltering = false,
+  manualSorting = false,
+  // For cursor-based pagination
+  hasNextPage,
+  // Appearance
+  emptyMessage = 'No data available',
+  title,
+  description,
+  // Toolbar options
+  hideGlobalFilter = false,
+  hideColumnVisibility = false,
+  // Pagination position
+  paginationPosition = 'bottom',
+  hidePageSize = false,
+  footer,
+  density = 'compact',
+}: DataTableProps<TData>): JSX.Element {
+  const comfortable = density === 'comfortable';
+  const gap = comfortable
+    ? { left: 'pl-3', right: 'pr-3', both: 'px-3' }
+    : { left: 'pl-2', right: 'pr-2', both: 'px-2' };
+  // Internal state (used when not controlled)
+  const [internalPagination, setInternalPagination] = useState<PaginationState>({
+    pageIndex: controlledPageIndex ?? 0,
+    pageSize: controlledPageSize ?? 10,
+  });
+  const [internalColumnFilters, setInternalColumnFilters] = useState<ColumnFiltersState>(controlledColumnFilters ?? []);
+  const [internalGlobalFilter, setInternalGlobalFilter] = useState<string>(controlledGlobalFilter ?? '');
+  const [internalSorting, setInternalSorting] = useState<SortingState>(controlledSorting ?? []);
+  const [internalColumnVisibility, setInternalColumnVisibility] = useState<VisibilityState>(
+    controlledColumnVisibility ?? {}
+  );
+
+  // Use controlled state if provided, otherwise use internal state
+  const pagination = useMemo(
+    () =>
+      controlledPageIndex !== undefined && controlledPageSize !== undefined
+        ? { pageIndex: controlledPageIndex, pageSize: controlledPageSize }
+        : internalPagination,
+    [controlledPageIndex, controlledPageSize, internalPagination]
+  );
+
+  const columnFilters = controlledColumnFilters ?? internalColumnFilters;
+  const globalFilter = controlledGlobalFilter ?? internalGlobalFilter;
+  const sorting = controlledSorting ?? internalSorting;
+  const columnVisibility = controlledColumnVisibility ?? internalColumnVisibility;
+
+  // Handle state changes
+  const handlePaginationChange = (updater: PaginationState | ((old: PaginationState) => PaginationState)): void => {
+    const newPagination = typeof updater === 'function' ? updater(pagination) : updater;
+    if (onPaginationChange) {
+      onPaginationChange(newPagination.pageIndex, newPagination.pageSize);
+    } else {
+      setInternalPagination(newPagination);
+    }
+  };
+
+  const handleColumnFiltersChange = (
+    updater: ColumnFiltersState | ((old: ColumnFiltersState) => ColumnFiltersState)
+  ): void => {
+    const newFilters = typeof updater === 'function' ? updater(columnFilters) : updater;
+    if (onColumnFiltersChange) {
+      onColumnFiltersChange(newFilters);
+    } else {
+      setInternalColumnFilters(newFilters);
+    }
+  };
+
+  const handleGlobalFilterChange = (updater: string | ((old: string) => string)): void => {
+    const newFilter = typeof updater === 'function' ? updater(globalFilter) : updater;
+    if (onGlobalFilterChange) {
+      onGlobalFilterChange(newFilter);
+    } else {
+      setInternalGlobalFilter(newFilter);
+    }
+  };
+
+  const handleSortingChange = (updater: SortingState | ((old: SortingState) => SortingState)): void => {
+    const newSorting = typeof updater === 'function' ? updater(sorting) : updater;
+    if (onSortingChange) {
+      onSortingChange(newSorting);
+    } else {
+      setInternalSorting(newSorting);
+    }
+  };
+
+  const handleColumnVisibilityChange = (
+    updater: VisibilityState | ((old: VisibilityState) => VisibilityState)
+  ): void => {
+    const newVisibility = typeof updater === 'function' ? updater(columnVisibility) : updater;
+    if (onColumnVisibilityChange) {
+      onColumnVisibilityChange(newVisibility);
+    } else {
+      setInternalColumnVisibility(newVisibility);
+    }
+  };
+
+  // Initialize table
+  const table = useReactTable({
+    data,
+    // Cast columns to the expected type - our DataTableColumn extends ColumnDef with custom meta
+    columns: columns as Parameters<typeof useReactTable<TData>>[0]['columns'],
+    // State
+    state: {
+      pagination,
+      columnFilters,
+      globalFilter,
+      sorting,
+      columnVisibility,
+    },
+    // State handlers
+    onPaginationChange: handlePaginationChange,
+    onColumnFiltersChange: handleColumnFiltersChange,
+    onGlobalFilterChange: handleGlobalFilterChange,
+    onSortingChange: handleSortingChange,
+    onColumnVisibilityChange: handleColumnVisibilityChange,
+    // Row model
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: manualFiltering ? undefined : getFilteredRowModel(),
+    getPaginationRowModel: manualPagination ? undefined : getPaginationRowModel(),
+    getSortedRowModel: manualSorting ? undefined : getSortedRowModel(),
+    // Manual control
+    manualPagination,
+    manualFiltering,
+    manualSorting,
+    // A caller that owns the page (such as one kept in the URL) also decides when it resets
+    autoResetPageIndex: onPaginationChange ? false : undefined,
+    pageCount: controlledPageCount,
+    // Row ID
+    getRowId: getRowId as ((row: TData, index: number) => string) | undefined,
+    // Enable features
+    enableColumnFilters: true,
+    enableGlobalFilter: true,
+    enableSorting: true,
+  });
+
+  // Check if any column has filters enabled
+  const hasFilterableColumns = columns.some(col => col.meta?.filterType);
+
+  return (
+    <div
+      className={clsx(
+        'group/datatable w-full data-table-inset',
+        // Inside a Card body: flush to the card edges, with edge columns on the card's inset so they
+        // line up with the card title
+        'in-data-[slot=card-body]:mx-card-bleed in-data-[slot=card-body]:w-auto',
+        'in-data-[slot=card-body]:inset-from-card',
+        'in-data-[slot=card-body]:first:mt-card-bleed in-data-[slot=card-body]:last:mb-card-bleed'
+      )}
+    >
+      {/* Header section */}
+      {(title || description) && (
+        <div className="mb-4 px-toolbar-inset">
+          <div className="sm:flex sm:items-center sm:justify-between">
+            <div className="sm:flex-auto">
+              {title && <h2 className="text-sm/6 font-semibold text-foreground">{title}</h2>}
+              {description && <p className="mt-2 text-sm/6 text-muted">{description}</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Global search (if enabled) */}
+      {!hideGlobalFilter && (
+        <div className="mb-4 px-toolbar-inset">
+          <div className="sm:max-w-xs">
+            <Input size="sm">
+              <Input.Leading>
+                <MagnifyingGlassIcon />
+              </Input.Leading>
+              <Input.Field
+                type="text"
+                value={globalFilter}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleGlobalFilterChange(e.target.value)}
+                placeholder="Search..."
+              />
+            </Input>
+          </div>
+        </div>
+      )}
+
+      {/* Table container with unified toolbar */}
+      <div
+        className={clsx(
+          'overflow-hidden border-y border-border',
+          // The card's own edge and header rule replace these borders
+          'in-data-[slot=card-body]:border-b-0 in-data-[slot=card-body]:group-first/datatable:border-t-0'
+        )}
+      >
+        {/* Unified toolbar (top) - columns + pagination */}
+        {!isLoading &&
+          table.getRowModel().rows.length > 0 &&
+          (paginationPosition === 'top' || paginationPosition === 'both') && (
+            <TableToolbar
+              table={table}
+              hideColumnVisibility={hideColumnVisibility}
+              position="top"
+              hasNextPage={hasNextPage}
+              hidePageSize={hidePageSize}
+            />
+          )}
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-border">
+            {/* Table head */}
+            <thead className="bg-surface">
+              {table.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header, headerIndex) => {
+                    const canSort = header.column.getCanSort();
+                    const isSorted = header.column.getIsSorted();
+                    const numeric = (header.column.columnDef.meta as DataTableColumnMeta | undefined)?.numeric;
+
+                    return (
+                      <th
+                        key={header.id}
+                        scope="col"
+                        aria-sort={isSorted === 'asc' ? 'ascending' : isSorted === 'desc' ? 'descending' : undefined}
+                        style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
+                        className={clsx(
+                          'text-xs font-medium whitespace-nowrap text-muted',
+                          numeric ? 'text-right' : 'text-left',
+                          comfortable ? 'py-2.5' : 'py-1.5',
+                          headerIndex === 0
+                            ? `${gap.right} pl-table-inset`
+                            : headerIndex === headerGroup.headers.length - 1
+                              ? `pr-table-inset ${gap.left}`
+                              : gap.both,
+                          (header.column.columnDef.meta as DataTableColumnMeta | undefined)?.columnClassName
+                        )}
+                      >
+                        <div className="flex flex-col gap-2">
+                          {/* Header content with sort */}
+                          <div className={clsx('flex items-center gap-2', numeric && 'justify-end')}>
+                            {canSort ? (
+                              <button
+                                onClick={header.column.getToggleSortingHandler()}
+                                className={clsx(
+                                  'group flex items-center gap-1 transition-colors select-none hover:text-foreground',
+                                  numeric && 'flex-row-reverse',
+                                  isSorted && 'text-foreground'
+                                )}
+                              >
+                                {flexRender(header.column.columnDef.header, header.getContext())}
+                                {/* Direction shows once sorted; unsorted columns hint on hover */}
+                                {isSorted === 'asc' ? (
+                                  <ChevronUpIcon className="size-3.5" />
+                                ) : isSorted === 'desc' ? (
+                                  <ChevronDownIcon className="size-3.5" />
+                                ) : (
+                                  <ChevronDownIcon className="size-3.5 opacity-0 transition-opacity group-hover:opacity-60" />
+                                )}
+                              </button>
+                            ) : (
+                              flexRender(header.column.columnDef.header, header.getContext())
+                            )}
+                          </div>
+
+                          {/* Column filter */}
+                          {hasFilterableColumns && header.column.getCanFilter() && (
+                            <ColumnFilter column={header.column} />
+                          )}
+                        </div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              ))}
+            </thead>
+
+            {/* Table body */}
+            <tbody className="divide-y divide-border bg-surface">
+              {isLoading ? (
+                // Loading state
+                <tr>
+                  <td colSpan={columns.length} className="py-8">
+                    <div className="flex flex-col gap-2">
+                      {LOADING_ROWS.map(row => (
+                        <LoadingContainer key={row} className="h-12 w-full" />
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ) : table.getRowModel().rows.length === 0 ? (
+                // Empty state
+                <tr>
+                  <td colSpan={columns.length} className="py-12 text-center">
+                    <div className="text-sm text-muted">{emptyMessage}</div>
+                  </td>
+                </tr>
+              ) : (
+                // Data rows
+                table.getRowModel().rows.map(row => {
+                  const expanded = renderExpandedRow?.(row.original, row.id) ?? null;
+                  const rowProps = getRowProps?.(row.original, row.id);
+                  return (
+                    <Fragment key={row.id}>
+                      <tr
+                        onClick={() => onRowClick?.(row.original)}
+                        {...rowProps}
+                        className={clsx(
+                          // Colours on hover, and opacity for a row a caller fades
+                          'transition',
+                          onRowClick && 'cursor-pointer hover:bg-background',
+                          getRowClassName?.(row.original, row.id),
+                          rowProps?.className
+                        )}
+                      >
+                        {row.getVisibleCells().map((cell, cellIndex) => (
+                          <td
+                            key={cell.id}
+                            style={{ width: cell.column.getSize() !== 150 ? cell.column.getSize() : undefined }}
+                            className={clsx(
+                              'tabular-nums',
+                              (cell.column.columnDef.meta as DataTableColumnMeta | undefined)?.wrap
+                                ? 'whitespace-normal'
+                                : 'whitespace-nowrap',
+                              comfortable ? 'py-2.5 text-sm' : 'py-1.5 text-xs',
+                              cellIndex === 0
+                                ? `${gap.right} pl-table-inset`
+                                : cellIndex === row.getVisibleCells().length - 1
+                                  ? `pr-table-inset ${gap.left}`
+                                  : gap.both,
+                              (cell.column.columnDef.meta as DataTableColumnMeta | undefined)?.numeric && 'text-right',
+                              (cell.column.columnDef.meta as DataTableColumnMeta | undefined)?.cellClassName ||
+                                'text-muted',
+                              (cell.column.columnDef.meta as DataTableColumnMeta | undefined)?.columnClassName
+                            )}
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                      {expanded !== null && (
+                        <tr className="bg-background-50">
+                          <td colSpan={row.getVisibleCells().length} className="px-table-inset py-3">
+                            {expanded}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Unified toolbar (bottom) - columns + pagination */}
+        {!isLoading &&
+          table.getRowModel().rows.length > 0 &&
+          (paginationPosition === 'bottom' || paginationPosition === 'both' || footer != null) && (
+            <TableToolbar
+              table={table}
+              hideColumnVisibility={hideColumnVisibility}
+              position="bottom"
+              hasNextPage={hasNextPage}
+              hidePageSize={hidePageSize}
+              showPagination={paginationPosition === 'bottom' || paginationPosition === 'both'}
+              footer={footer}
+            />
+          )}
+      </div>
+    </div>
+  );
+}

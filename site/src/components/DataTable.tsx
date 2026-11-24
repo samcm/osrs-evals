@@ -1,38 +1,29 @@
 /**
- * A TanStack table drawn with shadcn's Table, its sort, page and expanded row bound to the URL.
+ * lab's DataTable (src/components/DataTable/), its sort, page and expanded row bound to the URL.
+ * Pages import this; it sits beside lab's folder of the same name and reaches the table by its file.
  *
- *   <Card><CardHeader>…</CardHeader><CardContent className="px-0">
+ *   <PageSection title="Runs">
  *     <DataTable data={runs} columns={columns} getRowId={r => r.id}
  *       sort={search.sort} onSortChange={sort => update({ sort }, { resetPage: true })}
  *       page={search.page} pageSize={50} onPageChange={page => update({ page })}
  *       expanded={search.open} onExpandedChange={open => update({ open })} renderExpanded={r => …} />
- *   </CardContent></Card>
+ *   </PageSection>
  *
- * Its first and last columns pad by the card's spacing, so in a CardContent without side padding the
- * rows run to the card's edges and line up with the header. Headers never wrap; a table wider than
- * its card scrolls inside it. A column with `meta: { minWidth }` shows only when the table is that
- * wide, so columns follow the card's width rather than the window's (the sidebar takes its share).
+ * In a card it runs to the card's edges, its outer columns on the card's inset so they line up with
+ * the title. Headers never wrap; a table wider than its card scrolls inside it. A column with
+ * `meta: { minWidth }` shows only when the table is that wide, so columns follow the card's width
+ * rather than the window's (the sidebar takes its share).
  */
 
-import { Fragment, type ReactNode } from 'react';
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronsUpDown } from 'lucide-react';
-import {
-  flexRender,
-  getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type ColumnDef,
-  type RowData,
-  type SortingState,
-} from '@tanstack/react-table';
+import { useState, type JSX, type ReactNode } from 'react';
+import type { ColumnDef, RowData, SortingState } from '@tanstack/react-table';
+import { DataTable as LabDataTable } from '@/components/DataTable/DataTable';
+import type { DataTableColumn } from '@/components/DataTable/DataTable.types';
 import { FADED_OPACITY, hoverProps, useHover } from '@/lib/hover';
 import { useWidth } from '@/lib/useWidth';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the type parameters must match TanStack's own declaration
   interface ColumnMeta<TData extends RowData, TValue> {
     /** Numbers are right-aligned */
     numeric?: boolean;
@@ -46,12 +37,13 @@ declare module '@tanstack/react-table' {
 }
 
 /** URL sort keys ("cost", "-ticks") to the table's sorting state, and back. */
-export const toSorting = (sort: readonly string[]): SortingState =>
+const toSorting = (sort: readonly string[]): SortingState =>
   sort.map(key => ({ id: key.replace(/^-/, ''), desc: key.startsWith('-') }));
-export const fromSorting = (sorting: SortingState): string[] => sorting.map(s => `${s.desc ? '-' : ''}${s.id}`);
+const fromSorting = (sorting: SortingState): string[] => sorting.map(s => `${s.desc ? '-' : ''}${s.id}`);
 
 export interface DataTableProps<T> {
   data: T[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- columns mix value types, as TanStack's own examples type them
   columns: ColumnDef<T, any>[];
   getRowId?: (row: T) => string;
   /** Sort as URL keys; with onSortChange the sort is controlled (bind both to a `sort` param) */
@@ -67,16 +59,19 @@ export interface DataTableProps<T> {
   renderExpanded?: (row: T) => ReactNode;
   /** Row click, when rows don't expand */
   onRowClick?: (row: T) => void;
-  /** The series id a row stands for: hovering the row hovers it across the page (lib/hover), and rows fade while another is hovered */
-  hoverId?: (row: T) => string;
+  /** The series id a row stands for: hovering the row hovers it across the page (lib/hover), and rows fade while another is hovered; undefined for a row that stands for none */
+  hoverId?: (row: T) => string | undefined;
   /** Shown in one full-width row when there are no rows */
   empty?: ReactNode;
   /** Left of the pagination, such as a row count; with it the footer shows even on one page */
   footer?: ReactNode;
+  /**
+   * lab's row spacing: `comfortable` (40px rows, text-sm) for most tables, `compact` (text-xs) for a
+   * wide table of many columns
+   * @default 'comfortable'
+   */
+  density?: 'comfortable' | 'compact';
 }
-
-/** The card's spacing on the outer columns (shadcn Card sets --card-spacing). */
-const EDGE = 'first:pl-[var(--card-spacing,0.5rem)] last:pr-[var(--card-spacing,0.5rem)]';
 
 export function DataTable<T>({
   data,
@@ -94,15 +89,36 @@ export function DataTable<T>({
   hoverId,
   empty,
   footer,
-}: DataTableProps<T>) {
+  density = 'comfortable',
+}: DataTableProps<T>): JSX.Element {
   const hover = useHover();
   const [measure, width] = useWidth();
+  // Without onSortChange the sort is the table's own, starting from `sort`
+  const [ownSort, setOwnSort] = useState(() => toSorting(sort ?? []));
+  const sorting = onSortChange ? toSorting(sort ?? []) : ownSort;
   const paging = pageSize != null && onPageChange != null;
   const pageCount = paging ? Math.max(1, Math.ceil(data.length / pageSize)) : 1;
   // A page past the end, as from an old link, shows the last page
   const pageIndex = paging ? Math.min(Math.max(1, page), pageCount) - 1 : 0;
-  const sorting = onSortChange ? toSorting(sort ?? []) : undefined;
-  // Columns wider tables add: hidden, not just unseen, so the outer columns keep the card's spacing
+  const expands = renderExpanded != null && onExpandedChange != null;
+
+  // lab's meta from the site's: numbers right-aligned, values in the text colour, wrapping cells
+  // given room, and a column's classes on its header and cells alike
+  const labColumns = columns.map(
+    (c): DataTableColumn<T> => ({
+      ...c,
+      // A header click starts ascending
+      sortDescFirst: c.sortDescFirst ?? false,
+      meta: {
+        ...c.meta,
+        numeric: c.meta?.numeric,
+        wrap: c.meta?.wrap,
+        cellClassName: c.meta?.wrap ? 'min-w-56 text-foreground' : 'text-foreground',
+        columnClassName: c.meta?.className,
+      },
+    })
+  );
+  // Columns wider tables add: hidden, not just unseen, so the outer columns keep the card's inset
   const columnVisibility = Object.fromEntries(
     columns.flatMap(c => {
       const id = c.id ?? (c as { accessorKey?: string }).accessorKey;
@@ -110,166 +126,56 @@ export function DataTable<T>({
       return id != null && min != null && width > 0 && width < min ? [[id, false]] : [];
     })
   );
-  const table = useReactTable({
-    data,
-    columns,
-    getRowId,
-    state: {
-      columnVisibility,
-      ...(sorting ? { sorting } : {}),
-      ...(paging ? { pagination: { pageIndex, pageSize } } : {}),
-    },
-    initialState: { sorting: toSorting(sort ?? []) },
-    onSortingChange: onSortChange
-      ? updater => onSortChange(fromSorting(typeof updater === 'function' ? updater(sorting ?? []) : updater))
-      : undefined,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: paging ? getPaginationRowModel() : undefined,
-    manualPagination: !paging,
-    autoResetPageIndex: false,
-    sortDescFirst: false,
-    // A header click flips between ascending and descending; it never clears the sort (a clean URL means the default sort)
-    enableSortingRemoval: false,
-  });
 
-  const columnCount = table.getVisibleLeafColumns().length;
-  const rows = table.getRowModel().rows;
-  const expands = renderExpanded != null && onExpandedChange != null;
-  const pages = paging && pageCount > 1;
+  const click = (row: T, id: string): (() => void) | undefined =>
+    expands ? () => onExpandedChange(expanded === id ? undefined : id) : onRowClick ? () => onRowClick(row) : undefined;
 
   return (
-    <div ref={measure} className="@container/table min-w-0">
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map(group => (
-            <TableRow key={group.id} className="hover:bg-transparent">
-              {group.headers.map(header => {
-                const meta = header.column.columnDef.meta;
-                const sorted = header.column.getIsSorted();
-                const label = flexRender(header.column.columnDef.header, header.getContext());
-                const SortIcon = sorted === 'desc' ? ArrowDown : sorted === 'asc' ? ArrowUp : ChevronsUpDown;
-                return (
-                  <TableHead
-                    key={header.id}
-                    aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}
-                    className={cn('text-muted-foreground', meta?.numeric && 'text-right', EDGE, meta?.className)}
-                  >
-                    {header.column.getCanSort() ? (
-                      // shadcn's data-table sort header: a ghost Button, pulled out by its padding so the
-                      // label lines up with the cells under it (left, or right for numbers)
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={header.column.getToggleSortingHandler()}
-                        className={cn(
-                          'group/sort h-7 px-2 text-sm font-medium text-muted-foreground hover:text-foreground',
-                          meta?.numeric ? '-mr-2 flex-row-reverse' : '-ml-2',
-                          sorted && 'text-foreground'
-                        )}
-                      >
-                        <span>{label}</span>
-                        <SortIcon
-                          aria-hidden
-                          className={cn(
-                            'size-3.5 transition-opacity',
-                            !sorted && 'opacity-0 group-hover/sort:opacity-60 group-focus-visible/sort:opacity-60'
-                          )}
-                        />
-                      </Button>
-                    ) : (
-                      label
-                    )}
-                  </TableHead>
-                );
-              })}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {rows.length === 0 && (
-            <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={columnCount} className="h-24 text-center whitespace-normal text-muted-foreground">
-                {empty ?? 'No rows.'}
-              </TableCell>
-            </TableRow>
-          )}
-          {rows.map(row => {
-            const open = expands && expanded === row.id;
-            const click = expands
-              ? () => onExpandedChange(open ? undefined : row.id)
-              : onRowClick
-                ? () => onRowClick(row.original)
-                : undefined;
-            const hid = hoverId?.(row.original);
-            return (
-              <Fragment key={row.id}>
-                <TableRow
-                  {...(hid != null ? hoverProps(hid) : {})}
-                  style={hid != null && hover.faded(hid) ? { opacity: FADED_OPACITY + 0.25 } : undefined}
-                  onClick={click}
-                  // A clickable row is reachable by keyboard too: Tab to it, Enter to open
-                  tabIndex={click ? 0 : undefined}
-                  onKeyDown={click ? event => event.key === 'Enter' && event.target === event.currentTarget && click() : undefined}
-                  aria-expanded={expands ? open : undefined}
-                  data-state={open ? 'selected' : undefined}
-                  className={cn('transition-opacity', click && 'cursor-pointer outline-none focus-visible:bg-muted')}
-                >
-                  {row.getVisibleCells().map(cell => {
-                    const meta = cell.column.columnDef.meta;
-                    return (
-                      <TableCell
-                        key={cell.id}
-                        className={cn('tabular-nums', meta?.wrap && 'min-w-56 whitespace-normal', meta?.numeric && 'text-right', EDGE, meta?.className)}
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-                {open && (
-                  <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={columnCount} className={cn('bg-muted/30 whitespace-normal', EDGE)}>
-                      {renderExpanded(row.original)}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </Fragment>
-            );
-          })}
-        </TableBody>
-      </Table>
-      {(pages || footer != null) && (
-        <div className="flex items-center justify-between gap-4 border-t px-[var(--card-spacing,0.5rem)] pt-3 text-sm text-muted-foreground tabular-nums">
-          <div className="min-w-0">{footer}</div>
-          {pages && (
-            <div className="flex items-center gap-2">
-              <span className="whitespace-nowrap">
-                Page {pageIndex + 1} of {pageCount}
-              </span>
-              <Button variant="outline" size="icon" className="max-sm:hidden" aria-label="First page" disabled={pageIndex === 0} onClick={() => onPageChange(1)}>
-                <ChevronsLeft />
-              </Button>
-              <Button variant="outline" size="icon" aria-label="Previous page" disabled={pageIndex === 0} onClick={() => onPageChange(pageIndex)}>
-                <ChevronLeft />
-              </Button>
-              <Button variant="outline" size="icon" aria-label="Next page" disabled={pageIndex >= pageCount - 1} onClick={() => onPageChange(pageIndex + 2)}>
-                <ChevronRight />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="max-sm:hidden"
-                aria-label="Last page"
-                disabled={pageIndex >= pageCount - 1}
-                onClick={() => onPageChange(pageCount)}
-              >
-                <ChevronsRight />
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+    <div ref={measure} className="min-w-0">
+      <LabDataTable<T>
+        data={data}
+        columns={labColumns}
+        getRowId={getRowId}
+        density={density}
+        hideGlobalFilter
+        hideColumnVisibility
+        columnVisibility={columnVisibility}
+        sorting={sorting}
+        onSortingChange={next => {
+          // A header click flips between ascending and descending; it never clears the sort (a clean
+          // URL means the default sort)
+          const kept = next.length > 0 ? next : sorting.map(s => ({ ...s, desc: !s.desc }));
+          if (onSortChange) onSortChange(fromSorting(kept));
+          else setOwnSort(kept);
+        }}
+        manualPagination={!paging}
+        pageIndex={pageIndex}
+        pageSize={paging ? pageSize : Math.max(1, data.length)}
+        onPaginationChange={index => onPageChange?.(index + 1)}
+        paginationPosition={paging && pageCount > 1 ? 'bottom' : 'none'}
+        hidePageSize
+        footer={footer}
+        emptyMessage={empty ?? 'No rows.'}
+        renderExpandedRow={expands ? (row, id) => (expanded === id ? renderExpanded(row) : null) : undefined}
+        getRowProps={(row, id) => {
+          const hid = hoverId?.(row);
+          const open = click(row, id);
+          return {
+            ...(hid != null ? hoverProps(hid) : {}),
+            onClick: open,
+            style: hid != null && hover.faded(hid) ? { opacity: FADED_OPACITY + 0.25 } : undefined,
+            // A clickable row is reachable by keyboard too: Tab to it, Enter to open
+            tabIndex: open ? 0 : undefined,
+            onKeyDown: open
+              ? event => event.key === 'Enter' && event.target === event.currentTarget && open()
+              : undefined,
+            'aria-expanded': expands ? expanded === id : undefined,
+            className: open
+              ? 'cursor-pointer outline-hidden hover:bg-background focus-visible:bg-background'
+              : undefined,
+          };
+        }}
+      />
     </div>
   );
 }

@@ -24,8 +24,7 @@ const ART: Record<string, EvalArt> = {
     items: [],
     measure: 'Quest points',
     score: 'Most quest points',
-    why:
-      'Every quest finished adds its quest points. A quest is a chain of errands: talk to someone, fetch what they want, fight what’s in the way. Nothing tells the agent which quests are quick.',
+    why: 'Every quest finished adds its quest points. A quest is a chain of errands: talk to someone, fetch what they want, fight what’s in the way. Nothing tells the agent which quests are quick.',
   },
   dragon_slayer: {
     mark: { src: questSrc('dragon_slayer'), name: 'Dragon Slayer' },
@@ -33,8 +32,7 @@ const ART: Record<string, EvalArt> = {
     measure: 'Quest stage',
     score: 'Fastest to finish the quest',
     title: 'Dragon Slayer',
-    why:
-      'The big quest of the early game. It won’t start until you have 32 quest points, so most of the run is other quests first. Then a ship, a map in three pieces, and a level 83 dragon.',
+    why: 'The big quest of the early game. It won’t start until you have 32 quest points, so most of the run is other quests first. Then a ship, a map in three pieces, and a level 83 dragon.',
   },
   heros_quest: {
     mark: { src: questSrc('heros_quest'), name: "Hero's Quest" },
@@ -46,8 +44,7 @@ const ART: Record<string, EvalArt> = {
     measure: 'Quest stage',
     score: 'Fastest to finish the quest',
     title: "Hero's Quest",
-    why:
-      'Hero’s Quest won’t start until a character has 55 quest points and has finished Dragon Slayer, Lost City, Merlin’s Crystal and Shield of Arrav. Its armband needs one character in each rival gang, each helping the other.',
+    why: 'Hero’s Quest won’t start until a character has 55 quest points and has finished Dragon Slayer, Lost City, Merlin’s Crystal and Shield of Arrav. Its armband needs one character in each rival gang, each helping the other.',
   },
   total_level: {
     mark: { src: uiSrc('stats'), name: 'Skills' },
@@ -55,16 +52,14 @@ const ART: Record<string, EvalArt> = {
     measure: 'Total level',
     score: 'Highest total level',
     title: 'Total level',
-    why:
-      'All 19 skill levels added up. A new character starts at 28. Any skill counts, so the score is how much training gets done in half an hour.',
+    why: 'All 19 skill levels added up. A new character starts at 28. Any skill counts, so the score is how much training gets done in half an hour.',
   },
   collection: {
     mark: { src: uiSrc('inventory'), name: 'Inventory' },
     items: [],
     measure: 'Different items',
     score: 'Most different items',
-    why:
-      'Each kind of item held counts once. A second of anything adds nothing, so the agent has to keep finding new things: shops, drops, things it gathers or makes.',
+    why: 'Each kind of item held counts once. A second of anything adds nothing, so the agent has to keep finding new things: shops, drops, things it gathers or makes.',
   },
   team_wealth: {
     mark: { src: itemSrc('995-10000'), name: 'Coins' },
@@ -72,11 +67,14 @@ const ART: Record<string, EvalArt> = {
     measure: 'Wealth',
     score: 'Richest team',
     title: 'Team wealth',
-    why:
-      'Four characters, one score: the value of everything they hold between them, at the game’s own prices.',
+    why: 'Four characters, one score: the value of everything they hold between them, at the game’s own prices.',
   },
   coins: { mark: { src: itemSrc(995), name: 'Coins' }, items: [{ id: '995', name: 'Coins' }], measure: 'Coins' },
-  gold: { mark: { src: itemSrc('995-10000'), name: 'Coins' }, items: [{ id: '995-10000', name: 'Coins' }], measure: 'Coins' },
+  gold: {
+    mark: { src: itemSrc('995-10000'), name: 'Coins' },
+    items: [{ id: '995-10000', name: 'Coins' }],
+    measure: 'Coins',
+  },
 };
 
 /**
@@ -85,7 +83,9 @@ const ART: Record<string, EvalArt> = {
  */
 export function siteEvals(evals: Pick<Eval, 'id' | 'title'>[]): { id: string; title: string }[] {
   const have = new Set(evals.map(e => evalBase(e.id)));
-  const waiting = Object.entries(ART).flatMap(([id, art]) => (art.title && !have.has(id) ? [{ id, title: art.title }] : []));
+  const waiting = Object.entries(ART).flatMap(([id, art]) =>
+    art.title && !have.has(id) ? [{ id, title: art.title }] : []
+  );
   return [...evals, ...waiting].sort((a, b) => a.title.localeCompare(b.title));
 }
 
@@ -105,10 +105,6 @@ export function outcomeWord(run: Pick<Run, 'success'>): 'Finished' | 'Not finish
   return run.success ? 'Finished' : 'Not finished';
 }
 
-/** Budget in minutes of wall-clock at the eval's tick rate. */
-export const budgetMinutes = (e: Pick<Eval, 'budget_ticks' | 'tick_ms'>): number =>
-  (e.budget_ticks * e.tick_ms) / 60_000;
-
 /** An eval as it appears in a URL: its id in kebab case (dragon_slayer → dragon-slayer). */
 export const evalSlug = (evalId: string): string => evalId.replace(/_/g, '-');
 
@@ -116,4 +112,5 @@ export const evalSlug = (evalId: string): string => evalId.replace(/_/g, '-');
 export const evalIdOf = (slug: string): string => slug.replace(/-/g, '_');
 
 /** The eval a URL names, by its slug or its old snake-case id. */
-export const evalBySlug = <E extends Pick<Eval, 'id'>>(evals: E[], slug: string): E | undefined => evals.find(e => evalSlug(e.id) === evalSlug(slug));
+export const evalBySlug = <E extends Pick<Eval, 'id'>>(evals: E[], slug: string): E | undefined =>
+  evals.find(e => evalSlug(e.id) === evalSlug(slug));

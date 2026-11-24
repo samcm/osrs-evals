@@ -50,18 +50,78 @@ const HUES = {
 /** The chart palette (chart-0 to chart-14) minus the fixed model hues, for models not listed. */
 const PALETTE: SeriesColor[] = [
   // bg-chart-0 border-chart-0 fill-chart-0 … listed in full so Tailwind generates each class
-  { token: '--color-chart-0', swatchClassName: 'bg-chart-0', borderClassName: 'border-chart-0', fillClassName: 'fill-chart-0' },
-  { token: '--color-chart-1', swatchClassName: 'bg-chart-1', borderClassName: 'border-chart-1', fillClassName: 'fill-chart-1' },
-  { token: '--color-chart-2', swatchClassName: 'bg-chart-2', borderClassName: 'border-chart-2', fillClassName: 'fill-chart-2' },
-  { token: '--color-chart-3', swatchClassName: 'bg-chart-3', borderClassName: 'border-chart-3', fillClassName: 'fill-chart-3' },
-  { token: '--color-chart-4', swatchClassName: 'bg-chart-4', borderClassName: 'border-chart-4', fillClassName: 'fill-chart-4' },
-  { token: '--color-chart-5', swatchClassName: 'bg-chart-5', borderClassName: 'border-chart-5', fillClassName: 'fill-chart-5' },
-  { token: '--color-chart-8', swatchClassName: 'bg-chart-8', borderClassName: 'border-chart-8', fillClassName: 'fill-chart-8' },
-  { token: '--color-chart-9', swatchClassName: 'bg-chart-9', borderClassName: 'border-chart-9', fillClassName: 'fill-chart-9' },
-  { token: '--color-chart-11', swatchClassName: 'bg-chart-11', borderClassName: 'border-chart-11', fillClassName: 'fill-chart-11' },
-  { token: '--color-chart-12', swatchClassName: 'bg-chart-12', borderClassName: 'border-chart-12', fillClassName: 'fill-chart-12' },
-  { token: '--color-chart-13', swatchClassName: 'bg-chart-13', borderClassName: 'border-chart-13', fillClassName: 'fill-chart-13' },
-  { token: '--color-chart-14', swatchClassName: 'bg-chart-14', borderClassName: 'border-chart-14', fillClassName: 'fill-chart-14' },
+  {
+    token: '--color-chart-0',
+    swatchClassName: 'bg-chart-0',
+    borderClassName: 'border-chart-0',
+    fillClassName: 'fill-chart-0',
+  },
+  {
+    token: '--color-chart-1',
+    swatchClassName: 'bg-chart-1',
+    borderClassName: 'border-chart-1',
+    fillClassName: 'fill-chart-1',
+  },
+  {
+    token: '--color-chart-2',
+    swatchClassName: 'bg-chart-2',
+    borderClassName: 'border-chart-2',
+    fillClassName: 'fill-chart-2',
+  },
+  {
+    token: '--color-chart-3',
+    swatchClassName: 'bg-chart-3',
+    borderClassName: 'border-chart-3',
+    fillClassName: 'fill-chart-3',
+  },
+  {
+    token: '--color-chart-4',
+    swatchClassName: 'bg-chart-4',
+    borderClassName: 'border-chart-4',
+    fillClassName: 'fill-chart-4',
+  },
+  {
+    token: '--color-chart-5',
+    swatchClassName: 'bg-chart-5',
+    borderClassName: 'border-chart-5',
+    fillClassName: 'fill-chart-5',
+  },
+  {
+    token: '--color-chart-8',
+    swatchClassName: 'bg-chart-8',
+    borderClassName: 'border-chart-8',
+    fillClassName: 'fill-chart-8',
+  },
+  {
+    token: '--color-chart-9',
+    swatchClassName: 'bg-chart-9',
+    borderClassName: 'border-chart-9',
+    fillClassName: 'fill-chart-9',
+  },
+  {
+    token: '--color-chart-11',
+    swatchClassName: 'bg-chart-11',
+    borderClassName: 'border-chart-11',
+    fillClassName: 'fill-chart-11',
+  },
+  {
+    token: '--color-chart-12',
+    swatchClassName: 'bg-chart-12',
+    borderClassName: 'border-chart-12',
+    fillClassName: 'fill-chart-12',
+  },
+  {
+    token: '--color-chart-13',
+    swatchClassName: 'bg-chart-13',
+    borderClassName: 'border-chart-13',
+    fillClassName: 'fill-chart-13',
+  },
+  {
+    token: '--color-chart-14',
+    swatchClassName: 'bg-chart-14',
+    borderClassName: 'border-chart-14',
+    fillClassName: 'fill-chart-14',
+  },
 ];
 
 /** A stable non-negative hash of a string (FNV-1a). */
@@ -229,10 +289,13 @@ export function modelInfo(id: string): ModelInfo {
   const facts = FACTS.get(id);
   // Data exported before the export dropped alias markers names an alias "Claude Haiku 4.5 (latest)"
   const name = id === 'none/none' ? 'No model' : (facts?.name.replace(/\s+\(latest\)$/i, '') ?? guessModelName(id));
-  return { name, short: shortName(name, facts?.family), color: (id === 'none/none' ? HUES.slate : MODEL_COLORS[id.split('/').pop() ?? id]) ?? hashColor(id), vendor: vendorOf(id) };
+  return {
+    name,
+    short: shortName(name, facts?.family),
+    color: (id === 'none/none' ? HUES.slate : MODEL_COLORS[id.split('/').pop() ?? id]) ?? hashColor(id),
+    vendor: vendorOf(id),
+  };
 }
-
-export const modelName = (id: string): string => modelInfo(id).name;
 
 // Agents
 
@@ -252,7 +315,13 @@ export interface AgentInfo {
 
 /** Harnesses by the last segment of the agent id. */
 const AGENTS: Record<string, AgentInfo> = {
-  opencode: { name: 'OpenCode', slug: 'opencode', symbol: 'roundRect', line: 'dashed', variant: model => `${model} in OpenCode` },
+  opencode: {
+    name: 'OpenCode',
+    slug: 'opencode',
+    symbol: 'roundRect',
+    line: 'dashed',
+    variant: model => `${model} in OpenCode`,
+  },
   omp: { name: 'omp', slug: 'omp', symbol: 'triangle', line: 'solid', variant: model => `${model} in omp` },
   amp: { name: 'Amp', slug: 'amp', symbol: 'pin', line: 'dotted', variant: model => `${model} in Amp` },
   program: { name: 'Program', slug: 'program', symbol: 'triangle', line: 'solid', variant: () => 'Program' },
@@ -279,8 +348,6 @@ export function agentInfo(id: string, fallbackName?: string): AgentInfo {
   };
 }
 
-export const agentName = (id: string, fallbackName?: string): string => agentInfo(id, fallbackName).name;
-
 // Thinking levels
 
 /**
@@ -298,11 +365,16 @@ let levelSheet: CSSStyleSheet | null = null;
  * cannot know these names ahead of time, so the rules are added to one stylesheet the first time a
  * level of a colour is used; everything that reads a SeriesColor works on them unchanged.
  */
-export function levelColor(base: SeriesColor, level: string): SeriesColor {
+function levelColor(base: SeriesColor, level: string): SeriesColor {
   const mix = LEVEL_MIX[level];
   if (!mix) return base;
   const name = `${base.token.replace(/^--color-/, '')}-${level}`;
-  const color: SeriesColor = { token: `--color-${name}`, swatchClassName: `bg-${name}`, borderClassName: `border-${name}`, fillClassName: `fill-${name}` };
+  const color: SeriesColor = {
+    token: `--color-${name}`,
+    swatchClassName: `bg-${name}`,
+    borderClassName: `border-${name}`,
+    fillClassName: `fill-${name}`,
+  };
   if (typeof document !== 'undefined' && !levelRules.has(name)) {
     levelRules.add(name);
     if (!levelSheet) {
@@ -327,7 +399,7 @@ export function levelColor(base: SeriesColor, level: string): SeriesColor {
  * Thinking levels, lowest first: the `thinking` every run's omp solver pins, and `none` (a model
  * with no thinking levels, which is not off). There is no "default".
  */
-export const THINKING_LEVELS = ['none', 'off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
+const THINKING_LEVELS = ['none', 'off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
 
 /** A level as words: "no thinking levels", "high". */
 export const levelName = (level: string): string => (level === 'none' ? 'no thinking levels' : level);
@@ -340,7 +412,8 @@ export function compareThinking(a: string, b: string): number {
 }
 
 /** What a level means, for tooltips. */
-export const thinkingTitle = (level: string): string => (level === 'none' ? 'A model with no thinking levels' : `Thinking: ${levelName(level)}`);
+export const thinkingTitle = (level: string): string =>
+  level === 'none' ? 'A model with no thinking levels' : `Thinking: ${levelName(level)}`;
 
 // Variants
 
@@ -362,7 +435,8 @@ export interface Variant {
   agentSlug: string;
 }
 
-export const variantKey = (run: Pick<Run, 'model' | 'agent' | 'thinking'>): string => `${run.model}|${run.thinking}|${run.agent}`;
+export const variantKey = (run: Pick<Run, 'model' | 'agent' | 'thinking'>): string =>
+  `${run.model}|${run.thinking}|${run.agent}`;
 
 export function variantOf(run: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thinking'>): Variant {
   const model = modelInfo(run.model);
@@ -381,11 +455,6 @@ export function variantOf(run: Pick<Run, 'model' | 'agent' | 'agent_name' | 'thi
     vendorSlug: model.vendor.slug,
     agentSlug: agent.slug,
   };
-}
-
-/** Variants in a stable order: by model, harness, then thinking level. */
-export function compareVariants(a: Variant, b: Variant): number {
-  return modelName(a.model).localeCompare(modelName(b.model)) || a.agent.localeCompare(b.agent) || compareThinking(a.thinking, b.thinking);
 }
 
 /**

@@ -8,27 +8,96 @@
  * chapters (site/summarize.py) shows those instead: each its title and what happened, the one at the
  * playhead marked and kept in view, clicking one starts it; "Every call" (`?calls=1`) puts each
  * chapter's calls under it.
+ *
+ * The feed's rows are plain buttons, not lab's Button: each is a whole message or chapter (Markdown,
+ * a heading over a paragraph) laid out as a row of a list, which no Button size or variant is.
  */
 
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { memo, useEffect, useMemo, useRef, type ReactElement, type ReactNode } from 'react';
-import Markdown, { type Components } from 'react-markdown';
+import { createElement, isValidElement, memo, useEffect, useMemo, useRef, type JSX, type ReactNode } from 'react';
+import Markdown, { type Components, type ExtraProps } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import clsx from 'clsx';
 import { CodeBlock, linkClassName } from '@/components/bits';
-import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Toggle } from '@/components/ui/toggle';
+import { Card } from '@/components/Layout/Card';
+import { ScrollArea } from '@/components/Layout/ScrollArea';
+import { Toggle } from '@/components/Forms/Toggle';
+import { Table } from '@/components/Lists/Table';
 import { useSearchUpdate } from '@/lib/search';
 import type { RunDetail, RunSummary, ToolCategory } from '@/data/types';
 import { formatInt } from '@/lib/format';
 import { TOOL_CATEGORY } from '@/lib/tools';
-import { cn } from '@/lib/utils';
 import { actionClauses, gameSteps, type Clause } from './actionLines';
 import { currentTurn, plainLine, turnTick, type Clock } from './model';
 import { runSearch, useSettle, type RunSearch } from './search';
 
-/** Markdown in the page's type: body text, bold headings, code in Geist Mono. */
+const inlineCodeClassName = 'rounded-xs bg-muted-10 px-1 font-mono text-xs';
+
+type HastElement = NonNullable<ExtraProps['node']>;
+type HastNode = HastElement['children'][number];
+
+/** The elements under a node with this tag name, at any depth. */
+function elementsNamed(node: HastElement, tagName: string): HastElement[] {
+  return node.children.flatMap(child =>
+    child.type !== 'element' ? [] : child.tagName === tagName ? [child] : elementsNamed(child, tagName)
+  );
+}
+
+/** A table cell's inline Markdown (text, code, emphasis, links) as React, in the prose's styles. */
+function inline(nodes: HastNode[]): ReactNode[] {
+  return nodes.map(node => {
+    if (node.type === 'text') return node.value;
+    if (node.type !== 'element') return null;
+    const key = node.position?.start.offset;
+    const children = inline(node.children);
+    if (node.tagName === 'code')
+      return (
+        <code key={key} className={inlineCodeClassName}>
+          {children}
+        </code>
+      );
+    if (node.tagName === 'a')
+      return (
+        <a
+          key={key}
+          href={String(node.properties.href ?? '')}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={linkClassName}
+        >
+          {children}
+        </a>
+      );
+    if (node.tagName === 'strong')
+      return (
+        <strong key={key} className="font-medium">
+          {children}
+        </strong>
+      );
+    if (node.tagName === 'br') return <br key={key} />;
+    return createElement(node.tagName, { key }, ...children);
+  });
+}
+
+/**
+ * A table the agent wrote, as lab's Table. Inside a card it runs to the card's edges by the card's
+ * inset, above and below too; the padding here (the card's inset, 4 then 5) gives that back so the
+ * table keeps its place among the message's paragraphs.
+ */
+function MarkdownTable({ node }: { node?: HastElement }): JSX.Element | null {
+  if (!node) return null;
+  const [head, ...body] = elementsNamed(node, 'tr').map(row =>
+    row.children.flatMap(cell => (cell.type === 'element' ? [inline(cell.children)] : []))
+  );
+  if (!head) return null;
+  const columns = head.map((header, i) => ({ header, accessor: (row: ReactNode[][]) => row[i] }));
+  return (
+    <div className="flex flex-col py-4 sm:py-5">
+      <Table variant="nested" data={body} columns={columns} />
+    </div>
+  );
+}
+
+/** Markdown in the page's type: body text, bold headings, code in Plex Mono. */
 const MARKDOWN: Components = {
   h1: ({ children }) => <p className="font-medium">{children}</p>,
   h2: ({ children }) => <p className="font-medium">{children}</p>,
@@ -43,20 +112,16 @@ const MARKDOWN: Components = {
       {children}
     </a>
   ),
-  code: ({ children }) => <code className="rounded-sm bg-muted px-1 font-mono text-xs">{children}</code>,
-  pre: ({ children }) => <CodeBlock>{(children as ReactElement<{ children: ReactNode }>).props.children}</CodeBlock>,
-  // A table the agent wrote, as the site's tables are: shadcn's Table, small
-  table: ({ children }) => <Table className="text-xs">{children}</Table>,
-  thead: ({ children }) => <TableHeader>{children}</TableHeader>,
-  tbody: ({ children }) => <TableBody>{children}</TableBody>,
-  tr: ({ children }) => <TableRow>{children}</TableRow>,
-  th: ({ children }) => <TableHead className="h-8">{children}</TableHead>,
-  td: ({ children }) => <TableCell className="py-1">{children}</TableCell>,
+  code: ({ children }) => <code className={inlineCodeClassName}>{children}</code>,
+  pre: ({ children }) => (
+    <CodeBlock>{isValidElement<{ children?: ReactNode }>(children) ? children.props.children : children}</CodeBlock>
+  ),
+  table: ({ node }) => <MarkdownTable node={node} />,
 };
 
-function Prose({ text }: { text: string }) {
+function Prose({ text }: { text: string }): JSX.Element {
   return (
-    <div className="flex min-w-0 flex-col gap-2 leading-relaxed wrap-break-word">
+    <div className="flex min-w-0 flex-col gap-2 wrap-break-word">
       <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN}>
         {text}
       </Markdown>
@@ -66,21 +131,43 @@ function Prose({ text }: { text: string }) {
 
 /* The feed ------------------------------------------------------------------------------------- */
 
-type Row =
-  | { kind: 'said'; first: number; last: number; text: string }
-  | { kind: 'error'; first: number; last: number; text: string }
-  | { kind: 'did'; first: number; last: number; clauses: Clause[]; steps: string[]; category: ToolCategory; failed: boolean; count: number; input: string };
+type Row = { id: number; first: number; last: number } & (
+  | { kind: 'said'; text: string }
+  | { kind: 'error'; text: string }
+  | {
+      kind: 'did';
+      clauses: Clause[];
+      steps: string[];
+      category: ToolCategory;
+      failed: boolean;
+      count: number;
+      input: string;
+    }
+);
+type DidRow = Extract<Row, { kind: 'did' }>;
 
-const clauseKey = (row: Extract<Row, { kind: 'did' }>): string => JSON.stringify([row.clauses, row.steps, row.failed]);
+const clauseKey = (row: DidRow): string => JSON.stringify([row.clauses, row.steps, row.failed]);
 
 /** Every message and line, in order; a line the same as the line before it folds into it. */
 function feedRows(run: RunDetail): Row[] {
   const rows: Row[] = [];
   run.turns.forEach((turn, i) => {
-    if (turn.text?.trim()) rows.push({ kind: 'said', first: i, last: i, text: turn.text });
-    if (turn.error) rows.push({ kind: 'error', first: i, last: i, text: plainLine(turn.error.split('\n')[0]) });
+    if (turn.text?.trim()) rows.push({ id: rows.length, kind: 'said', first: i, last: i, text: turn.text });
+    if (turn.error)
+      rows.push({ id: rows.length, kind: 'error', first: i, last: i, text: plainLine(turn.error.split('\n')[0]) });
     for (const action of turn.actions) {
-      const row: Row = { kind: 'did', first: i, last: i, clauses: actionClauses(action), steps: gameSteps(action.sdk_calls), category: action.category, failed: action.error != null, count: 1, input: action.input };
+      const row: DidRow = {
+        id: rows.length,
+        kind: 'did',
+        first: i,
+        last: i,
+        clauses: actionClauses(action),
+        steps: gameSteps(action.sdk_calls),
+        category: action.category,
+        failed: action.error != null,
+        count: 1,
+        input: action.input,
+      };
       const before = rows[rows.length - 1];
       if (before?.kind === 'did' && clauseKey(before) === clauseKey(row)) {
         before.last = i;
@@ -92,15 +179,18 @@ function feedRows(run: RunDetail): Row[] {
 }
 
 /** A line: its category's dot, what it did, then on the right the game steps its script takes and how many calls it folds. */
-function Line({ row }: { row: Extract<Row, { kind: 'did' }> }) {
+function Line({ row }: { row: DidRow }): JSX.Element {
   return (
-    <span className={cn('flex w-full min-w-0 items-center gap-2 text-muted-foreground', row.failed && 'text-destructive')}>
-      <span aria-hidden className={cn('size-1.5 shrink-0 rounded-full', TOOL_CATEGORY[row.category].color.swatchClassName)} />
+    <span className={clsx('flex w-full min-w-0 items-center gap-2', row.failed ? 'text-danger' : 'text-muted')}>
+      <span
+        aria-hidden
+        className={clsx('size-1.5 shrink-0 rounded-full', TOOL_CATEGORY[row.category].color.swatchClassName)}
+      />
       <span className="min-w-0 flex-1 truncate">
         {row.clauses.map((c, n) => (
-          <span key={n}>
+          <span key={`${c.verb}-${c.object ?? ''}`}>
             {n > 0 && ', '}
-            <span className={cn(!row.failed && 'text-foreground')}>{n > 0 ? c.verb.toLowerCase() : c.verb}</span>
+            <span className={clsx(!row.failed && 'text-foreground')}>{n > 0 ? c.verb.toLowerCase() : c.verb}</span>
             {c.object && ` ${c.object}`}
           </span>
         ))}
@@ -111,6 +201,10 @@ function Line({ row }: { row: Extract<Row, { kind: 'did' }> }) {
     </span>
   );
 }
+
+/** A row of the feed: its left edge marks the one at the playhead, and what is still to come is faint. */
+const rowClassName =
+  'flex w-full min-w-0 border-l-2 px-card-inset text-left text-sm transition-colors hover:bg-muted-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary';
 
 /**
  * The feed at `tick`, the playhead. It fills its container's height and scrolls inside it, keeping
@@ -129,125 +223,151 @@ export const Transcript = memo(function Transcript({
   tick: number;
   /** The run's chapters (site/summarize.py): each heads the first line at or after its start */
   chapters?: RunSummary['chapters'];
-}) {
+}): JSX.Element {
   const settle = useSettle();
   const update = useSearchUpdate(runSearch);
   // The chapters alone unless the reader asks for every call; a run without chapters shows its calls
   const told = Boolean(chapters && chapters.length > 0);
   const calls = !told || search.calls === '1';
   const chapterIndex = chapters ? chapters.findLastIndex(c => c.from_tick <= tick) : -1;
-  const list = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLOListElement>(null);
   const current = currentTurn(run.turns, clock, tick, search.turn);
   const rows = useMemo(() => feedRows(run), [run]);
 
   // The feed in chapters: each chapter wraps the rows from the first call at or after its start up
   // to the next chapter's; without chapters, one untitled group holds every row
   const groups = useMemo(() => {
-    const starts = (chapters ?? []).map(c => ({ chapter: c, at: rows.findIndex(r => turnTick(run.turns[r.first], clock) >= c.from_tick) })).filter(g => g.at >= 0);
+    const starts = (chapters ?? [])
+      .map(c => ({ chapter: c, at: rows.findIndex(r => turnTick(run.turns[r.first], clock) >= c.from_tick) }))
+      .filter(g => g.at >= 0);
     if (starts.length === 0) return [{ chapter: null, index: -1, from: 0, to: rows.length }];
     if (starts[0].at > 0) starts[0].at = 0;
-    return starts.map((g, i) => ({ chapter: g.chapter, index: (chapters ?? []).indexOf(g.chapter), from: g.at, to: starts[i + 1]?.at ?? rows.length }));
+    return starts.map((g, i) => ({
+      chapter: g.chapter,
+      index: (chapters ?? []).indexOf(g.chapter),
+      from: g.at,
+      to: starts[i + 1]?.at ?? rows.length,
+    }));
   }, [chapters, rows, run.turns, clock]);
 
-  const rowItem = (row: (typeof rows)[number], n: number) => {
-    const state = current >= row.first && current <= row.last ? 'current' : row.first > current ? 'future' : 'past';
-    return (
-      <li key={n} data-current={state === 'current' || undefined} aria-current={state === 'current' ? 'step' : undefined} className={cn(row.kind === 'said' && 'pt-2')}>
-        <Button
-          variant="ghost"
-          onClick={() => settle(turnTick(run.turns[row.first], clock), row.first + 1)}
-          className={cn(
-            'h-auto w-full min-w-0 justify-start rounded-none border-0 border-l-2 border-transparent px-4 text-left font-normal whitespace-normal hover:bg-muted/50 focus-visible:ring-inset active:not-aria-[haspopup]:translate-y-0',
-            row.kind === 'said' ? 'py-1.5' : 'py-0.5',
-            state === 'current' && 'border-primary bg-muted/50',
-            state === 'future' && 'opacity-50'
-          )}
+  const body = useMemo(() => {
+    const rowItem = (row: Row): JSX.Element => {
+      const state = current >= row.first && current <= row.last ? 'current' : row.first > current ? 'future' : 'past';
+      return (
+        <li
+          key={row.id}
+          data-current={state === 'current' || undefined}
+          aria-current={state === 'current' ? 'step' : undefined}
+          className={clsx(row.kind === 'said' && 'pt-2')}
         >
-          {row.kind === 'said' && <Prose text={row.text} />}
-          {row.kind === 'error' && <span className="min-w-0 truncate text-destructive">{row.text}</span>}
-          {row.kind === 'did' && <Line row={row} />}
-        </Button>
-      </li>
-    );
-  };
-
-  const body = useMemo(
-    () =>
-      groups.map(g => {
-        if (!g.chapter) return rows.slice(g.from, g.to).map((row, k) => rowItem(row, g.from + k));
-        // By default the feed is the chapters alone, each its title and what happened, the one at the
-        // playhead marked and kept in view; with every call shown (`?calls=1`) each chapter wraps its
-        // calls, its header pinned to the top of the feed while they scroll by
-        const now = g.index === chapterIndex;
-        const future = g.index > chapterIndex;
-        return (
-          <li key={`chapter-${g.chapter.from_tick}`} data-current={(!calls && now) || undefined} className={cn(calls && 'border-b last:border-b-0')}>
-            <Button
-              variant="ghost"
-              onClick={() => settle(g.chapter!.from_tick)}
-              aria-current={now ? 'step' : undefined}
-              className={cn(
-                'h-auto w-full min-w-0 flex-col items-start gap-0.5 rounded-none border-0 border-l-2 border-transparent bg-card px-4 py-2 text-left font-normal whitespace-normal hover:bg-muted/50 focus-visible:ring-inset active:not-aria-[haspopup]:translate-y-0',
-                now && 'border-primary',
-                // Pinned over the calls, it stays solid; in the chapters alone the current one is shaded
-                now && !calls && 'bg-muted/50',
-                calls && 'sticky top-0 z-10 border-b',
-                future && 'opacity-50'
-              )}
-            >
-              <span className="flex w-full min-w-0 items-baseline gap-2">
-                <span className="min-w-0 flex-1 font-medium">{g.chapter.title}</span>
-                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                  {formatInt(g.index + 1)} of {formatInt(chapters!.length)}
-                </span>
+          <button
+            type="button"
+            onClick={() => settle(turnTick(run.turns[row.first], clock), row.first + 1)}
+            className={clsx(
+              rowClassName,
+              row.kind === 'said' ? 'py-1.5 text-foreground' : 'py-0.5',
+              state === 'current' ? 'border-primary bg-row-active' : 'border-transparent',
+              state === 'future' && 'opacity-50'
+            )}
+          >
+            {row.kind === 'said' && <Prose text={row.text} />}
+            {row.kind === 'error' && <span className="min-w-0 truncate text-danger">{row.text}</span>}
+            {row.kind === 'did' && <Line row={row} />}
+          </button>
+        </li>
+      );
+    };
+    return groups.map(g => {
+      if (!g.chapter) return rows.slice(g.from, g.to).map(rowItem);
+      const chapter = g.chapter;
+      // By default the feed is the chapters alone, each its title and what happened, the one at the
+      // playhead marked and kept in view; with every call shown (`?calls=1`) each chapter wraps its
+      // calls, its header pinned to the top of the feed while they scroll by
+      const now = g.index === chapterIndex;
+      const future = g.index > chapterIndex;
+      return (
+        <li
+          key={`chapter-${chapter.from_tick}`}
+          data-current={(!calls && now) || undefined}
+          className={clsx(calls && 'border-b border-border last:border-b-0')}
+        >
+          <button
+            type="button"
+            onClick={() => settle(chapter.from_tick)}
+            aria-current={now ? 'step' : undefined}
+            className={clsx(
+              rowClassName,
+              'flex-col items-start gap-0.5 py-2',
+              now ? 'border-primary' : 'border-transparent',
+              // Pinned over the calls, it stays solid; in the chapters alone the current one is shaded
+              calls ? 'sticky top-0 z-10 border-b border-b-border bg-surface' : now && 'bg-row-active',
+              future && 'opacity-50'
+            )}
+          >
+            <span className="flex w-full min-w-0 items-baseline gap-2">
+              <span className="min-w-0 flex-1 font-medium text-foreground">{chapter.title}</span>
+              <span className="shrink-0 text-xs text-muted tabular-nums">
+                {formatInt(g.index + 1)} of {formatInt(chapters?.length ?? 0)}
               </span>
-              <span className="text-xs text-pretty text-muted-foreground">{g.chapter.text}</span>
-            </Button>
-            {calls && <ol className="pb-2">{rows.slice(g.from, g.to).map((row, k) => rowItem(row, g.from + k))}</ol>}
-          </li>
-        );
-      }),
-    [groups, rows, current, clock, settle, run.turns, chapterIndex, chapters, calls]
-  );
+            </span>
+            <span className="text-xs text-pretty text-muted">{chapter.text}</span>
+          </button>
+          {calls && <ol className="pb-2">{rows.slice(g.from, g.to).map(rowItem)}</ol>}
+        </li>
+      );
+    });
+  }, [groups, rows, current, clock, settle, run.turns, chapterIndex, chapters, calls]);
 
+  // Keep the row at the playhead in view, scrolling the feed, never the page
   useEffect(() => {
-    const container = list.current;
-    if (!container) return;
+    const viewport = listRef.current?.closest<HTMLElement>('[data-slot=scroll-area-viewport]');
+    if (!viewport) return;
     if (current < 0) {
-      container.scrollTop = 0;
+      viewport.scrollTop = 0;
       return;
     }
-    const row = container.querySelector<HTMLElement>('[data-current]');
+    const row = viewport.querySelector<HTMLElement>('[data-current]');
     if (!row) return;
-    const top = row.offsetTop;
-    const bottom = top + Math.min(row.offsetHeight, container.clientHeight);
-    if (top < container.scrollTop || bottom > container.scrollTop + container.clientHeight) container.scrollTop = Math.max(0, top - container.clientHeight / 3);
+    const top = row.getBoundingClientRect().top - viewport.getBoundingClientRect().top + viewport.scrollTop;
+    const bottom = top + Math.min(row.offsetHeight, viewport.clientHeight);
+    if (top < viewport.scrollTop || bottom > viewport.scrollTop + viewport.clientHeight)
+      viewport.scrollTop = Math.max(0, top - viewport.clientHeight / 3);
   }, [current, calls, chapterIndex]);
 
   return (
-    // The feed runs to the card's bottom edge and scrolls inside it
-    <Card className="h-full pb-0">
-      <CardHeader>
-        <CardTitle>{told ? 'What it did' : 'Transcript'}</CardTitle>
-        <CardDescription>{formatInt(run.turns.length)} model calls</CardDescription>
-        {told && (
-          <CardAction>
-            <Toggle size="sm" variant="outline" pressed={search.calls === '1'} onPressedChange={on => update({ calls: on ? '1' : undefined })} aria-label="Show every call">
-              Every call
-            </Toggle>
-          </CardAction>
-        )}
-      </CardHeader>
-      <ScrollArea viewportRef={list} className="min-h-0 flex-1 border-t">
-      <ol aria-label="What the agent was doing" className="relative pb-3">
-        {body}
-        {run.answer && (
-          <li className="mx-4 mt-3 border-t pt-3">
-            <Prose text={run.answer} />
-          </li>
-        )}
-      </ol>
-      </ScrollArea>
+    // The feed runs to the card's edges and scrolls inside the card's body
+    <Card
+      className="flex h-full flex-col"
+      title={told ? 'What it did' : 'Transcript'}
+      subtitle={`${formatInt(run.turns.length)} model calls`}
+      actions={
+        told && (
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-muted">
+            Every call
+            <Toggle
+              size="small"
+              srLabel="Every call"
+              checked={search.calls === '1'}
+              onChange={on => update({ calls: on ? '1' : undefined })}
+            />
+          </label>
+        )
+      }
+    >
+      <div className="absolute inset-0">
+        <ScrollArea className="size-full">
+          <ol ref={listRef} aria-label="What the agent was doing" className="pb-3">
+            {body}
+            {run.answer && (
+              <li className="mt-3 px-card-inset text-sm">
+                <div className="border-t border-border pt-3">
+                  <Prose text={run.answer} />
+                </div>
+              </li>
+            )}
+          </ol>
+        </ScrollArea>
+      </div>
     </Card>
   );
 });

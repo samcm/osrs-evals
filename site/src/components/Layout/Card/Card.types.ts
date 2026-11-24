@@ -1,0 +1,29 @@
+import type { ReactNode } from 'react';
+
+export type CardVariant = 'default' | 'muted' | 'primary' | 'accent' | 'elevated' | 'surface';
+
+export interface CardProps {
+  /** Main content section (body) */
+  children: ReactNode;
+  /** Card title, rendered in the standard header row */
+  title?: ReactNode;
+  /** Secondary line under the title */
+  subtitle?: ReactNode;
+  /** Controls aligned to the right of the title (icon buttons, menus) */
+  actions?: ReactNode;
+  /** Custom header content; prefer `title`/`subtitle`/`actions` so every card header matches */
+  header?: ReactNode;
+  /** Optional footer section (bottom slot) */
+  footer?: ReactNode;
+  /** Visual variant that controls background colors of header/main/footer sections */
+  variant?: CardVariant;
+  className?: string;
+  isInteractive?: boolean;
+  onClick?: () => void;
+  /** Optional feature image element (typically an img) displayed on right side with fade effect */
+  featureImage?: ReactNode;
+  /** Apply rounded corners (rounded-md). Default: true */
+  rounded?: boolean;
+  /** Allow content to overflow card boundaries (useful for tooltips, dropdowns). Default: false */
+  allowContentOverflow?: boolean;
+}

@@ -39,13 +39,13 @@ export const UNDERGROUND_Z = 6400;
 export const surfaceZ = (z: number): number => (z >= UNDERGROUND_Z ? z - UNDERGROUND_Z : z);
 
 /** The floor a position is on, when it is not the surface's ground floor. */
-export function floorName(z: number, level: number): string | null {
+function floorName(z: number, level: number): string | null {
   if (z >= UNDERGROUND_Z) return 'Underground';
   return level > 0 ? `Floor ${level}` : null;
 }
 
 /** Path points are at most this many ticks apart while the character walks (the run detail's paths). */
-export const STEP_TICKS = 10;
+const STEP_TICKS = 10;
 
 /** Where a character was at a tick, as drawn on the surface map. */
 export interface Position {
@@ -108,4 +108,8 @@ export function mapViewParam(): Param<MapView | undefined> {
 }
 
 /** A view rounded for the URL. */
-export const roundView = ([x, z, zoom]: MapView): MapView => [Math.round(x * 10) / 10, Math.round(z * 10) / 10, Math.round(zoom * 100) / 100];
+export const roundView = ([x, z, zoom]: MapView): MapView => [
+  Math.round(x * 10) / 10,
+  Math.round(z * 10) / 10,
+  Math.round(zoom * 100) / 100,
+];

@@ -1,18 +1,13 @@
 /** The run page's URL state. */
 
-import type { ToolCategory } from '@/data/types';
-import { TOOL_CATEGORIES as TOOLS } from '@/lib/tools';
 import { mapViewParam } from '@/lib/map';
 import { defineSearch, int, legendParams, list, num, oneOf, text, useSearchUpdate } from '@/lib/search';
 import { setMoment } from './model';
 import { pause } from './playhead';
 
-export const TOOL_CATEGORIES: readonly ToolCategory[] = TOOLS.map(c => c.id);
-
 /** The timeline's lanes, in their order; every one shows unless `lanes` names some */
 export const LANE_IDS = ['progress', 'wealth', 'calls', 'sdk', 'activity', 'spend', 'context', 'xp'] as const;
 export type LaneId = (typeof LANE_IDS)[number];
-export const DEFAULT_LANES: readonly LaneId[] = LANE_IDS;
 
 export const runSearch = defineSearch({
   /** The lanes' x measure and the transcript's clock */

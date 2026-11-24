@@ -1,0 +1,261 @@
+/* The design tokens, and the only stylesheet with colour literals. The site's own theme, "ink":
+ * the chrome has no hue at all (neutral greys, ink for what is interactive), so colour on the page
+ * is always data or status. Every colour is OKLCH. */
+
+/* No sources here: the entry stylesheet says what Tailwind scans. */
+@import 'tailwindcss' source(none);
+
+/* Light is the default scheme; html.dark switches every light-dark() pair to its second value. */
+:root {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+@theme static {
+  /* Tailwind's defaults removed, so only these tokens compile: bg-red-500, text-7xl and
+   * shadow-2xl do not exist. */
+  --*: initial;
+
+  /* The 4px step every spacing and sizing class multiplies. */
+  --spacing: 0.25rem;
+
+  /* Tailwind's breakpoints, plus 3xl (1920px) and 4xl (2560px) for ultrawide monitors. */
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+  --breakpoint-2xl: 96rem;
+  --breakpoint-3xl: 120rem;
+  --breakpoint-4xl: 160rem;
+
+  /* Content widths: max-w-md, min-w-xl. */
+  --container-xs: 20rem;
+  --container-md: 28rem;
+  --container-xl: 36rem;
+  --container-2xl: 42rem;
+  --container-3xl: 48rem;
+  --container-4xl: 56rem;
+
+  /* Inter for all text and numbers (tabular figures where numbers line up), JetBrains Mono for
+   * identifiers (run ids, model ids, code). The product's name is Inter too, set tight. */
+  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+  --default-font-family: var(--font-sans);
+  --default-mono-font-family: var(--font-mono);
+
+  /* Type sizes, each with its line height; text-sm/6 sets a line height from the spacing step.
+   * 2xs is for dense labels (axis ticks, badges in tight cells); never go smaller. */
+  --text-2xs: 0.625rem;
+  --text-2xs--line-height: 0.875rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: calc(1 / 0.75);
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
+  --text-base: 1rem;
+  --text-base--line-height: calc(1.5 / 1);
+  --text-lg: 1.125rem;
+  --text-lg--line-height: calc(1.75 / 1.125);
+  --text-xl: 1.25rem;
+  --text-xl--line-height: calc(1.75 / 1.25);
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: calc(2 / 1.5);
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --tracking-tight: -0.025em;
+  --tracking-wider: 0.05em;
+
+  /* Four radii, one per kind of thing: rounded-2xs (2px) for hairline marks, rounded-xs (3px) for
+   * marks (badges, swatches, skeleton bars), rounded-sm (6px) for controls (buttons, inputs, nav
+   * items, menu rows) and rounded-md (10px) for containers (cards, tables, popovers, the map).
+   * rounded-full is for dots, avatars and tracks. */
+  --radius-2xs: 0.125rem;
+  --radius-xs: 0.1875rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+
+  /* Floating panels (popovers, menus, tooltips) lift off the page with one soft shadow;
+   * nothing else has a shadow. */
+  --shadow-sm: 0 1px 2px 0 oklch(0% 0 0 / 0.06);
+  --shadow-lg: 0 8px 24px -6px oklch(0% 0 0 / 0.16), 0 2px 6px -2px oklch(0% 0 0 / 0.06);
+
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Their keyframes are in base.css. */
+  --animate-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+
+  /* Colours. A base colour is a light-dark(light, dark) pair; every other colour derives from
+   * them, except the model colours, which read the same in both themes. */
+
+  /* Ink: what is interactive (links, focus, primary buttons, the selected segment, checked
+   * controls, the active nav item's rule) is the text colour itself, near-black on light and
+   * near-white on dark. accent is the same ink; there is no brand hue. */
+  --color-primary: light-dark(oklch(22% 0 0), oklch(95% 0 0));
+  --color-secondary: light-dark(oklch(94% 0 0), oklch(26% 0 0));
+  --color-accent: light-dark(oklch(22% 0 0), oklch(95% 0 0));
+
+  /* Neutral surfaces, no hue. Cards sit on the page colour and are drawn by their hairline; the
+   * sidebar is a shade off the page. */
+  --color-background: light-dark(oklch(100% 0 0), oklch(14.5% 0 0));
+  --color-surface: light-dark(oklch(100% 0 0), oklch(14.5% 0 0));
+  --color-border: light-dark(oklch(91% 0 0), oklch(27% 0 0));
+  --color-sidebar: light-dark(oklch(98.2% 0 0), oklch(17% 0 0));
+  --color-foreground: light-dark(oklch(18% 0 0), oklch(96% 0 0));
+  --color-muted: light-dark(oklch(52% 0 0), oklch(68% 0 0));
+
+  /* Status: green, ochre and brick, each readable as text on every surface of its theme. */
+  --color-success: light-dark(oklch(50% 0.11 152), oklch(76% 0.11 152));
+  --color-warning: light-dark(oklch(55% 0.12 62), oklch(80% 0.12 72));
+  --color-danger: light-dark(oklch(52% 0.16 25), oklch(70% 0.14 22));
+
+  /* Text and strokes on a solid fill: on-fill is white in both themes; on-solid flips to the
+   * page colour on dark. */
+  --color-on-fill: oklch(100% 0 0);
+  --color-on-solid: light-dark(var(--color-on-fill), var(--color-background));
+
+  /* Panels: surface on light, the page colour on dark. well is the recessed body of a card. */
+  --color-panel: light-dark(var(--color-surface), var(--color-background));
+  --color-well: light-dark(var(--color-background), var(--color-background-50));
+
+  /* Text that reads as foreground on light and as muted on dark. */
+  --color-foreground-soft: light-dark(var(--color-foreground), var(--color-muted));
+
+  /* States and washes whose strength differs between light and dark. */
+  --color-primary-hover: light-dark(var(--color-primary-90), var(--color-primary-80));
+  --color-primary-soft: light-dark(var(--color-primary-10), var(--color-primary-20));
+  --color-primary-soft-hover: light-dark(var(--color-primary-20), var(--color-primary-30));
+  --color-primary-wash: light-dark(var(--color-primary-5), var(--color-primary-10));
+  --color-primary-toggle: light-dark(var(--color-primary-30), var(--color-primary-40));
+  --color-accent-wash: light-dark(var(--color-accent-5), var(--color-accent-10));
+  --color-danger-hover: light-dark(var(--color-danger-90), var(--color-danger-80));
+  --color-surface-hover: light-dark(var(--color-background), var(--color-muted-20));
+  --color-muted-hover: light-dark(var(--color-muted-10), var(--color-muted-20));
+  --color-row-active: light-dark(var(--color-primary-10), var(--color-primary-5));
+
+  /* Tints: a colour at part of its strength, as bg-primary-10 for primary at 10%. */
+  --color-primary-5: color-mix(in oklab, var(--color-primary) 5%, transparent);
+  --color-primary-10: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  --color-primary-15: color-mix(in oklab, var(--color-primary) 15%, transparent);
+  --color-primary-20: color-mix(in oklab, var(--color-primary) 20%, transparent);
+  --color-primary-30: color-mix(in oklab, var(--color-primary) 30%, transparent);
+  --color-primary-40: color-mix(in oklab, var(--color-primary) 40%, transparent);
+  --color-primary-50: color-mix(in oklab, var(--color-primary) 50%, transparent);
+  --color-primary-80: color-mix(in oklab, var(--color-primary) 80%, transparent);
+  --color-primary-90: color-mix(in oklab, var(--color-primary) 90%, transparent);
+  --color-accent-5: color-mix(in oklab, var(--color-accent) 5%, transparent);
+  --color-accent-10: color-mix(in oklab, var(--color-accent) 10%, transparent);
+  --color-background-50: color-mix(in oklab, var(--color-background) 50%, transparent);
+  --color-surface-50: color-mix(in oklab, var(--color-surface) 50%, transparent);
+  --color-border-30: color-mix(in oklab, var(--color-border) 30%, transparent);
+  --color-border-50: color-mix(in oklab, var(--color-border) 50%, transparent);
+  --color-foreground-5: color-mix(in oklab, var(--color-foreground) 5%, transparent);
+  --color-foreground-7: color-mix(in oklab, var(--color-foreground) 7%, transparent);
+  --color-foreground-25: color-mix(in oklab, var(--color-foreground) 25%, transparent);
+  --color-muted-10: color-mix(in oklab, var(--color-muted) 10%, transparent);
+  --color-muted-20: color-mix(in oklab, var(--color-muted) 20%, transparent);
+  --color-muted-30: color-mix(in oklab, var(--color-muted) 30%, transparent);
+  --color-muted-40: color-mix(in oklab, var(--color-muted) 40%, transparent);
+  --color-muted-50: color-mix(in oklab, var(--color-muted) 50%, transparent);
+  --color-muted-60: color-mix(in oklab, var(--color-muted) 60%, transparent);
+  --color-success-5: color-mix(in oklab, var(--color-success) 5%, transparent);
+  --color-success-10: color-mix(in oklab, var(--color-success) 10%, transparent);
+  --color-success-15: color-mix(in oklab, var(--color-success) 15%, transparent);
+  --color-success-20: color-mix(in oklab, var(--color-success) 20%, transparent);
+  --color-success-25: color-mix(in oklab, var(--color-success) 25%, transparent);
+  --color-success-40: color-mix(in oklab, var(--color-success) 40%, transparent);
+  --color-success-50: color-mix(in oklab, var(--color-success) 50%, transparent);
+  --color-success-75: color-mix(in oklab, var(--color-success) 75%, transparent);
+  --color-warning-10: color-mix(in oklab, var(--color-warning) 10%, transparent);
+  --color-warning-15: color-mix(in oklab, var(--color-warning) 15%, transparent);
+  --color-warning-20: color-mix(in oklab, var(--color-warning) 20%, transparent);
+  --color-warning-50: color-mix(in oklab, var(--color-warning) 50%, transparent);
+  --color-warning-75: color-mix(in oklab, var(--color-warning) 75%, transparent);
+  --color-danger-5: color-mix(in oklab, var(--color-danger) 5%, transparent);
+  --color-danger-10: color-mix(in oklab, var(--color-danger) 10%, transparent);
+  --color-danger-15: color-mix(in oklab, var(--color-danger) 15%, transparent);
+  --color-danger-20: color-mix(in oklab, var(--color-danger) 20%, transparent);
+  --color-danger-50: color-mix(in oklab, var(--color-danger) 50%, transparent);
+  --color-danger-70: color-mix(in oklab, var(--color-danger) 70%, transparent);
+  --color-danger-75: color-mix(in oklab, var(--color-danger) 75%, transparent);
+  --color-danger-80: color-mix(in oklab, var(--color-danger) 80%, transparent);
+  --color-danger-90: color-mix(in oklab, var(--color-danger) 90%, transparent);
+  --color-data-red-20: color-mix(in oklab, var(--color-data-red) 20%, transparent);
+  --color-data-red-80: color-mix(in oklab, var(--color-data-red) 80%, transparent);
+
+  /* Data hues: the site's own, mineral rather than candy. Each is a light-dark() pair, deeper on
+   * the white page and lighter on the dark, and lightness varies with hue so neighbours in a
+   * stack (tool categories, src/lib/tools.ts; token kinds, src/lib/tokens.ts) stay at least
+   * 0.08 apart in OKLab in both themes. */
+  --color-data-red: light-dark(oklch(54% 0.15 32), oklch(68% 0.14 34));
+  --color-data-orange: light-dark(oklch(64% 0.14 50), oklch(74% 0.13 52));
+  --color-data-amber: light-dark(oklch(70% 0.13 76), oklch(82% 0.12 80));
+  --color-data-lime: light-dark(oklch(67% 0.14 128), oklch(82% 0.14 128));
+  --color-data-green: light-dark(oklch(60% 0.13 148), oklch(74% 0.13 150));
+  --color-data-emerald: light-dark(oklch(62% 0.11 168), oklch(76% 0.11 170));
+  --color-data-teal: light-dark(oklch(60% 0.09 192), oklch(72% 0.09 192));
+  --color-data-cyan: light-dark(oklch(66% 0.1 215), oklch(80% 0.1 215));
+  --color-data-sky: light-dark(oklch(72% 0.09 240), oklch(86% 0.07 240));
+  --color-data-blue: light-dark(oklch(54% 0.14 262), oklch(68% 0.13 262));
+  --color-data-indigo: light-dark(oklch(52% 0.15 280), oklch(64% 0.14 280));
+  --color-data-violet: light-dark(oklch(60% 0.14 295), oklch(74% 0.12 295));
+  --color-data-purple: light-dark(oklch(52% 0.15 315), oklch(66% 0.14 315));
+  --color-data-fuchsia: light-dark(oklch(64% 0.15 333), oklch(76% 0.14 333));
+  --color-data-pink: light-dark(oklch(74% 0.11 345), oklch(84% 0.09 345));
+  --color-data-rose: light-dark(oklch(62% 0.15 3), oklch(72% 0.14 3));
+  --color-data-slate: light-dark(oklch(60% 0.02 250), oklch(70% 0.02 250));
+
+  /* The palette a model not in MODEL_COLORS hashes into (src/lib/series.ts). */
+  --color-chart-0: var(--color-data-blue);
+  --color-chart-1: var(--color-data-emerald);
+  --color-chart-2: var(--color-data-amber);
+  --color-chart-3: var(--color-data-red);
+  --color-chart-4: var(--color-data-cyan);
+  --color-chart-5: var(--color-data-lime);
+  --color-chart-8: var(--color-data-pink);
+  --color-chart-9: var(--color-data-violet);
+  --color-chart-11: var(--color-data-indigo);
+  --color-chart-12: var(--color-data-rose);
+  --color-chart-13: var(--color-data-fuchsia);
+  --color-chart-14: var(--color-data-sky);
+
+  /* Each model's colour (src/lib/series.ts MODEL_COLORS), the same in both themes. A hue arc per
+   * model line (Opus reds, Haiku ambers, Terra limes, Luna teals, Sol blues, Sonnet purples),
+   * lightness and chroma chosen so every pair is at least 0.098 apart in OKLab, all inside sRGB. */
+  --color-model-claude-opus-4-5: oklch(80% 0.09 29);
+  --color-model-claude-opus-4-6: oklch(74% 0.15 333);
+  --color-model-claude-opus-4-7: oklch(68% 0.15 31);
+  --color-model-claude-opus-4-8: oklch(62% 0.15 356);
+  --color-model-claude-opus-5: oklch(50% 0.09 358);
+  --color-model-claude-opus-5-5: oklch(56% 0.15 32);
+  --color-model-claude-haiku-4-5: oklch(62% 0.09 77);
+  --color-model-claude-haiku-5-5: oklch(74% 0.15 71);
+  --color-model-gpt-5-6-terra: oklch(50% 0.11 113);
+  --color-model-gpt-6-1-terra: oklch(80% 0.15 121);
+  --color-model-gpt-5-6-luna: oklch(62% 0.13 161);
+  --color-model-gpt-6-luna: oklch(80% 0.15 168);
+  --color-model-gpt-5-6-sol: oklch(56% 0.15 268);
+  --color-model-gpt-6-sol: oklch(50% 0.09 220);
+  --color-model-gpt-6-1-sol: oklch(80% 0.11 236);
+  --color-model-gpt-6-2-sol: oklch(68% 0.11 217);
+  --color-model-claude-sonnet-4-5: oklch(62% 0.15 314);
+  --color-model-claude-sonnet-4-6: oklch(68% 0.09 281);
+  --color-model-claude-sonnet-5: oklch(80% 0.11 297);
+  --color-model-claude-sonnet-5-5: oklch(50% 0.15 304);
+
+  /* The page's gap between sections and the breadcrumb bar's height (top-header for what sticks
+   * under it), and content that arrives fading in at the one motion speed. */
+  --spacing-gutter: 1.5rem;
+  --spacing-header: 3rem;
+  --animate-fade-in: fade-in 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}

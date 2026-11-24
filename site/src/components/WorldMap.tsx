@@ -1,10 +1,34 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type JSX,
+  type ReactNode,
+} from 'react';
+import { MinusIcon, PlusIcon } from '@heroicons/react/16/solid';
 import { Tip } from '@/components/bits';
+import { Button } from '@/components/Elements/Button';
+import { Tooltip } from '@/components/Overlays/Tooltip';
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { loadTrimmedSprite, type TrimmedSprite } from '@/lib/assets';
-import { imageToTile, MAP_IMAGE, MAP_IMAGE_2X, mapMetaQuery, positionAt, roundView, surfaceZ, tileToImage, type MapMeta, type MapView, type PathPoint } from '@/lib/map';
-import { Button } from '@/components/ui/button';
+import {
+  imageToTile,
+  MAP_IMAGE,
+  MAP_IMAGE_2X,
+  mapMetaQuery,
+  positionAt,
+  roundView,
+  surfaceZ,
+  tileToImage,
+  type MapMeta,
+  type MapView,
+  type PathPoint,
+} from '@/lib/map';
 import { useThemeColors } from '@/lib/theme';
 
 export interface MapPath {
@@ -35,8 +59,23 @@ export interface MapMarker {
   title?: string;
 }
 
+/** Places a tile on the map's frame, in CSS pixels. */
+export type ToScreen = (x: number, z: number) => [number, number];
+
+/** What the pointer is over, named on hover: the point the tooltip points at, in CSS pixels. */
+export interface MapHover {
+  id: string;
+  x: number;
+  y: number;
+  label: ReactNode;
+}
+
 /** Draws over the map in CSS pixels (the context is scaled for the device). */
-export type MapOverlay = (ctx: CanvasRenderingContext2D, toScreen: (x: number, z: number) => [number, number], zoom: number) => void;
+export type MapOverlay = (
+  ctx: CanvasRenderingContext2D,
+  toScreen: (x: number, z: number) => [number, number],
+  zoom: number
+) => void;
 
 interface Camera {
   /** Centre in map-image pixels */
@@ -86,7 +125,10 @@ function prepare(meta: MapMeta, points: readonly PathPoint[]): Prepared {
   const runs: [number, number][] = [];
   let start = 0;
   points.forEach(([tick, x, z, , jump], n) => {
-    if (jump === 1 && n > start) runs.push([start, n]), (start = n);
+    if (jump === 1 && n > start) {
+      runs.push([start, n]);
+      start = n;
+    }
     const [px, py] = tileToImage(meta, x, surfaceZ(z));
     xy[n * 2] = px;
     xy[n * 2 + 1] = py;
@@ -136,6 +178,7 @@ export function WorldMap({
   followZoom = 6,
   onFollowZoom,
   dim = 0,
+  hoverAt,
 }: {
   paths: MapPath[];
   markers?: MapMarker[];
@@ -168,21 +211,25 @@ export function WorldMap({
   onFollowZoom?: (zoom: number) => void;
   /** Fade the map image toward the page colour by this much (0–1), so an overlay reads over it */
   dim?: number;
-}) {
+  /** Names what the pointer at (x, y) is over that the map doesn't draw itself, such as an
+   * overlay's dot; markers name themselves by their `title` */
+  hoverAt?: (x: number, y: number, toScreen: ToScreen) => MapHover | undefined;
+}): JSX.Element {
   const { data: meta, isError: metaFailed } = useQuery(mapMetaQuery);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [image2x, setImage2x] = useState<HTMLImageElement | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
-  const [sprites, setSprites] = useState<Map<string, TrimmedSprite>>(new Map());
+  const [sprites, setSprites] = useState(() => new Map<string, TrimmedSprite>());
+  const [hover, setHover] = useState<MapHover | null>(null);
   const [size, setSize] = useState({ w: 0, h: height });
   const colors = useThemeColors();
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const camera = useRef<Camera | null>(null);
-  const frame = useRef(0);
-  const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const moved = useRef(false);
-  const wheelTimer = useRef(0);
+  const cameraRef = useRef<Camera | null>(null);
+  const frameRef = useRef(0);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const movedRef = useRef(false);
+  const wheelTimerRef = useRef(0);
 
   useEffect(() => {
     let live = true;
@@ -203,7 +250,14 @@ export function WorldMap({
   useEffect(() => {
     let live = true;
     const srcs = [...new Set(markerKey ? markerKey.split('|') : [])];
-    Promise.all(srcs.map(src => loadTrimmedSprite(src).then(s => [src, s] as const, () => null))).then(pairs => {
+    Promise.all(
+      srcs.map(src =>
+        loadTrimmedSprite(src).then(
+          s => [src, s] as const,
+          () => null
+        )
+      )
+    ).then(pairs => {
       if (live) setSprites(new Map(pairs.filter(p => p != null)));
     });
     return () => {
@@ -214,14 +268,21 @@ export function WorldMap({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const observer = new ResizeObserver(([entry]) => setSize({ w: entry.contentRect.width, h: entry.contentRect.height }));
+    const observer = new ResizeObserver(([entry]) =>
+      setSize({ w: entry.contentRect.width, h: entry.contentRect.height })
+    );
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
-  const prepared = useMemo(() => (meta ? paths.map(path => ({ path, ...prepare(meta, path.points) })) : []), [meta, paths]);
+  const prepared = useMemo(
+    () => (meta ? paths.map(path => ({ path, ...prepare(meta, path.points) })) : []),
+    [meta, paths]
+  );
   // What the fitted view depends on: which paths and markers, not their time dots or styles
-  const geometryKey = fitKey ?? `${paths.map(p => `${p.id}:${p.points.length}`).join('|')}#${markers.map(m => `${m.x},${m.z}`).join('|')}`;
+  const geometryKey =
+    fitKey ??
+    `${paths.map(p => `${p.id}:${p.points.length}`).join('|')}#${markers.map(m => `${m.x},${m.z}`).join('|')}`;
 
   /** The frame's height: the fitted paths' shape at the frame's width, so the map fills it; `height` is the most. */
   const frameHeight = useMemo(() => {
@@ -258,7 +319,8 @@ export function WorldMap({
       x1 = Math.max(x1, x);
       y1 = Math.max(y1, y);
     };
-    for (const p of prepared) for (const [a, b] of p.runs) for (let i = a; i < b; i++) add(p.xy[i * 2], p.xy[i * 2 + 1]);
+    for (const p of prepared)
+      for (const [a, b] of p.runs) for (let i = a; i < b; i++) add(p.xy[i * 2], p.xy[i * 2 + 1]);
     for (const m of markers) add(...tileToImage(meta, m.x, m.z));
     if (x0 === Infinity) {
       x0 = 0;
@@ -277,7 +339,7 @@ export function WorldMap({
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
-    const cam = camera.current;
+    const cam = cameraRef.current;
     if (!canvas || !cam || !meta || !image) return;
     const dpr = window.devicePixelRatio || 1;
     // The backing store follows the container here, so a resize never leaves a cleared canvas
@@ -381,48 +443,58 @@ export function WorldMap({
   // replacing it: during playback the page re-renders every frame, and cancelling the pending draw
   // each time would put it off forever.
   const drawRef = useRef(draw);
-  drawRef.current = draw;
+  useLayoutEffect(() => {
+    drawRef.current = draw;
+  });
   const requestDraw = useCallback(() => {
-    if (frame.current) return;
-    frame.current = requestAnimationFrame(() => {
-      frame.current = 0;
+    if (frameRef.current) return;
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = 0;
       drawRef.current();
     });
   }, []);
 
   // The camera follows `view`, or fits the paths when there is none (not on every time-dot change)
-  const fitRef = useRef(fit);
-  fitRef.current = fit;
   const viewKey = view?.join(',');
   const canFollow = follow !== undefined;
   const following = canFollow && !view;
-  const followKey = following && follow ? `${follow.map(f => `${f.x.toFixed(2)},${f.z.toFixed(2)}`).join(';')}@${followZoom}` : '';
-  useEffect(() => {
+  const followKey =
+    following && follow ? `${follow.map(f => `${f.x.toFixed(2)},${f.z.toFixed(2)}`).join(';')}@${followZoom}` : '';
+  const placeCamera = useEffectEvent(() => {
     if (!meta || size.w === 0) return;
     if (view) {
       const [cx, cy] = tileToImage(meta, view[0], view[1]);
-      camera.current = clampCentre(meta, { cx, cy, s: clampScale(meta, size, view[2] / meta.px_per_tile) }, size);
+      cameraRef.current = clampCentre(meta, { cx, cy, s: clampScale(meta, size, view[2] / meta.px_per_tile) }, size);
     } else if (following && follow?.length) {
       const xs = follow.map(f => tileToImage(meta, f.x, f.z));
       const [x0, x1] = [Math.min(...xs.map(p => p[0])), Math.max(...xs.map(p => p[0]))];
       const [y0, y1] = [Math.min(...xs.map(p => p[1])), Math.max(...xs.map(p => p[1]))];
       // Close to one character, far enough out for a pack: room for the pins at the edges
       const room = 3 * padding;
-      const s = Math.min(followZoom / meta.px_per_tile, (size.w - 2 * room) / Math.max(1, x1 - x0), (size.h - 2 * room) / Math.max(1, y1 - y0));
-      camera.current = clampCentre(meta, { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, s: clampScale(meta, size, s) }, size);
+      const s = Math.min(
+        followZoom / meta.px_per_tile,
+        (size.w - 2 * room) / Math.max(1, x1 - x0),
+        (size.h - 2 * room) / Math.max(1, y1 - y0)
+      );
+      cameraRef.current = clampCentre(
+        meta,
+        { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, s: clampScale(meta, size, s) },
+        size
+      );
     } else if (!following) {
-      camera.current = fitRef.current();
+      cameraRef.current = fit();
     }
     requestDraw();
-    // view, geometry and the followed tile are compared by value, not by array identity
-  }, [meta, size, viewKey, geometryKey, followKey]);
+  });
+  // view, geometry and the followed tile are compared by value, not by array identity
+  useEffect(() => placeCamera(), [meta, size, viewKey, geometryKey, followKey]);
 
   useEffect(() => requestDraw(), [draw, requestDraw]);
   // A draw cancelled on unmount must not block the next one (StrictMode mounts twice)
   useEffect(
     () => () => {
-      cancelAnimationFrame(frame.current);
-      frame.current = 0;
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = 0;
     },
     []
   );
@@ -430,9 +502,10 @@ export function WorldMap({
   /** Reports the camera when a gesture ends: a zoom while following keeps following, anything else is a view. */
   const commit = useCallback(
     (gesture: 'pan' | 'zoom' = 'pan') => {
-      const cam = camera.current;
+      const cam = cameraRef.current;
       if (!cam || !meta) return;
-      if (following && gesture === 'zoom' && onFollowZoom) return onFollowZoom(Math.round(cam.s * meta.px_per_tile * 100) / 100);
+      if (following && gesture === 'zoom' && onFollowZoom)
+        return onFollowZoom(Math.round(cam.s * meta.px_per_tile * 100) / 100);
       const [x, z] = imageToTile(meta, cam.cx, cam.cy);
       onViewChange?.(roundView([x, z, cam.s * meta.px_per_tile]));
     },
@@ -442,14 +515,18 @@ export function WorldMap({
   /** Zoom by a factor keeping the image point under (px, py) fixed. */
   const zoomAt = useCallback(
     (px: number, py: number, factor: number) => {
-      const cam = camera.current;
+      const cam = cameraRef.current;
       if (!cam || !meta) return;
       // Following (and staying so), the followed tiles stay centred whatever is under the pointer
       if (following && onFollowZoom) [px, py] = [size.w / 2, size.h / 2];
       const ix = cam.cx + (px - size.w / 2) / cam.s;
       const iy = cam.cy + (py - size.h / 2) / cam.s;
       const s = clampScale(meta, size, cam.s * factor);
-      camera.current = clampCentre(meta, { cx: ix - (px - size.w / 2) / s, cy: iy - (py - size.h / 2) / s, s }, size);
+      cameraRef.current = clampCentre(
+        meta,
+        { cx: ix - (px - size.w / 2) / s, cy: iy - (py - size.h / 2) / s, s },
+        size
+      );
       requestDraw();
     },
     [following, meta, onFollowZoom, requestDraw, size]
@@ -465,8 +542,8 @@ export function WorldMap({
       const rect = canvas.getBoundingClientRect();
       const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
       zoomAt(event.clientX - rect.left, event.clientY - rect.top, Math.exp(-delta * 0.01));
-      window.clearTimeout(wheelTimer.current);
-      wheelTimer.current = window.setTimeout(() => commit('zoom'), 250);
+      window.clearTimeout(wheelTimerRef.current);
+      wheelTimerRef.current = window.setTimeout(() => commit('zoom'), 250);
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', onWheel);
@@ -479,26 +556,38 @@ export function WorldMap({
 
   const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>): void => {
     event.currentTarget.setPointerCapture(event.pointerId);
+    setHover(null);
     const [x, y] = local(event);
-    pointers.current.set(event.pointerId, { x, y });
-    moved.current = false;
+    pointersRef.current.set(event.pointerId, { x, y });
+    movedRef.current = false;
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>): void => {
     const [x, y] = local(event);
-    const active = pointers.current;
+    const active = pointersRef.current;
     const previous = active.get(event.pointerId);
-    const cam = camera.current;
+    const cam = cameraRef.current;
     if (!previous || !cam) {
-      // Hover: a marker's title as the canvas tooltip
-      const hit = meta && cam ? markers.find(m => markerHit(meta, cam, size, m, sprites.get(m.src), x, y)) : undefined;
-      event.currentTarget.title = hit?.title ?? '';
+      // Hover: a marker's title, or what `hoverAt` names, as a tooltip at its point
+      if (!meta || !cam) return;
+      const toScreen = screenOf(meta, cam, size);
+      const hit = markers.find(m => m.title && markerHit(meta, cam, size, m, sprites.get(m.src), x, y));
+      let next: MapHover | undefined;
+      if (hit) {
+        const [mx, my] = toScreen(hit.x, hit.z);
+        next = { id: hit.id, x: mx, y: my, label: hit.title };
+      } else next = hoverAt?.(x, y, toScreen);
+      setHover(prev => (prev?.id === next?.id ? prev : (next ?? null)));
       return;
     }
     if (active.size === 1) {
-      camera.current = clampCentre(meta, { ...cam, cx: cam.cx - (x - previous.x) / cam.s, cy: cam.cy - (y - previous.y) / cam.s }, size);
+      cameraRef.current = clampCentre(
+        meta,
+        { ...cam, cx: cam.cx - (x - previous.x) / cam.s, cy: cam.cy - (y - previous.y) / cam.s },
+        size
+      );
       active.set(event.pointerId, { x, y });
-      moved.current = true;
+      movedRef.current = true;
       requestDraw();
     } else if (active.size === 2) {
       const [a, b] = [...active.entries()];
@@ -511,28 +600,28 @@ export function WorldMap({
       const my = (y + other.y) / 2;
       const px = (previous.x + other.x) / 2;
       const py = (previous.y + other.y) / 2;
-      camera.current = clampCentre(meta, { ...cam, cx: cam.cx - (mx - px) / cam.s, cy: cam.cy - (my - py) / cam.s }, size);
-      moved.current = true;
+      cameraRef.current = clampCentre(
+        meta,
+        { ...cam, cx: cam.cx - (mx - px) / cam.s, cy: cam.cy - (my - py) / cam.s },
+        size
+      );
+      movedRef.current = true;
       zoomAt(mx, my, after / before);
     }
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLCanvasElement>): void => {
-    pointers.current.delete(event.pointerId);
-    if (pointers.current.size === 0 && moved.current) commit('pan');
+    pointersRef.current.delete(event.pointerId);
+    if (pointersRef.current.size === 0 && movedRef.current) commit('pan');
   };
-
-  const button = (text: string, title: string, onClick: () => void) => (
-    <Tip content={title}>
-      <Button type="button" variant="outline" size="sm" aria-label={title} onClick={onClick}>
-        {text}
-      </Button>
-    </Tip>
-  );
 
   const failed = metaFailed || imageFailed;
   return (
-    <div ref={containerRef} className={clsx('relative w-full min-w-0 overflow-hidden rounded-sm bg-background', className)} style={{ height: frameHeight }}>
+    <div
+      ref={containerRef}
+      className={clsx('relative w-full min-w-0 overflow-hidden rounded-md bg-background', className)}
+      style={{ height: frameHeight }}
+    >
       <canvas
         ref={canvasRef}
         role="img"
@@ -542,36 +631,106 @@ export function WorldMap({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onPointerLeave={() => setHover(null)}
         onDoubleClick={event => {
           const [x, y] = local(event);
           zoomAt(x, y, 2);
           commit('zoom');
         }}
       />
+      {hover && (
+        <Tooltip open content={hover.label}>
+          <span
+            key={hover.id}
+            aria-hidden
+            className="pointer-events-none absolute size-0"
+            style={{ left: hover.x, top: hover.y - HOVER_LIFT }}
+          />
+        </Tooltip>
+      )}
       {failed ? (
-        <p className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">The map could not be loaded.</p>
+        <p className="absolute inset-0 flex items-center justify-center text-sm text-muted">
+          The map could not be loaded.
+        </p>
       ) : (
         <div className="absolute top-2 right-2 flex gap-1">
-          {button('+', 'Zoom in', () => {
-            zoomAt(size.w / 2, size.h / 2, 2);
-            commit('zoom');
-          })}
-          {button('−', 'Zoom out', () => {
-            zoomAt(size.w / 2, size.h / 2, 0.5);
-            commit('zoom');
-          })}
-          {canFollow && !following && button('Follow', 'Keep the character in the middle', () => onViewChange?.(undefined))}
-          {button('Fit', canFollow ? 'Show the whole path' : 'Fit the paths', () => {
-            camera.current = fit();
-            requestDraw();
-            // A map that follows has no view while following, so the fitted view is kept as one
-            if (canFollow) commit('pan');
-            else onViewChange?.(undefined);
-          })}
+          <MapButton
+            label="Zoom in"
+            onClick={() => {
+              zoomAt(size.w / 2, size.h / 2, 2);
+              commit('zoom');
+            }}
+          >
+            <PlusIcon />
+          </MapButton>
+          <MapButton
+            label="Zoom out"
+            onClick={() => {
+              zoomAt(size.w / 2, size.h / 2, 0.5);
+              commit('zoom');
+            }}
+          >
+            <MinusIcon />
+          </MapButton>
+          {canFollow && !following && (
+            <MapButton label="Keep the character in the middle" onClick={() => onViewChange?.(undefined)}>
+              Follow
+            </MapButton>
+          )}
+          <MapButton
+            label={canFollow ? 'Show the whole path' : 'Fit the paths'}
+            onClick={() => {
+              cameraRef.current = fit();
+              requestDraw();
+              // A map that follows has no view while following, so the fitted view is kept as one
+              if (canFollow) commit('pan');
+              else onViewChange?.(undefined);
+            }}
+          >
+            Fit
+          </MapButton>
         </div>
       )}
     </div>
   );
+}
+
+/** How far above a hovered point its tooltip points, past the mark drawn there (CSS pixels) */
+const HOVER_LIFT = 8;
+
+/** One of the map's own controls over its corner: an icon or a word, named on hover. */
+function MapButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: JSX.Element | string;
+}): JSX.Element {
+  const icon = typeof children !== 'string';
+  return (
+    <Tip content={label}>
+      <Button
+        variant="secondary"
+        size="xs"
+        iconOnly={icon}
+        leadingIcon={icon ? children : undefined}
+        aria-label={label}
+        onClick={onClick}
+      >
+        {icon ? undefined : children}
+      </Button>
+    </Tip>
+  );
+}
+
+/** Where a tile is on the frame, for a camera. */
+function screenOf(meta: MapMeta, cam: Camera, size: { w: number; h: number }): ToScreen {
+  return (x, z) => {
+    const [px, py] = tileToImage(meta, x, z);
+    return [size.w / 2 + (px - cam.cx) * cam.s, size.h / 2 + (py - cam.cy) * cam.s];
+  };
 }
 
 /** Keep the zoom between a little wider than the whole map and MAX_ZOOM pixels per tile. */
@@ -586,10 +745,22 @@ function clampCentre(meta: MapMeta | undefined, cam: Camera, size: { w: number; 
   if (!meta) return cam;
   const within = (c: number, half: number, extent: number): number =>
     half * 2 >= extent ? extent / 2 : Math.min(extent - half, Math.max(half, c));
-  return { ...cam, cx: within(cam.cx, size.w / 2 / cam.s, meta.width), cy: within(cam.cy, size.h / 2 / cam.s, meta.height) };
+  return {
+    ...cam,
+    cx: within(cam.cx, size.w / 2 / cam.s, meta.width),
+    cy: within(cam.cy, size.h / 2 / cam.s, meta.height),
+  };
 }
 
-function markerHit(meta: MapMeta, cam: Camera, size: { w: number; h: number }, m: MapMarker, sprite: TrimmedSprite | undefined, x: number, y: number): boolean {
+function markerHit(
+  meta: MapMeta,
+  cam: Camera,
+  size: { w: number; h: number },
+  m: MapMarker,
+  sprite: TrimmedSprite | undefined,
+  x: number,
+  y: number
+): boolean {
   const [px, py] = tileToImage(meta, m.x, m.z);
   const sx = size.w / 2 + (px - cam.cx) * cam.s;
   const sy = size.h / 2 + (py - cam.cy) * cam.s;

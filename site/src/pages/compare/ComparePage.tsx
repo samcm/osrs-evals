@@ -6,7 +6,7 @@
  * any number of pairings; hiding or isolating one drops its runs from the ranking.
  */
 
-import { useMemo } from 'react';
+import { useMemo, type JSX } from 'react';
 import { getRouteApi } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
@@ -16,13 +16,13 @@ import { Empty, Segmented } from '@/components/bits';
 import { EvalMark, ModelLabel } from '@/components/marks';
 import { PageSection, PageTabs, PageToolbar } from '@/components/page';
 import { indexQuery } from '@/data/queries';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { Eval, Price, Run } from '@/data/types';
 import { useLegend } from '@/lib/legend';
 import { inScope, useDocumentTitle, useEffort, useScope, useScopeUpdate, useSearchUpdate } from '@/lib/search';
 import { PairingFilters } from '@/components/PairingFilters';
 import { bestLevelKeys, blendedScores } from '@/lib/score';
-import { variantKey } from '@/lib/series';
-import { modelInfo, vendorOf } from '@/lib/series';
+import { modelInfo, variantKey, vendorOf } from '@/lib/series';
 import { median } from '@/lib/stats';
 import { StripChart, ToolMixChart, type MixGroup, type RankedGroup } from './charts';
 import { groupRuns, type GroupBy } from './groups';
@@ -44,7 +44,7 @@ const BY_OPTIONS: { value: GroupBy; label: string }[] = [
   { value: 'variant', label: 'Pairing' },
 ];
 
-export function ComparePage() {
+export function ComparePage(): JSX.Element {
   useDocumentTitle('Compare');
   const { data } = useSuspenseQuery(indexQuery);
   const search = route.useSearch();
@@ -53,6 +53,7 @@ export function ComparePage() {
   const setScope = useScopeUpdate();
   const effort = useEffort();
   const legend = useLegend();
+  const phone = useIsMobile();
 
   // EthIQ's cut: every thinking level, or each model in each harness at its best blended score
   const scoped = useMemo(() => {
@@ -70,9 +71,10 @@ export function ComparePage() {
   const choices = oneEval ? evals.filter(e => !metric.applies || metric.applies(e)) : evals;
   const chosen = choices.find(e => e.id === search.eval);
   // Without a choice, the eval with the most runs: the one with the most to compare
-  const runsOf = (id: string) => scoped.filter(r => r.eval === id).length;
-  const evalShown: Eval | undefined = chosen ?? (oneEval ? [...choices].sort((a, b) => runsOf(b.id) - runsOf(a.id))[0] : undefined);
-  const runs = useMemo(() => scoped.filter(r => !evalShown || r.eval === evalShown.id), [scoped, evalShown]);
+  const runsOf = (id: string): number => scoped.filter(r => r.eval === id).length;
+  const evalShown: Eval | undefined =
+    chosen ?? (oneEval ? [...choices].sort((a, b) => runsOf(b.id) - runsOf(a.id))[0] : undefined);
+  const runs = scoped.filter(r => !evalShown || r.eval === evalShown.id);
 
   const log = metric.log && (search.scale ?? metric.scale) === 'log';
 
@@ -82,14 +84,17 @@ export function ComparePage() {
     () =>
       runs
         .map(run => ({ run, value: metric.get(run) }))
-        .filter((p): p is { run: Run; value: number } => p.value != null && Number.isFinite(p.value) && (!log || p.value > 0)),
+        .filter(
+          (p): p is { run: Run; value: number } => p.value != null && Number.isFinite(p.value) && (!log || p.value > 0)
+        ),
     [runs, metric, log]
   );
 
   const { hidden, focus } = legend;
   const ranked = useMemo<RankedGroup[]>(() => {
     // A run is shown unless its model or harness is hidden, or, with one isolated, when it is that one
-    const shown = (run: Run) => (focus ? focus === run.model || focus === run.agent : !hidden.includes(run.model) && !hidden.includes(run.agent));
+    const shown = (run: Run): boolean =>
+      focus ? focus === run.model || focus === run.agent : !hidden.includes(run.model) && !hidden.includes(run.agent);
     const values = new Map(valued.map(p => [p.run, p.value]));
     const groups = groupRuns(valued.map(p => p.run).filter(shown), search.by).map(g => {
       const points = g.runs.map(run => ({ run, value: values.get(run)! }));
@@ -105,7 +110,8 @@ export function ComparePage() {
       groupRuns(runs, search.by)
         .map(g => {
           const counts = new Map<string, number>();
-          for (const r of g.runs) for (const [k, n] of Object.entries(r.metrics.tool_mix)) counts.set(k, (counts.get(k) ?? 0) + (n ?? 0));
+          for (const r of g.runs)
+            for (const [k, n] of Object.entries(r.metrics.tool_mix)) counts.set(k, (counts.get(k) ?? 0) + (n ?? 0));
           return { key: g.key, sample: g.sample, counts, total: [...counts.values()].reduce((a, b) => a + b, 0) };
         })
         .filter(g => g.total > 0)
@@ -118,7 +124,8 @@ export function ComparePage() {
       Object.entries(data.prices)
         .filter(
           ([model]) =>
-            (scope.model.length === 0 || scope.model.includes(model)) && (scope.vendor.length === 0 || scope.vendor.includes(vendorOf(model).id))
+            (scope.model.length === 0 || scope.model.includes(model)) &&
+            (scope.vendor.length === 0 || scope.vendor.includes(vendorOf(model).id))
         )
         .sort(([a], [b]) => modelInfo(a).name.localeCompare(modelInfo(b).name))
         .map(([model, price]) => ({ model, ...price })),
@@ -126,7 +133,36 @@ export function ComparePage() {
   );
 
   const name = metricLabel(metric, evalShown);
-  const evalOptions = choices.map(e => ({ value: e.id, label: e.title, mark: <EvalMark evalId={e.id} size={16} title="" /> }));
+  const evalOptions = choices.map(e => ({
+    value: e.id,
+    label: e.title,
+    mark: <EvalMark evalId={e.id} size={16} title="" />,
+  }));
+
+  // The toolbar's selects: on a phone one row, the open view's main select beside the Filters
+  // button and the other folded into its popover
+  const measureSelect = (className: string): JSX.Element => (
+    <SelectField
+      label="Measure"
+      hideLabel
+      className={className}
+      value={metric.id}
+      options={offered.map(m => ({ value: m.id, label: m.label, group: m.group }))}
+      onChange={v => v && update({ metric: v as MetricId, scale: undefined })}
+    />
+  );
+  const evalSelect = (className: string): JSX.Element => (
+    <SelectField
+      label="Eval"
+      hideLabel
+      className={className}
+      value={evalShown?.id}
+      allLabel={oneEval ? undefined : 'All evals'}
+      options={evalOptions}
+      onChange={id => update({ eval: id })}
+    />
+  );
+  const measureTab = search.tab === 'measure';
 
   return (
     <>
@@ -134,30 +170,19 @@ export function ComparePage() {
 
       {search.tab !== 'prices' && (
         <PageToolbar label="Measure, eval and grouping">
-          {search.tab === 'measure' && (
-            <SelectField
-              label="Measure"
-              hideLabel
-              className="w-full sm:w-64"
-              value={metric.id}
-              options={offered.map(m => ({ value: m.id, label: m.label, group: m.group }))}
-              onChange={v => v && update({ metric: v as MetricId, scale: undefined })}
-            />
+          {phone ? (
+            (measureTab ? measureSelect : evalSelect)('min-w-0 flex-1')
+          ) : (
+            <>
+              {measureTab && measureSelect('w-64')}
+              {evalSelect('w-64')}
+            </>
           )}
-          <SelectField
-            label="Eval"
-            hideLabel
-            className="w-full sm:w-64"
-            value={evalShown?.id}
-            allLabel={oneEval ? undefined : 'All evals'}
-            options={evalOptions}
-            onChange={id => update({ eval: id })}
-          />
           <PairingFilters runs={data.runs} thinking={scope.thinking} agent={scope.agent} onChange={setScope}>
-            <Segmented size="default" label="Group by" value={search.by} options={BY_OPTIONS} onChange={by => update({ by })} />
-            {search.tab === 'measure' && metric.log && (
+            {phone && measureTab && evalSelect('w-full')}
+            <Segmented label="Group by" value={search.by} options={BY_OPTIONS} onChange={by => update({ by })} />
+            {measureTab && metric.log && (
               <Segmented
-                size="default"
                 label="Scale"
                 value={log ? 'log' : 'linear'}
                 options={SCALE_OPTIONS}
@@ -168,7 +193,7 @@ export function ComparePage() {
         </PageToolbar>
       )}
 
-      {search.tab === 'measure' ? (
+      {measureTab ? (
         <PageSection
           title={
             <>
@@ -181,7 +206,15 @@ export function ComparePage() {
           {valued.length === 0 ? (
             <Empty>No runs have this measure.</Empty>
           ) : (
-            <StripChart groups={ranked} keyed={valued.map(p => p.run)} metric={metric} by={search.by} log={log} evals={evalShown ? undefined : data.evals} legend={legend} />
+            <StripChart
+              groups={ranked}
+              keyed={valued.map(p => p.run)}
+              metric={metric}
+              by={search.by}
+              log={log}
+              evals={evalShown ? undefined : data.evals}
+              legend={legend}
+            />
           )}
         </PageSection>
       ) : search.tab === 'tools' ? (
@@ -193,11 +226,20 @@ export function ComparePage() {
             </>
           }
         >
-          {mix.length === 0 ? <Empty>No tool calls in this scope.</Empty> : <ToolMixChart groups={mix} by={search.by} />}
+          {mix.length === 0 ? (
+            <Empty>No tool calls in this scope.</Empty>
+          ) : (
+            <ToolMixChart groups={mix} by={search.by} />
+          )}
         </PageSection>
       ) : (
         <PageSection title="List prices" description="USD per million tokens">
-          <DataTable data={prices} columns={PRICE_COLUMNS} getRowId={p => p.model} empty={<Empty>No priced models in this scope.</Empty>} />
+          <DataTable
+            data={prices}
+            columns={PRICE_COLUMNS}
+            getRowId={p => p.model}
+            empty={<Empty>No priced models in this scope.</Empty>}
+          />
         </PageSection>
       )}
     </>
@@ -209,11 +251,15 @@ const SCALE_OPTIONS: { value: 'linear' | 'log'; label: string }[] = [
   { value: 'log', label: 'Log' },
 ];
 
-const usd = (v: number) => `$${v < 1 ? v.toFixed(3).replace(/0$/, '') : v.toFixed(2)}`;
+const usd = (v: number): string => `$${v < 1 ? v.toFixed(3).replace(/0$/, '') : v.toFixed(2)}`;
 const priceCol = createColumnHelper<Price & { model: string }>();
 
 const PRICE_COLUMNS = [
-  priceCol.accessor('model', { header: 'Model', enableSorting: false, cell: ({ getValue }) => <ModelLabel model={getValue()} /> }),
+  priceCol.accessor('model', {
+    header: 'Model',
+    enableSorting: false,
+    cell: ({ getValue }) => <ModelLabel model={getValue()} />,
+  }),
   ...(
     [
       ['input', 'Input'],
@@ -222,6 +268,11 @@ const PRICE_COLUMNS = [
       ['input_cache_write', 'Cache write'],
     ] as const
   ).map(([key, header]) =>
-    priceCol.accessor(key, { header, enableSorting: false, meta: { numeric: true }, cell: ({ getValue }) => usd(getValue()) })
+    priceCol.accessor(key, {
+      header,
+      enableSorting: false,
+      meta: { numeric: true },
+      cell: ({ getValue }) => usd(getValue()),
+    })
   ),
 ] as ColumnDef<Price & { model: string }, unknown>[];

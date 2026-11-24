@@ -6,59 +6,21 @@
  * and zoom; "Fit" goes back to it.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { WorldMap, type MapOverlay, type MapPath } from '@/components/WorldMap';
+import { useCallback, useEffect, useMemo, useState, type JSX, type RefObject } from 'react';
+import { WorldMap, type MapHover, type MapOverlay, type MapPath } from '@/components/WorldMap';
 import type { PathPoint } from '@/data/types';
-import { brandSrc, loadTrimmedSprite, questSrc, uiSrc, type TrimmedSprite } from '@/lib/assets';
-import { positionAt, surfaceZ, UNDERGROUND_Z, type MapView } from '@/lib/map';
-import type { AgentLine } from '@/lib/series';
+import { brandSrc, loadTrimmedSprite, type TrimmedSprite } from '@/lib/assets';
+import { positionAt, surfaceZ, type MapView } from '@/lib/map';
+import { levelName, modelInfo, type AgentLine } from '@/lib/series';
 import { useThemeColors } from '@/lib/theme';
-import type { RunCurve } from '../model';
+import { PIN, type Bounds, type PlacedPin, type PointedPin, type Track } from '@/pages/eval/centerpiece/mapData';
 
-export interface Track {
-  curve: RunCurve;
-  /** The run's first account's path */
-  points: readonly PathPoint[];
-  /** A team's other accounts, each a path and a pin of its own in the run's colour */
-  others: { name: string; points: readonly PathPoint[] }[];
-  /** Most ticks between two recorded points while walking */
-  step: number;
-  /** Quests, with where they were done */
-  marks: { tick: number; x: number; z: number; src: string; inferred: boolean }[];
-  /** Place at the playhead, from 0 */
-  rank: number;
-}
-
-/** Where the runs went: the tiles the view is fitted to. */
-export interface Bounds {
-  x0: number;
-  z0: number;
-  x1: number;
-  z1: number;
-}
-
-/**
- * The tiles every run of an eval went to, as drawn on the surface map, without the stray far-off
- * points: the middle 99% of every recorded position on each axis.
- */
-export function pathBounds(paths: readonly (readonly PathPoint[])[]): Bounds | null {
-  const xs: number[] = [];
-  const zs: number[] = [];
-  for (const path of paths)
-    for (const p of path) {
-      xs.push(p[1]);
-      zs.push(p[2] >= UNDERGROUND_Z ? p[2] - UNDERGROUND_Z : p[2]);
-    }
-  if (xs.length === 0) return null;
-  xs.sort((a, b) => a - b);
-  zs.sort((a, b) => a - b);
-  const at = (values: number[], q: number): number => values[Math.min(values.length - 1, Math.floor(q * values.length))];
-  return { x0: at(xs, 0.005), z0: at(zs, 0.005), x1: at(xs, 0.995), z1: at(zs, 0.995) };
-}
-
-export const PIN = 10;
 const MARK = 12;
 const DASH: Record<AgentLine, number[]> = { solid: [], dashed: [7, 5], dotted: [0.5, 4.5] };
+
+/** A pin's pairing as the site names one: the short model name and its level ("Sonnet 5.5 medium"). */
+const pinName = (t: Track): string =>
+  `${modelInfo(t.curve.variant.model).short} ${levelName(t.curve.variant.thinking)}`;
 
 // Vendor marks, tinted for the canvas (the DOM draws them as a CSS mask)
 const brandImages = new Map<string, Promise<HTMLImageElement>>();
@@ -122,15 +84,6 @@ function spread(points: [number, number][], gap: number): [number, number][] {
   return out;
 }
 
-/** Where a pin was last drawn, in the map's CSS pixels, for hovering it. */
-export interface PlacedPin {
-  x: number;
-  y: number;
-  key: string;
-  /** The account it is, named on hover in a team's run */
-  account: string | null;
-}
-
 export function RaceMap({
   tracks,
   bounds,
@@ -141,7 +94,8 @@ export function RaceMap({
   height,
   minHeight,
   lit,
-  placed,
+  placedRef,
+  pointed,
 }: {
   tracks: Track[];
   /** What the view is fitted to: where every run of the eval went */
@@ -150,7 +104,9 @@ export function RaceMap({
   /** The pairing lit by a hover or focus; the others fade */
   lit: string | null;
   /** Filled with where each pin was drawn */
-  placed: { current: PlacedPin[] };
+  placedRef: RefObject<PlacedPin[]>;
+  /** The pin under the pointer, which a lit run's label sits on */
+  pointed: PointedPin | null;
   /** Ticks of trail drawn bold behind each pin */
   trail: number;
   view: MapView | undefined;
@@ -158,11 +114,13 @@ export function RaceMap({
   height: number;
   /** The least the fitted map shrinks to: its neighbour's height */
   minHeight?: number;
-}) {
+}): JSX.Element {
   const colors = useThemeColors();
-  const [images, setImages] = useState<Map<string, HTMLImageElement | TrimmedSprite>>(new Map());
+  const [images, setImages] = useState<Map<string, HTMLImageElement | TrimmedSprite>>(() => new Map());
 
-  const srcKey = [...new Set(tracks.flatMap(t => [`brand:${t.curve.variant.vendorSlug}`, ...t.marks.map(m => m.src)]))].sort().join('|');
+  const srcKey = [...new Set(tracks.flatMap(t => [`brand:${t.curve.variant.vendorSlug}`, ...t.marks.map(m => m.src)]))]
+    .sort()
+    .join('|');
   useEffect(() => {
     let live = true;
     const keys = srcKey ? srcKey.split('|') : [];
@@ -181,7 +139,20 @@ export function RaceMap({
 
   // The bounds as an undrawn path from corner to corner: the one thing the map fits to
   const fitPaths = useMemo<MapPath[]>(
-    () => (bounds ? [{ id: 'bounds', color: '', opacity: 0, points: [[0, bounds.x0, bounds.z0, 0], [1, bounds.x1, bounds.z1, 0]] }] : []),
+    () =>
+      bounds
+        ? [
+            {
+              id: 'bounds',
+              color: '',
+              opacity: 0,
+              points: [
+                [0, bounds.x0, bounds.z0, 0],
+                [1, bounds.x1, bounds.z1, 0],
+              ],
+            },
+          ]
+        : [],
     [bounds]
   );
 
@@ -193,7 +164,9 @@ export function RaceMap({
 
       const dim = (t: Track): number => (lit != null && t.curve.variant.key !== lit ? 0.2 : 1);
       // Lit tracks draw last, over the faded ones
-      const layered = lit ? [...tracks.filter(t => t.curve.variant.key !== lit), ...tracks.filter(t => t.curve.variant.key === lit)] : tracks;
+      const layered = lit
+        ? [...tracks.filter(t => t.curve.variant.key !== lit), ...tracks.filter(t => t.curve.variant.key === lit)]
+        : tracks;
 
       // Trails: faint up to the last stretch, then bold to the pin
       for (const t of layered) {
@@ -266,8 +239,16 @@ export function RaceMap({
         PIN * 2 + 2
       );
       const isLit = (t: Track): number => (lit != null && t.curve.variant.key === lit ? 1 : 0);
-      const order = drawn.map((a, i) => ({ ...a, s: spot[i] })).sort((a, b) => isLit(a.t) - isLit(b.t) || b.t.rank - a.t.rank);
-      placed.current = order.map(({ t, s, account }) => ({ x: s[0], y: s[1], key: t.curve.variant.key, account }));
+      const order = drawn
+        .map((a, i) => ({ ...a, s: spot[i] }))
+        .sort((a, b) => isLit(a.t) - isLit(b.t) || b.t.rank - a.t.rank);
+      placedRef.current = order.map(({ t, s, account }) => ({
+        x: s[0],
+        y: s[1],
+        key: t.curve.variant.key,
+        run: t.curve.run.id,
+        account,
+      }));
       for (const { t, xy, s } of order) {
         const color = colors.resolve(t.curve.variant.color.token);
         ctx.globalAlpha = dim(t) < 1 ? 0.35 : 1;
@@ -299,21 +280,27 @@ export function RaceMap({
       }
       ctx.globalAlpha = 1;
 
-      // The lit pairing's pins say whose they are, as a tooltip would
+      // The lit pairing's runs say whose they are: one label a run, at its first account's pin. The pin
+      // under the pointer is named by the map's tooltip instead (`hoverAt`), so its run has no label
       if (lit != null) {
-        ctx.font = `500 12px ${getComputedStyle(document.body).fontFamily}`;
+        const font = getComputedStyle(document.body).fontFamily;
         ctx.textBaseline = 'middle';
-        for (const { t, s } of order) {
-          if (t.curve.variant.key !== lit) continue;
-          const text = t.curve.variant.short;
+        const labelled = order.filter(
+          (o, i) =>
+            o.t.curve.variant.key === lit &&
+            pointed?.run !== o.t.curve.run.id &&
+            order.findIndex(p => p.t === o.t) === i
+        );
+        for (const { t, s } of labelled) {
+          const text = pinName(t);
+          ctx.font = `500 12px ${font}`;
           const w = ctx.measureText(text).width + 16;
           const h = 24;
           // To the pin's right, or its left near the map's right edge
           const right = s[0] + PIN + 4 + w <= ctx.canvas.width / dpr;
           const x = right ? s[0] + PIN + 4 : s[0] - PIN - 4 - w;
-          const y = s[1] - h / 2;
           ctx.beginPath();
-          ctx.roundRect(x, y, w, h, 6);
+          ctx.roundRect(x, s[1] - h / 2, w, h, 4);
           ctx.fillStyle = colors.surface;
           ctx.fill();
           ctx.lineWidth = 1;
@@ -324,11 +311,35 @@ export function RaceMap({
         }
       }
     },
-    [colors, images, lit, placed, tick, trail, tracks]
+    [colors, images, lit, placedRef, pointed, tick, trail, tracks]
+  );
+
+  /** The pin under the pointer, named as the site's tooltip: its pairing, and in a team's run its account. */
+  const hoverAt = useCallback(
+    (x: number, y: number): MapHover | undefined => {
+      const hit = placedRef.current.findLast(p => Math.hypot(p.x - x, p.y - y) <= PIN + 2);
+      const track = hit && tracks.find(t => t.curve.run.id === hit.run);
+      if (!hit || !track) return undefined;
+      return {
+        id: `${hit.run}|${hit.account ?? ''}`,
+        x: hit.x,
+        y: hit.y - PIN,
+        label: hit.account ? (
+          <span className="flex flex-col">
+            <span>{pinName(track)}</span>
+            <span className="text-muted">{hit.account}</span>
+          </span>
+        ) : (
+          pinName(track)
+        ),
+      };
+    },
+    [placedRef, tracks]
   );
 
   return (
     <WorldMap
+      hoverAt={hoverAt}
       paths={fitPaths}
       fitKey={bounds ? `${bounds.x0},${bounds.z0},${bounds.x1},${bounds.z1}` : ''}
       view={view}
@@ -341,19 +352,4 @@ export function RaceMap({
       label="Every run on the world map at the playhead, each a pin in its model's colour with its trail"
     />
   );
-}
-
-/** A run's quests as map marks, placed where it was at the time. */
-export function marksOf(
-  events: { kind: string; tick: number; quest?: string | null; source?: string }[] | undefined,
-  points: readonly PathPoint[],
-  step: number
-): Track['marks'] {
-  if (!events) return [];
-  return events.flatMap(e => {
-    if (e.kind !== 'quest') return [];
-    const p = positionAt(points, e.tick, step);
-    if (!p) return [];
-    return [{ tick: e.tick, x: p.x, z: p.z, src: e.quest ? questSrc(e.quest) : uiSrc('quests'), inferred: e.source === 'inferred' }];
-  });
 }

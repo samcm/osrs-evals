@@ -83,7 +83,12 @@ export function formatDay(iso: string | null | undefined): string {
   const [y, m, d] = iso.split('-').map(Number);
   if (!y || !m) return iso;
   const date = new Date(Date.UTC(y, m - 1, d || 1));
-  return date.toLocaleDateString('en-GB', { ...(d ? { day: 'numeric' } : {}), month: 'short', year: 'numeric', timeZone: 'UTC' });
+  return date.toLocaleDateString('en-GB', {
+    ...(d ? { day: 'numeric' } : {}),
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
 }
 
 export function capitalize(text: string | null | undefined): string {

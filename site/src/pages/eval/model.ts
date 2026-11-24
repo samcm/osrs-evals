@@ -5,6 +5,7 @@ import { median, stepAbove, stepBelow } from '@/lib/stats';
 import { variantOf, type Variant } from '@/lib/series';
 import { agentSeries, modelSeries, variantSeries, type SeriesSpec } from '@/lib/chartSeries';
 import { resultValue } from '@/lib/runResult';
+import { evalBase } from '@/lib/evals';
 
 export { resultValue };
 
@@ -42,7 +43,7 @@ const nonNull = <T>(v: T | null | undefined): v is T => v != null;
 /** Total ticks the eval allows: the budget of every attempt. */
 export const totalBudgetTicks = (e: Eval): number => e.budget_ticks * Math.max(1, e.attempts);
 /** The same budget in wall-clock seconds at the tick rate. */
-export const totalBudgetSeconds = (e: Eval): number => (totalBudgetTicks(e) * e.tick_ms) / 1000;
+const totalBudgetSeconds = (e: Eval): number => (totalBudgetTicks(e) * e.tick_ms) / 1000;
 
 /** A cumulative count of model calls by tick, from a run's detail. */
 export function callsByTick(detail: RunDetail): (tick: number) => number {
@@ -64,7 +65,12 @@ export function callsByTick(detail: RunDetail): (tick: number) => number {
  * value. Once a run reaches the target it holds it (the harness may reset the account after). A
  * single-attempt run's exact finish tick is added, since the grid is coarse.
  */
-export function buildCurves(e: Eval, grid: EvalRuns | undefined, runs: Run[], calls: Map<string, (tick: number) => number>): RunCurve[] {
+export function buildCurves(
+  e: Eval,
+  grid: EvalRuns | undefined,
+  runs: Run[],
+  calls: Map<string, (tick: number) => number>
+): RunCurve[] {
   const maxTick = totalBudgetTicks(e);
   return runs.map(run => {
     const g = grid?.runs[run.id];
@@ -125,16 +131,6 @@ export function xOf(p: CurvePoint, x: XMeasure): number | null {
   if (x === 'seconds') return p.seconds;
   if (x === 'cost') return p.cost;
   return p.calls;
-}
-
-/** A run's position on an x measure at a tick: the last point at or before it. */
-export function xAtTick(curve: RunCurve, tick: number, x: XMeasure): number | null {
-  let found = curve.points[0];
-  for (const p of curve.points) {
-    if (p.tick <= tick) found = p;
-    else break;
-  }
-  return found ? xOf(found, x) : null;
 }
 
 /** A run's value at a position on an x measure: held after its end. */
@@ -221,7 +217,7 @@ export interface RankedVariant {
 }
 
 /** Where a finished run finished on an x measure: ticks and seconds within its best attempt. */
-export function finishOn(run: Run, x: XMeasure): number | null {
+function finishOn(run: Run, x: XMeasure): number | null {
   if (!run.success) return null;
   if (x === 'ticks') return run.ticks;
   if (x === 'seconds') return run.seconds;
@@ -272,10 +268,43 @@ export interface Group {
 export function groupRuns(runs: Run[], by: GroupBy): Group[] {
   const groups = new Map<string, Group>();
   for (const run of runs) {
-    const spec = by === 'variant' ? variantSeries(run) : by === 'model' ? modelSeries(run.model) : agentSeries(run.agent, run.agent_name);
+    const spec =
+      by === 'variant'
+        ? variantSeries(run)
+        : by === 'model'
+          ? modelSeries(run.model)
+          : agentSeries(run.agent, run.agent_name);
     const group = groups.get(spec.id) ?? { spec, runs: [] };
     group.runs.push(run);
     groups.set(spec.id, group);
   }
   return [...groups.values()].sort((a, b) => a.spec.name.localeCompare(b.spec.name));
 }
+
+/** The tab's name on an eval that has one: what the eval is about. */
+export function heldTab(e: Eval): string | null {
+  const base = evalBase(e.id);
+  if (base === 'collection' || base === 'team_wealth') return 'Items';
+  if (base === 'total_level') return 'Skills';
+  if (base === 'quest_points' || base === 'dragon_slayer' || base === 'heros_quest') return 'Quests';
+  return null;
+}
+
+/** The Behaviour tab's effort measures (`?measure=`) and its groupings (`?by=`). */
+export const STRIP_MEASURES = [
+  'calls',
+  'waiting',
+  'actions',
+  'failed',
+  'helpers',
+  'deaths',
+  'first_score',
+  'source_reads',
+] as const;
+export type StripMeasure = (typeof STRIP_MEASURES)[number];
+
+export const GROUP_OPTIONS = [
+  { value: 'variant' as const, label: 'Pairing' },
+  { value: 'model' as const, label: 'Model' },
+  { value: 'agent' as const, label: 'Harness' },
+];

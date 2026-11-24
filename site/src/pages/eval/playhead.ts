@@ -8,13 +8,13 @@
  *   const head = useEvalPlayhead(committed, span, commit)   // once, in the component that plays
  *   seek(tick)   move without touching the URL (drag)
  *   play() / pause()
- *   useEvalTick(committed, span)                            // anywhere else: the tick to show
+ *   usePlayheadMark(committed)                              // anywhere else: the tick to mark
  */
 
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useEffectEvent, useSyncExternalStore } from 'react';
 
 /** Real seconds the whole race takes to play. */
-export const PLAY_SECONDS = 30;
+const PLAY_SECONDS = 30;
 
 interface State {
   scrub: number | null;
@@ -45,12 +45,6 @@ export const seek = (tick: number): void => set({ scrub: tick });
 export const play = (): void => set({ playing: true });
 export const pause = (): void => set({ playing: false });
 
-/** The tick to show: the moving playhead, else `?t=`, else the end. */
-export function useEvalTick(committed: number | undefined, span: number): number {
-  const { scrub } = useStore();
-  return Math.min(span, scrub ?? committed ?? span);
-}
-
 /** The tick to mark: the moving playhead, else `?t=`; null when neither is set (nothing to mark). */
 export function usePlayheadMark(committed: number | undefined): number | null {
   const { scrub } = useStore();
@@ -68,7 +62,11 @@ export interface EvalPlayhead {
  * Runs playback over 0…span in PLAY_SECONDS, starting from the tick shown (from 0 at the end).
  * `commit` writes `?t=`; undefined means the end.
  */
-export function useEvalPlayhead(committed: number | undefined, span: number, commit: (tick: number | undefined) => void): EvalPlayhead {
+export function useEvalPlayhead(
+  committed: number | undefined,
+  span: number,
+  commit: (tick: number | undefined) => void
+): EvalPlayhead {
   const { scrub, playing } = useStore();
   const tick = Math.min(span, scrub ?? committed ?? span);
 
@@ -78,11 +76,22 @@ export function useEvalPlayhead(committed: number | undefined, span: number, com
     set({ scrub: null });
   };
 
+  // Play starts from the moment shown when it was pressed (from 0 at the end)
+  const startAt = useEffectEvent((): number => {
+    const value = state.scrub ?? committed ?? span;
+    return value >= span ? 0 : value;
+  });
+  // Paused, or at the end, the playhead settles where it stopped. A drag that paused it settles it
+  // itself (the scrub has moved on), and leaving the page mid-play settles nothing: the page that
+  // follows has its own URL
+  const stopAt = useEffectEvent((value: number): void => {
+    if (!state.playing && state.scrub === value) settle(value);
+  });
+
   useEffect(() => {
     if (!playing) return;
     let previous = performance.now();
-    let value = state.scrub ?? committed ?? span;
-    if (value >= span) value = 0;
+    let value = startAt();
     set({ scrub: value });
     const speed = span / PLAY_SECONDS;
     let frame = requestAnimationFrame(function step(now) {
@@ -97,10 +106,8 @@ export function useEvalPlayhead(committed: number | undefined, span: number, com
     });
     return () => {
       cancelAnimationFrame(frame);
-      // A drag that paused playback settles the playhead itself
-      if (state.scrub === value) settle(value);
+      stopAt(value);
     };
-    // Starts from the moment shown when play was pressed
   }, [playing, span]);
 
   // Leaving the page stops playback and forgets the moving playhead

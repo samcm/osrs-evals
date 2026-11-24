@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { EvalPage } from '@/pages/eval/EvalPage';
-import { STRIP_MEASURES } from '@/pages/eval/Effort';
+import { STRIP_MEASURES } from '@/pages/eval/model';
 import { evalRunsQuery } from '@/data/queries';
 import { evalIdOf, evalSlug } from '@/lib/evals';
 import { mapViewParam } from '@/lib/map';
@@ -36,7 +36,13 @@ export const Route = createFileRoute('/evals/$evalId')({
   search: { middlewares: evalSearch.middlewares },
   // The eval's URL is its kebab-case slug: an old snake-case link moves there
   beforeLoad: ({ params, search }) => {
-    if (params.evalId !== evalSlug(params.evalId)) throw redirect({ to: '/evals/$evalId', params: { evalId: evalSlug(params.evalId) }, search: search as never, replace: true });
+    if (params.evalId !== evalSlug(params.evalId))
+      throw redirect({
+        to: '/evals/$evalId',
+        params: { evalId: evalSlug(params.evalId) },
+        search: search as never,
+        replace: true,
+      });
   },
   // Start loading the overlays early; the page shows its header while they arrive
   loader: ({ context, params }) => void context.queryClient.prefetchQuery(evalRunsQuery(evalIdOf(params.evalId))),

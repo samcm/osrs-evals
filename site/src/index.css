@@ -1,6 +1,12 @@
-/* The app's stylesheet: the theme (shadcn's variables and the data colours), deprecated aliases
- * for unmigrated pages, base styles, and the files Tailwind scans for classes. */
-@import './styles/theme.css';
+/* The app's stylesheet: fonts, the tokens, the utilities and base styles, and the files
+ * Tailwind scans for classes (src only, so no class named in docs or config ships). Tokens
+ * and colour literals live only in styles/tokens.css. */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
+@import './styles/tokens.css';
+@plugin '@tailwindcss/forms';
+@import './styles/utilities.css';
 @import './styles/base.css';
 
 @source './';

@@ -13,29 +13,29 @@ RuneScape: the game is the hero, the data is honest, the design is quiet.
 Each page answers one question, first, with a chart or a table. Everything else on the page is a
 way to dig into that answer.
 
-| Page | Question it answers first |
-| --- | --- |
-| `/` (Home) | Which model at which thinking level in which harness is best, across every eval and at each? (one blended leaderboard that scales to many evals, then a featured eval) |
-| `/evals/$evalId` | Who won, did anyone finish, and how did each run progress through the game, and what did it cost? |
-| `/evals/$evalId/$model` | How did one model do on one eval, across thinking levels and harnesses? |
-| `/models/$model` | How does one model do across every eval, at each thinking level and in each harness? |
-| `/runs/$runId` | What did this agent do, minute by minute, in the game and in its head? |
-| `/compare` | How do models and agents differ on any one measure, cut any way? |
-| `/runs` | Every run, filterable and sortable. |
+| Page                    | Question it answers first                                                                                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/` (Home)              | Which model at which thinking level in which harness is best, across every eval and at each? (one blended leaderboard that scales to many evals, then a featured eval) |
+| `/evals/$evalId`        | Who won, did anyone finish, and how did each run progress through the game, and what did it cost?                                                                      |
+| `/evals/$evalId/$model` | How did one model do on one eval, across thinking levels and harnesses?                                                                                                |
+| `/models/$model`        | How does one model do across every eval, at each thinking level and in each harness?                                                                                   |
+| `/runs/$runId`          | What did this agent do, minute by minute, in the game and in its head?                                                                                                 |
+| `/compare`              | How do models and agents differ on any one measure, cut any way?                                                                                                       |
+| `/runs`                 | Every run, filterable and sortable.                                                                                                                                    |
 
 ## Structure and hierarchy
 
 Sam's words: "why are we reinventing structure and hierarchy in all these weird different angles?"
 Every page has the same skeleton, and nothing on a page invents its own.
 
-- **shadcn's dashboard, nothing bespoke.** The inset `Sidebar`; the header bar names the page with
-  the `Breadcrumb` (the landing page is "Home"); the content never repeats the page's name and has no
-  H1. Content is a column of shadcn `Card`s.
+- **One shell, nothing bespoke.** The fixed `Sidebar`; the sticky breadcrumb bar names the page
+  with the `Breadcrumb` (the landing page is "Home"); the content never repeats the page's name and
+  has no H1. Content is a column of lab `Card`s.
 - **Skeleton:** `PageHeader` (a one-line description and facts, optional; the eval and run pages
   open on a `PageHero` card instead: a full-strength lead, then the facts), `PageTabs` when the page
   has more than one view (`?tab=`), `PageToolbar` (a plain row of controls), then `PageSection`s,
-  each a `Card` with `CardHeader` (`CardTitle`, controls in `CardAction`) and `CardContent`.
-- **Type comes from the library:** card titles, descriptions and table text at their shadcn sizes;
+  each a lab `Card` with its `title`, `subtitle` and controls in `actions`.
+- **Type comes from the library:** card titles, descriptions and table text at lab's sizes;
   meta is small, term and value. No `text-lg`/`text-xl` in pages.
 - **One centrepiece.** Each detail page opens with one thing that grabs you and shows the game: the
   eval page shows every run together in the game; the run page is a game player. Everything else
@@ -47,7 +47,7 @@ Every page has the same skeleton, and nothing on a page invents its own.
   size and spacing, never scattered.
 - **Never a card inside a card.** Controls that drive several cards live in the toolbar, not
   repeated on each card.
-- **Every chart is a `ChartFrame`** (`@/components/charts`) at `lead` or `compact` height, or
+- **Every chart is a `ChartFrame`** (`@/components/Charts`) at `lead` or `compact` height, or
   `rows` for one row per group. Never size a chart by hand; y axes keep the fixed default width so
   stacked charts line up.
 - **Space comes from the library and the theme:** the layout's gap between cards, the card's own
@@ -77,8 +77,8 @@ on hover (finished how many and how fast, or its median amount), each opening th
 that eval; then **Spent**, all its runs' cost together, where the table is wide enough. Fifty rows a
 page, so every pairing shows at once, `?page=`; on a phone the eval numbers sit under the pairing's
 name. The leaderboard is the page's full width: no featured eval beside it (Sam: one eval on the
-side is wasted space). Sortable headers are shadcn's data-table ghost `Button`, pulled out by their
-padding so each label lines up with its column.
+side is wasted space). Sortable headers are lab's `DataTable` headers, each label lined up with its
+column.
 
 ### Eval page
 
@@ -206,35 +206,48 @@ Files: `src/pages/run/`.
 
 ## Stack
 
-React 19, Vite, TypeScript, `@tanstack/react-router` (file routes in `src/routes/`, kept thin; page
-UI in `src/pages/`), `@tanstack/react-query` for loading the JSON (components never call `fetch`
-directly; use the query options in `src/data/`), `@tanstack/react-table` for tables, Tailwind 4,
-Geist and Geist Mono via `@fontsource-variable`.
+React 19, Vite 7, TypeScript, pnpm, `@tanstack/react-router` (file routes in `src/routes/`, kept
+thin; page UI in `src/pages/`), `@tanstack/react-query` for loading the JSON (components never call
+`fetch` directly; use the query options in `src/data/`), `@tanstack/react-table` for tables,
+Tailwind 4 with the site's own tokens, Headless UI 2, Heroicons 2, ECharts 6 through
+`echarts-for-react`, Inter (`@fontsource-variable/inter`) and JetBrains Mono
+(`@fontsource-variable/jetbrains-mono`).
 
-**shadcn first, by default.** Before building any piece of UI, name the shadcn component or block it
-is, and use that: a list with columns is a `Table` (through `DataTable`), never labels laid out by
-hand beside or inside a chart; a note under a chart is a `CardDescription` or a table row, never a
-one-off tooltip trigger. Draw something yourself only when no shadcn component fits, and say why in
-the file.
-The same goes for the small things (Sam: "make sure we are using shadcn everywhere"): anything said
-on hover is a shadcn `Tooltip` (`Tip` in `components/bits.tsx`), never the browser's `title`; anything
-clickable is a `Button` (ghost, with overrides for a list row or a track mark) or a `Toggle`, never a
-bare `<button>`; a sortable header is the data-table ghost `Button`; a box that scrolls inside a card is
-a `ScrollArea` (its `viewportRef` for code that keeps a row in view); an empty state is `Empty`;
-loading is `Spinner` or `Skeleton`; a key on a tooltip is `Kbd`; a table the agent wrote in Markdown
-is a `Table`. Icons are lucide's, not hand-drawn SVG. Charts draw their own marks in SVG; nothing else
+The UI stack is ethpandaops/lab's (GPL-3.0; `NOTICE` lists what came from it): its core components
+in `src/components/<Category>/<Name>/`, its chart chrome, its lint and its build. The theme (tokens,
+fonts, radii) and the shell's chrome (sidebar, header bar, mobile header, theme toggle) are the
+site's own; don't bring lab's look back. Read
+lab's own rules where this file is silent: <https://github.com/ethpandaops/lab/tree/main/.claude/rules>
+(styling, react, charts, loading states).
+
+**lab first, by default.** Before building any piece of UI, name the lab component it is, and use
+that: a list with columns is a `DataTable` (through `components/DataTable.tsx`), never labels laid
+out by hand beside or inside a chart; a note under a chart is the `Card`'s `subtitle` or a table
+row, never a one-off tooltip trigger. Draw something yourself only when no lab component fits, and
+say why in the file. The same goes for the small things: anything said on hover is the
+`Overlays/Tooltip` (`Tip` in `components/bits.tsx`), never the browser's `title`; anything clickable
+is a lab `Button` (or `buttonClassName` on a router `Link`), a `SegmentedControl` or a `Toggle`; a
+choice from a list is a `SelectMenu` (`SelectField`); a menu of actions is lab's `Dropdown`; a panel
+that opens from a button is a `Popover`, a modal lab's `Dialog`; a checklist is a `CheckboxGroup`; a
+box that scrolls inside a card is lab's `ScrollArea`; an empty state is `Empty` (a muted line, as
+lab's tables say it) or lab's `InfoBox`; loading is `LoadingContainer` in the shape of what it stands
+for; a scrubber is a `RangeInput`; a table the agent wrote in Markdown is a lab `Table`
+(`Lists/Table`). Icons are Heroicons, not hand-drawn SVG. Charts draw their own marks; nothing else
 does.
 
-**Use the libraries; don't hand-roll UI.** Every component comes from **shadcn/ui** (Radix
-primitives, in `src/components/ui/`, added with `npx shadcn@latest add <name>`): Card, Button,
-Badge, Table, Tabs, ToggleGroup, Select, Tooltip, Popover, Command, Slider, Sidebar, Breadcrumb,
-Collapsible, Skeleton and so on. Every chart is a **shadcn chart** (`ChartContainer`,
-`ChartTooltip`, `ChartLegend` over Recharts). Use their default spacing, sizes and structure; a
-page composes them and never re-styles their padding, radius or type. When a library component
-almost fits, use it as is; edit the generated file in `components/ui/` only to change the whole
-site's look, never for one page. The only custom-drawn component is the world map.
-
-lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never their code.
+**Use the libraries; don't hand-roll UI.** Every component comes from lab: Elements (`Button`,
+`Badge`), Forms (`SelectMenu`, `Checkbox`, `CheckboxGroup`, `SegmentedControl`, `Toggle`, `Input`,
+`RangeInput`), Layout (`Card`, `Container`, `LoadingContainer`, `ScrollArea`,
+`Sidebar`, `ThemeToggle`), Navigation (`Breadcrumb`, `Tab`, `ScrollableTabs`), Overlays (`Popover`,
+`Tooltip`), Feedback (`Alert`), `DataTable` and `Lists/Table`. Only the components a page uses are
+here (knip fails on the rest): when a page first needs another of lab's (`Dropdown`, `Dialog`,
+`InfoBox`, `ButtonGroup`, `Divider`, `Disclosure`, `ProgressBar`, a core chart), copy it from lab then. Every chart
+is ECharts with lab's chrome (`Charts/chartChrome.ts`, `useThemeColors` and the ECharts
+theme), through `XYChart` (lines, bands, areas, points, bars, a synced crosshair;
+`src/components/Charts/`) in a `ChartFrame`, or lab's `Sparkline` in a table cell. Use their default spacing, sizes and structure; a page
+composes them and never re-styles their padding, radius or type. When a lab component almost fits,
+use it as is; change the file in `src/components/<Category>/` only to change the whole site's look,
+never for one page. The only custom-drawn component is the world map.
 
 ## URL state
 
@@ -258,8 +271,8 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
 - A run's `t` absent is its first tick: a click into a run opens it at the start and plays (at the
   default speed, once the game has drawn the world); a link with `t` is a shared moment and opens
   paused there. `acct` is the account a team's run follows.
-- Theme is a preference kept in local storage; `?theme=dark` or `?theme=light` overrides it for a
-  shared link.
+- Theme (light or dark) is a preference kept in local storage; `?theme=light|dark`
+  overrides it for a shared link, and the theme toggle drops it.
 
 ## Identity: logos, colours, sprites
 
@@ -291,7 +304,7 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   licences are listed in `public/assets/brands/SOURCES.md`.
 - **Every model has one fixed colour and every agent one fixed line style and point shape**, from
   `src/lib/series.ts`, everywhere. Never colour by index. `MODEL_COLORS` (by the model's name
-  without its route) holds a `--color-model-*` token from `theme.css` for every model the big run
+  without its route) holds a `--color-model-*` token from `tokens.css` for every model the big run
   plays: a hue arc per model line (Opus reds, Haiku ambers, Terra limes, Luna teals, Sol blues,
   Sonnet purples), lightness and chroma chosen so every pair stays apart. Add a new model there,
   checking it against the others; one not listed gets a colour from a hash of its id. A thinking level is a lightness step of its model's colour (`levelColor`): light
@@ -302,29 +315,48 @@ lab (ethPandaOps) is GPL-3.0 and EthIQ has no licence: copy their ideas, never t
   sprites, skill icons, quest reward items as quest icons, interface side icons, the world map, and
   a render of each run's character. Sprites are drawn with `Sprite` (pixelated, integer scaling
   only). Every eval has a sprite; every quest has its icon; every skill has its icon.
-- Game art and the game's font stay out of the shell (sidebar, header, nav): those use lucide icons
-  and the stock type. Sprites appear only in page content, where they mark something in the game.
+- Game art and the game's font stay out of the shell (sidebar, header, nav): those use Heroicons
+  and the site's type. Sprites appear only in page content, where
+  they mark something in the game.
 - Tool-call categories (write and run, read, wait, …) have one name and colour each, from
   `src/lib/tools.ts`. Token kinds and SDK outcomes keep theirs everywhere too.
-- Interface icons are lucide (shadcn's set), as the stock blocks use them. No other icon sets, no
-  emoji.
+- Interface icons are Heroicons (lab's set): 24/outline in the nav, 20/solid in controls, 16/solid
+  inline. No other icon sets, no emoji.
 
 ## Visual rules
 
-Stock shadcn/ui: the dashboard-01 block's shell and the default neutral theme, unmodified. Charts
-are artifacts, not decoration. If something looks off, use the library's own pattern for it; do not
-restyle library components or add a look of our own.
+The site's own theme, "ink", on lab's components. Charts are artifacts, not decoration.
+If something looks off, fix it in the tokens or the shared component, never with a one-off style.
 
-- **The theme is shadcn's CSS variables** (`--background`, `--card`, `--border`, `--primary`,
-  `--muted-foreground`, `--chart-1…`), at shadcn's default neutral values for light and dark in
-  `src/styles/theme.css`; only the data colours and `--success`/`--warning` are ours.
-  Components in `src/components/ui/` stay as `shadcn add` writes them. Use the semantic classes (`bg-card`,
-  `text-muted-foreground`, `border`); no hex, no raw Tailwind palette, no arbitrary values, no
-  `dark:` variants in pages. Data colours (models, tool categories) are CSS variables too.
-- **Depth:** page, card, border. No shadows beyond the library's defaults, no glows, gradients, blur
-  or lift on hover.
-- **Type:** Geist for text and numbers, Geist Mono only for identifiers (run ids, model ids, code).
-  Numbers use `tabular-nums`. No uppercase-tracked headings. Use the library's sizes.
+- **Every value is a token in `src/styles/tokens.css`**, used as a Tailwind class. Tailwind's
+  defaults are removed, so `bg-red-500`, `text-white` and `shadow-2xl` don't exist: use the
+  semantic classes (`bg-surface`, `bg-background`, `text-foreground`, `text-muted`,
+  `border-border`, `bg-primary-10`, `text-danger`). Two themes, light and dark: every base colour
+  and every `data-*` hue is a `light-dark()` pair, so `html.dark` switches them all; the model
+  colours (`--color-model-*`) read the same in both. Lint rejects arbitrary values (`h-[300px]`),
+  `dark:` variants, `leading-*`, opacity modifiers (`bg-primary/10`: use a tint token such as
+  `bg-primary-10`), colour literals and fixed inline styles; `style` carries only values computed
+  at runtime. Layouts Tailwind has no class for are named utilities in `src/styles/utilities.css`.
+  A token nothing reads is deleted.
+- **Palette roles.** The chrome has no hue. Neutrals are pure greys: a white page (near-black on
+  dark), cards on the page colour drawn by their hairline, and the sidebar a shade off the page.
+  `primary` (and `accent`, the same) is ink, the text colour itself, and marks only what is
+  interactive (links, focus, the selected segment, checked controls, primary buttons, the active
+  nav item's rule). Never add a brand hue: colour on the page is data or status. Status (`success`
+  green, `warning` ochre, `danger` brick) is readable as
+  text on every surface of its theme. The data hues (`data-*`) are the site's own: deeper on light,
+  lighter on dark, lightness varied with hue so tool categories and token kinds stay apart in a
+  stack.
+- **Depth:** page, card, border. Only floating panels (popovers, menus, tooltips) have a shadow,
+  the theme's one soft `shadow-lg`; no glows, gradients, blur or lift on hover.
+- **Radii:** `rounded-xs` (3px) for marks (badges, swatches, skeleton bars), `rounded-sm` (6px)
+  for controls (buttons, inputs, segmented controls, nav items, tooltips), `rounded-md` (10px) for
+  containers (cards, tables, popovers and menus, the map, code blocks), `rounded-2xs` (2px) for
+  hairline marks, `rounded-full` for dots and tracks.
+- **Type:** Inter for text and numbers, JetBrains Mono only for identifiers (run ids, model ids,
+  code). Numbers use `tabular-nums`. The product's name is Inter, semibold and tight; no display
+  face, no logo mark. No uppercase-tracked headings: group labels and
+  headings are sentence case. Use the library's sizes.
 - **Colour is data.** The chrome is neutral; colour appears only for series, categories and status.
 - **Status colour carries judgement only** and always comes with a word or a mark. A plain number
   stays in the text colour. Heat scales use one hue in tint steps.
@@ -347,16 +379,17 @@ restyle library components or add a look of our own.
 
 ## Charts
 
-- shadcn charts: one `ChartContainer` per chart with a `ChartConfig` built from `src/lib/series.ts`
-  (labels, marks and colours), `ChartTooltip` with `ChartTooltipContent` (or a content component
-  built from it), the library's axis and grid look. No hand-made chart chrome.
-- Lines 1.5–2px, not smoothed. Counts, scores and CDFs are step lines (`type="stepAfter"`).
+- ECharts with lab's chrome: `XYChart` (typed props: series specs from `src/lib/chartSeries.ts`,
+  colours resolved per theme by `useChartColors`, lab's axes, split lines and tooltip from
+  `chartChrome.ts`) or a lab core chart, inside a `ChartFrame`. What canvas draws badly (end labels
+  and row labels with marks, sprites, rules, point labels) is HTML over the plot, placed with the
+  chart's `Plot`. No hand-made chart chrome.
+- Lines 1.5–2px, not smoothed. Counts, scores and CDFs are step lines (XYChart's default `step`).
 - Series are named and labelled with their marks: legends and line-end labels carry the logo.
   Legends toggle series (`hide=`) and isolate one on a second click (`focus=`).
 - Charts on one page that share an x axis share the x measure control and a synced crosshair
-  (Recharts `syncId`). Recharts syncs only at identical x values, so sample every synced chart on
-  the same x grid; a chart with no lines draws no synced cursor, so pass the hovered x down as
-  state instead.
+  (XYChart's `sync`, matched by x value, so the charts' x values need not coincide; give them the
+  same x domain, and `endLabels={[]}` on one without labels under one with them so their plots line up).
 - Ticks are round (0, 10K, 20K; whole minutes; 1-2-5 dollars), from `src/lib/ticks.ts` and
   `src/lib/logAxis.ts`, and one axis never mixes "5,000" with "10K".
 - End labels are the vendor mark, the short model name and the thinking level; the harness is
@@ -387,14 +420,19 @@ named on hover; the game and the map follow one account at a time (`acct`).
 
 ## Layout
 
-- dashboard-01's inset `Sidebar` (a sheet on small screens, icons only when collapsed, its state
-  kept in the `sidebar_state` cookie across reloads), in shadcn's labelled groups: Home, Runs and
+- The `Sidebar` (fixed from lg on a panel a shade off the page, collapsible to an icon rail
+  with its state in local storage, a drawer under the fixed mobile header below lg): Home, Runs and
   Compare; then **Evals** (every eval the project runs, the most runs first, each with its own
-  lucide icon; one without runs yet too: its page says so in one sentence); then **Models**, a
-  collapsible item per maker with its mark, opening to its models (open when one is the page). The header has `SidebarTrigger`, a separator and the `Breadcrumb`, which
-  never loses its last crumb, and the theme toggle.
-- One page container with the library's spacing; sections are `Card`s in grids with one gap size.
-- Tables are shadcn `Table` driven by TanStack Table: numbers right-aligned, headers on one line,
+  Heroicon; one without runs yet too: its page says so in one sentence); then **Models**, a
+  collapsible item per maker with its mark, opening to its models (open when one is the page).
+  Group labels are muted sentence case. Items are muted text; the page shown is full-strength with
+  a 2px ink rule at its left edge, no fill. The product's name (`Wordmark`: "2004scape evals" in
+  the text face; nothing on the rail) heads the sidebar and the mobile header. Over the content, the sticky header bar holds the `Breadcrumb` (chevron separators),
+  which never loses its last crumb, and from lg the `ThemeToggle` at its right; on a phone the
+  mobile header has the menu button, the wordmark and the toggle, and the run and eval-model pages
+  keep the eval's crumb. The shell is `src/routes/__root.tsx`.
+- One page container (lab's `Container`); sections are `Card`s in grids with one gap size.
+- Tables are lab's `DataTable` driven by TanStack Table: numbers right-aligned, headers on one line,
   most important columns first (the pairing, then its result, then cost, so a phone shows the
   result beside the name), ids, epochs and tick counts last. A result on an eval with a target is
   its time to finish in game time, or how far it got ("6 of 10"), never the bare stage. Wide tables scroll inside their card; the page never
@@ -440,12 +478,15 @@ everywhere: a faint dashed ring or underline on its icon, "≈" and one line of 
 
 ## Checking your work
 
-- Run the Vite dev server (`cd site && npx vite`), which serves `public/data`, and look at every
-  page you touched at 1440 and 390 wide, light and dark (`?theme=dark`), with agent-browser at
-  device scale 2. `document.documentElement.scrollWidth` must equal the viewport width at 390.
+- `pnpm typecheck` (`tsc -b`: plain `tsc --noEmit -p .` checks nothing here), `pnpm lint` (warnings
+  fail too) and `pnpm build` pass; `pnpm format` before committing; `pnpm knip` for unused files,
+  exports and dependencies.
+- Run the Vite dev server (`cd site && pnpm dev`), which serves `public/data` (the `site-data`
+  release, untarred into `public`), and look at every page you touched at 1440 and 390 wide, light
+  and dark (`?theme=dark`), with agent-browser at device scale 2. `document.documentElement.scrollWidth` must equal the viewport width at 390.
 - Full-page captures show charts below the fold blank (they draw once scrolled into view), so
   scroll to each chart and capture the viewport to judge it.
 - Change every control, reload, and check the same view comes back from the URL.
 - Read every string on the page once more and delete the ones that restate something.
-- Grep your files for hand-tuned spacing on library components (`p-*`, `px-*`, `mt-*` on a Card,
-  CardHeader, Table or Button) and remove it: the library's spacing is the site's spacing.
+- Grep your files for hand-tuned spacing on lab components (`p-*`, `px-*`, `mt-*` on a Card, Table
+  or Button) and remove it: lab's spacing is the site's spacing.

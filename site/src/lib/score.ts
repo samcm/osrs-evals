@@ -40,7 +40,7 @@ export function runScore(e: Eval, run: Run, best: number): number | null {
   return best > 0 ? clamp01(value / best) : 0;
 }
 
-export interface EvalScore {
+interface EvalScore {
   /** The pairing's mean run score on the eval, 0 to 1 */
   score: number;
   runs: number;
@@ -72,7 +72,9 @@ export function blendedScores(evals: Eval[], runs: Run[]): Pairing[] {
   }
 
   // Each eval's best value, for evals scored by how much
-  const best = new Map(evals.map(e => [e.id, Math.max(0, ...runs.filter(r => r.eval === e.id).map(r => resultValue(r) ?? 0))]));
+  const best = new Map(
+    evals.map(e => [e.id, Math.max(0, ...runs.filter(r => r.eval === e.id).map(r => resultValue(r) ?? 0))])
+  );
 
   const pairings = [...byPairing.values()].map(list => {
     const scores = new Map<string, EvalScore>();
@@ -98,11 +100,15 @@ export function blendedScores(evals: Eval[], runs: Run[]): Pairing[] {
     // One more eval at the mean pulls a pairing with few evals toward the middle
     p.score = clamp01(overall + leads.reduce((a, b) => a + b, 0) / (leads.length + 1));
   }
-  return pairings.sort((a, b) => Number(b.complete) - Number(a.complete) || b.score - a.score || a.variant.name.localeCompare(b.variant.name));
+  return pairings.sort(
+    (a, b) =>
+      Number(b.complete) - Number(a.complete) || b.score - a.score || a.variant.name.localeCompare(b.variant.name)
+  );
 }
 
 /** A 0–1 score as the 0–100 the site shows. */
-export const formatScore = (score: number | null | undefined): string => (score == null ? '–' : String(Math.round(score * 100)));
+export const formatScore = (score: number | null | undefined): string =>
+  score == null ? '–' : String(Math.round(score * 100));
 
 /**
  * EthIQ's "best level" cut: of each model in each harness, only the thinking level that did best.
@@ -124,7 +130,12 @@ export function bestLevelKeys(ranked: Pick<Variant, 'key' | 'model' | 'agent'>[]
  * Where a model places among the models on an eval: its best shown pairing's score there against
  * each other model's best pairing.
  */
-export function modelRank(all: Pairing[], shown: Pairing[], e: Pick<Eval, 'id'>, model: string): { rank: number; of: number } | null {
+export function modelRank(
+  all: Pairing[],
+  shown: Pairing[],
+  e: Pick<Eval, 'id'>,
+  model: string
+): { rank: number; of: number } | null {
   const best = new Map<string, number>();
   for (const p of [...all.filter(q => q.variant.model !== model), ...shown]) {
     const s = p.evals.get(e.id)?.score;

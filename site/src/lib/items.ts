@@ -39,7 +39,12 @@ export type HeldTable = 'inv' | 'bank' | 'worn' | 'levels';
  * them (the save keeps counts, not slots).
  */
 export function heldAt(changes: HeldChange[] | undefined, tick: number): Record<HeldTable, [string, number][]> {
-  const tables: Record<HeldTable, Map<string, number>> = { inv: new Map(), bank: new Map(), worn: new Map(), levels: new Map() };
+  const tables: Record<HeldTable, Map<string, number>> = {
+    inv: new Map(),
+    bank: new Map(),
+    worn: new Map(),
+    levels: new Map(),
+  };
   for (const c of changes ?? []) {
     if (c.tick > tick) break;
     for (const k of ['inv', 'bank', 'worn', 'levels'] as const)
