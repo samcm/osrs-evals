@@ -19,7 +19,7 @@ from quest_points import quest_points
 from team_wealth import team_wealth
 from total_level import total_level
 
-EPOCHS = 2
+EPOCHS = 1  # one game per model and level by default (Sam); --epochs N for more
 
 
 @task
