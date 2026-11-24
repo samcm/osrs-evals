@@ -222,9 +222,11 @@ function placeAmong(run: Run, runs: Run[]): { place: number; of: number } {
 
 /** Model calls that failed in the run, said once in its header; nothing when every call answered. */
 function callTrouble(run: RunDetail): string | undefined {
-  const calls = (n: number) => (n === 1 ? 'One model call' : `${formatInt(n)} model calls`);
+  const calls = (n: number): string => (n === 1 ? 'One model call' : `${formatInt(n)} model calls`);
   const parts = [
-    run.model_timeouts ? `${calls(run.model_timeouts)} got no reply within 10 minutes and timed out${run.ended_by === 'model timed out' ? '; the game ended on the last one' : ''}.` : null,
+    run.model_timeouts
+      ? `${calls(run.model_timeouts)} got no reply within 10 minutes and timed out${run.ended_by === 'model timed out' ? '; the game ended on the last one' : ''}.`
+      : null,
     run.model_errors ? `${calls(run.model_errors)} failed with a provider error, and the agent carried on.` : null,
   ].filter(Boolean);
   return parts.length ? parts.join(' ') : undefined;

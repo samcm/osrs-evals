@@ -2,9 +2,6 @@ saveExact: true
 
 # Refuse a version published with weaker provenance than an earlier one.
 trustPolicy: no-downgrade
-trustPolicyExclude:
-  # Recharts' selector library; goes with Recharts once the charts are on ECharts.
-  - reselect@5.1.1
 
 # The only install script that runs: esbuild fetches its binary.
 allowBuilds:
