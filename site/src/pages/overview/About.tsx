@@ -1,5 +1,5 @@
 /**
- * The home page's intro: what the project does and how, in a few plain sentences beside the world
+ * The top of the home page, always: what the project does and how, in a few plain sentences beside the world
  * map, where every run starts and Dragon Slayer ends marked on it, then the counts (from the data;
  * nothing here is a number typed in) and the evals' sprites, each opening its eval.
  */
@@ -228,7 +228,7 @@ function MapBanner({ facts, meta }: { facts: Facts; meta: MapMeta }): JSX.Elemen
 }
 
 /** The copy beside the world map, where every run starts and the quests end marked on it. */
-export function Intro(): JSX.Element {
+export function About(): JSX.Element {
   const facts = useFacts();
   const { data: meta } = useSuspenseQuery(mapMetaQuery);
   return (

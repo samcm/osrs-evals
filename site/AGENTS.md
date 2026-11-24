@@ -65,7 +65,7 @@ Every page has the same skeleton, and nothing on a page invents its own.
 
 ### Home
 
-An intro card first (`overview/Intro.tsx`, Sam's pick of five drafts): a few plain sentences on
+An about card first, always (`overview/About.tsx`): a few plain sentences on
 what the project does and how (models play 2004 RuneScape through omp, write their own scripts,
 the server's saves score them, every run replays), the counts from the data and each eval's sprite
 (opening it, its goal on hover), a credit line and the README, beside the real world map at its own
