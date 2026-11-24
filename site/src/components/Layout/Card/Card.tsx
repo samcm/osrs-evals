@@ -81,8 +81,9 @@ export function Card({
     <div
       className={clsx(
         // The frame is drawn over the card's parts, so a part with its own background (a table that
-        // bleeds to the edges) can't paint over it: the card has one border all the way round
-        'relative divide-y divide-border after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-inherit after:border after:border-border',
+        // bleeds to the edges) can't paint over it: the card has one border all the way round. `isolate`
+        // keeps that layering inside the card, so the frame never covers the sticky header bar
+        'relative isolate divide-y divide-border after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-inherit after:border after:border-border',
         !allowContentOverflow && 'overflow-hidden',
         rounded && 'rounded-md',
         styles.container,
