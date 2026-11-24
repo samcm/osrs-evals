@@ -59,6 +59,8 @@ export interface DataTableProps<T> {
   renderExpanded?: (row: T) => ReactNode;
   /** Row click, when rows don't expand */
   onRowClick?: (row: T) => void;
+  /** Which rows onRowClick applies to; without it, every row */
+  rowClickable?: (row: T) => boolean;
   /** The series id a row stands for: hovering the row hovers it across the page (lib/hover), and rows fade while another is hovered; undefined for a row that stands for none */
   hoverId?: (row: T) => string | undefined;
   /** Shown in one full-width row when there are no rows */
@@ -86,6 +88,7 @@ export function DataTable<T>({
   onExpandedChange,
   renderExpanded,
   onRowClick,
+  rowClickable,
   hoverId,
   empty,
   footer,
@@ -128,7 +131,11 @@ export function DataTable<T>({
   );
 
   const click = (row: T, id: string): (() => void) | undefined =>
-    expands ? () => onExpandedChange(expanded === id ? undefined : id) : onRowClick ? () => onRowClick(row) : undefined;
+    expands
+      ? () => onExpandedChange(expanded === id ? undefined : id)
+      : onRowClick && (rowClickable?.(row) ?? true)
+        ? () => onRowClick(row)
+        : undefined;
 
   return (
     <div ref={measure} className="min-w-0">

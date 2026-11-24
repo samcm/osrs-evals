@@ -33,6 +33,7 @@ import { FinishChart } from '@/pages/eval/Finish';
 import { RunsTable } from '@/pages/eval/RunsTable';
 import { WhereMap } from '@/pages/eval/Where';
 import { HeldView } from '@/pages/eval/Held';
+import { MilestonesView } from '@/pages/eval/Milestones';
 import { EvalHero } from '@/pages/eval/EvalHero';
 
 const route = getRouteApi('/evals/$evalId');
@@ -103,6 +104,7 @@ function facts(e: Eval, runs: Run[]): MetaItem[] {
 // The first view is where every pairing finished; the race, played back, is a tab of its own
 const TABS = [
   { value: 'overview', label: 'Results' },
+  { value: 'milestones', label: 'Milestones' },
   { value: 'race', label: 'Race' },
   { value: 'cost', label: 'Cost' },
   { value: 'behaviour', label: 'Behaviour' },
@@ -215,11 +217,10 @@ export function EvalPage(): JSX.Element {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PageTabs
           value={search.tab}
-          tabs={
-            heldTab(e)
-              ? [...TABS.slice(0, 2), { value: 'held' as const, label: heldTab(e)! }, ...TABS.slice(2)]
-              : [...TABS]
-          }
+          tabs={(heldTab(e)
+            ? [...TABS.slice(0, 3), { value: 'held' as const, label: heldTab(e)! }, ...TABS.slice(3)]
+            : [...TABS]
+          ).filter(t => t.value !== 'milestones' || (e.milestones?.length ?? 0) > 0)}
         />
         <PageToolbar label="View controls">
           {runs.length > 0 && controls}
@@ -231,6 +232,8 @@ export function EvalPage(): JSX.Element {
         <Empty>No runs in this scope.</Empty>
       ) : search.tab === 'overview' ? (
         <FinishChart e={e} curves={curves} ranked={ranked} agg={search.agg} legend={legend} />
+      ) : search.tab === 'milestones' ? (
+        <MilestonesView e={e} runs={runs} />
       ) : search.tab === 'race' ? (
         <>
           <Centerpiece

@@ -101,7 +101,13 @@ that reached the target checked where it did; beside it in five of twelve column
 narrower) the eval's ranked table, as tall as the chart and scrolling inside: place (a trophy for
 the winner), the pairing with its swatch, how many finished, its result (its time to finish, else the stage it reached as "Stage 6", since
 "6 of 10" beside "0 of 2" finished reads as ten runs); a row lights its line, a
-click isolates it), **Race**
+click isolates it), **Milestones** (`eval/Milestones.tsx`, on an eval with milestones: the fixed
+steps every run passes on its way to the score, defined ahead of time in `export.py`'s
+`MILESTONES` (on Hero's Quest each prerequisite quest, skill and item too), one table row each in
+their order: its sprite or quest icon and label, how many of the runs in scope reached it ("13 of
+72" over a thin neutral bar; runs exported without the accounts' states have none and are left
+out, said once in the card's subtitle), the median game time they reached it, and the first run to reach
+it (its pairing and time, opening the run); rows do nothing on click), **Race**
 (`Centerpiece`: the standings, the eval's one ranked list, beside every run together in the game
 on one playhead; then `Progress`, the eval's measure over time, starting on the first screen at
 1440), **Cost** (cost against result, finished within a budget, attempts), **Behaviour** (time and
@@ -181,7 +187,11 @@ the one at the playhead marked and scrolled into view; clicking one seeks the pl
 the top of the feed as it scrolls. A run without chapters shows its calls. Shown once, there. Then the timeline: a toolbar
 (the x measure, the lanes menu) over a card per lane, every lane shown unless `?lanes=` names some,
 each with its title, its unit as the description, its cut in the card's action, its key under the
-chart and the playhead in it; the map is a media card beside the lanes (first on a phone). Every
+chart and the playhead in it; the map is a media card beside the lanes (first on a phone). Over the
+lanes, first in their column, a **Milestones** card (`run/Milestones.tsx`; none for a run exported
+without the accounts' states): the eval's milestones in order, each with its sprite or icon, label
+and the game time the run first reached it, the unreached ones muted; clicking a reached one seeks
+the playhead there. Every
 part reads and moves the one playhead through `src/pages/run/playhead.ts` (`?t=` when settled).
 Files: `src/pages/run/`.
 
@@ -446,7 +456,10 @@ named on hover; the game and the map follow one account at a time (`acct`).
 `models` (each model's models.dev facts) and `providers` (each maker and inference provider: name,
 logo in `public/data/logos/`).
 `index.json` also has `items` (the items the runs held, from `site/game/items.json`, which
-`site/game/art.ts` writes with every item's sprite) and each run's `summary`.
+`site/game/art.ts` writes with every item's sprite), each run's `summary`, each eval's `milestones`
+(`export.py` `MILESTONES`: id, label, the item, quest or skill it is drawn with) and each run's
+`milestones` (`{id: tick}` of those it reached, on the runs' one tick clock; null for a run
+exported without the accounts' states).
 `public/data/runs/<id>.json` has one run's detail (with `held`, each account's items and levels as
 changes to replay, and, on team wealth, `series.wealth`): turns, timeline, path, and the time series
 derived from the logs and the world recording. `public/data/evals/<id>.json` has every run of one

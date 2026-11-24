@@ -67,6 +67,76 @@ EVAL_STEPS = {
     },
 }
 
+def _qp(n: int) -> dict:
+    return {"id": f"qp{n}", "label": f"{n} quest points", "qp": n}
+
+
+def _worth(n: int) -> str:
+    return f"{n // 1_000_000}M" if n >= 1_000_000 else f"{n // 1000}K"
+
+
+# Each eval's milestones, fixed here ahead of time: what a run passes on its way to the score, in
+# order (milestones_of). One is reached the first time its test holds on any account (team evals
+# included) and is never un-reached; a run without recorded states has none. A test is one of:
+# `quest`, that quest (a quests.json id) done; `qp`, quest points at least; `stage`, the eval's
+# quest (EVAL_STEPS) past any of these stages on that stage's gang's way, or done; `skill`, [skill,
+# level] (None: any skill); `item`, any of these item ids held (inventory, worn or bank); `value`,
+# the eval's own measure (its timeline) at least; `each_wealth`, every account worth at least this
+# (wealth_of). Dragon Slayer's map parts (rs-sdk obj.pack mappart1-3): Melzar's maze gives 1535
+# (melzars_maze.rs2), Wormbrain 1536 (wormbrain.rs2), the magic door the Oracle tells of 1537
+# (magic_door.rs2). An item made from another within one sample (the parts into the Crandor map, the
+# oil onto the fishing rod) may never be seen held, so what it makes counts as having had it.
+MILESTONES: dict[str, list[dict]] = {
+    "dragon_slayer": [
+        _qp(8), _qp(16), _qp(32),
+        {"id": "guildmaster", "label": "Spoke to the Guildmaster", "stage": [1]},
+        {"id": "oziach", "label": "Spoke to Oziach", "stage": [2]},
+        {"id": "map_maze", "label": "Melzar's maze piece", "item": [1535, 1538]},
+        {"id": "map_wormbrain", "label": "Wormbrain's piece", "item": [1536, 1538]},
+        {"id": "map_oracle", "label": "The Oracle's piece", "item": [1537, 1538]},
+        {"id": "crandor_map", "label": "Crandor map", "item": [1538]},
+        {"id": "shield", "label": "Anti-dragon shield", "item": [1540]},
+        {"id": "ship", "label": "Bought the ship", "stage": [3]},
+        {"id": "repaired", "label": "Repaired the ship", "stage": [7]},
+        {"id": "ned", "label": "Gave Ned the map", "stage": [8]},
+        {"id": "crandor", "label": "Sailed to Crandor", "stage": [9]},
+        {"id": "elvarg", "label": "Killed Elvarg", "quest": "dragon_slayer"},
+    ],
+    "heros_quest": [
+        _qp(32), _qp(55),
+        {"id": "arrav", "label": "Shield of Arrav", "quest": "shield_of_arrav"},
+        {"id": "lost_city", "label": "Lost City", "quest": "lost_city"},
+        {"id": "merlin", "label": "Merlin's Crystal", "quest": "merlins_crystal"},
+        {"id": "dragon", "label": "Dragon Slayer", "quest": "dragon_slayer"},
+        {"id": "cooking", "label": "Cooking 53", "skill": ["cooking", 53]},
+        {"id": "fishing", "label": "Fishing 53", "skill": ["fishing", 53]},
+        {"id": "herblore", "label": "Herblore 25", "skill": ["herblore", 25]},
+        {"id": "mining", "label": "Mining 50", "skill": ["mining", 50]},
+        {"id": "started", "label": "Started Hero's Quest", "stage": [1]},
+        {"id": "gloves", "label": "Ice gloves", "item": [1580]},
+        {"id": "feather", "label": "Fire feather", "item": [1583]},
+        {"id": "oil", "label": "Blamish oil", "item": [1582, 1585]},
+        {"id": "rod", "label": "Oily fishing rod", "item": [1585]},
+        {"id": "eel", "label": "Lava eel", "item": [2149]},
+        # Grip must be dead to loot the candlesticks: the Phoenix way's stage 5, the Black Arm's 12
+        {"id": "grip", "label": "Grip killed", "stage": [5, 12]},
+        {"id": "candlestick", "label": "Pete's candlestick", "item": [1577, 1578]},
+        {"id": "armband", "label": "Thieves' armband", "item": [1579]},
+        {"id": "hero", "label": "Completed Hero's Quest", "quest": "heros_quest"},
+    ],
+    "quest_points": [{"id": f"qp{n}", "label": f"{n} quest point{'s' if n > 1 else ''}", "value": n} for n in (1, 5, 10, 15, 20, 25)],
+    "total_level": [
+        *({"id": f"total{n}", "label": f"Total level {n}", "value": n} for n in range(100, 800, 100)),
+        {"id": "skill50", "label": "A skill at 50", "skill": [None, 50]},
+        {"id": "skill70", "label": "A skill at 70", "skill": [None, 70]},
+    ],
+    "collection": [{"id": f"items{n}", "label": f"{n} different items", "value": n} for n in (25, 50, 100, 150, 200, 300)],
+    "team_wealth": [
+        *({"id": f"worth{n}", "label": f"{_worth(n)} wealth", "value": n} for n in (10_000, 100_000, 250_000, 500_000, 1_000_000, 2_000_000)),
+        *({"id": f"each{n}", "label": f"Every account {_worth(n)}", "each_wealth": n} for n in (10_000, 100_000)),
+    ],
+}
+
 BUCKET = 100  # ticks per bucket of the binned series (SDK actions, activity)
 PATH_EVERY = 10  # ticks between path points in a run's file
 EVAL_PATH_EVERY = 50  # ... and in the eval's file
@@ -945,6 +1015,63 @@ def steps_of(base: str, states: list[dict]) -> list[dict]:
     return out
 
 
+def milestone_marks(m: dict) -> dict:
+    """A milestone as the site lists it: its id and label, and what the site draws beside it (an
+    item's sprite, a quest's icon or a skill's)."""
+    out = {"id": m["id"], "label": m["label"]}
+    if "item" in m:
+        out["item"] = m["item"][0]
+    elif "quest" in m:
+        out["quest"] = m["quest"]
+    elif "skill" in m and m["skill"][0]:
+        out["skill"] = m["skill"][0]
+    return out
+
+
+def milestones_of(base: str, states: list[dict], timeline: list[dict], names: list[str], quests: list[dict], items: dict) -> dict[str, int] | None:
+    """The tick each of the eval's MILESTONES was first reached, read from the accounts' saved
+    states (or, for `value`, the run's timeline); None for a run without states or an eval without
+    milestones."""
+    specs = MILESTONES.get(base)
+    if not specs or not states:
+        return None
+    by_id = {q["id"]: q for q in quests}
+    steps = EVAL_STEPS.get(base)
+
+    def holds(m: dict, accounts: dict) -> bool:
+        if "each_wealth" in m:
+            return all(n in accounts and wealth_of(accounts[n], items) >= m["each_wealth"] for n in names)
+        for s in accounts.values():
+            if "quest" in m and quest_done(by_id[m["quest"]], s["varps"]):
+                return True
+            if "qp" in m and int(s["varps"].get(QP_VARP, 0)) >= m["qp"]:
+                return True
+            if "stage" in m and steps:
+                stage = int(s["varps"].get(steps["varp"], 0))
+                if any(reached(steps, stage, n) for n in m["stage"]) or quest_done(by_id[steps["quest"]], s["varps"]):
+                    return True
+            if "skill" in m:
+                skill, level = m["skill"]
+                if any(level_of(xp) >= level for k, xp in s["xp"].items() if skill in (None, k)):
+                    return True
+            if "item" in m and any(str(i) in s[k] for k in HELD_TABLES for i in m["item"]):
+                return True
+        return False
+
+    at: dict[str, int] = {}
+    for m in specs:
+        if "value" in m:
+            t = next((p["tick"] for p in timeline if (p["value"] or 0) >= m["value"]), None)
+            if t is not None:
+                at[m["id"]] = t
+    todo = [m for m in specs if "value" not in m]
+    for r in states:
+        for m in todo:
+            if m["id"] not in at and holds(m, r["accounts"]):
+                at[m["id"]] = r["tick"]
+    return {m["id"]: at[m["id"]] for m in specs if m["id"] in at}
+
+
 def activity_of(world: dict, sdk: dict | None, end_tick: int | None) -> list[list]:
     """Per BUCKET ticks: [tick, ticks moving, ticks running, animations started, tiles walked, the
     most common animation's name (or id), SDK actions]."""
@@ -1183,6 +1310,8 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], items: dict, o
         "start_tick": game.get("start_tick") or (world and world["start_tick"]),
         "screenshot": f"runs/{run_id}.jpg" if (out / "runs" / f"{run_id}.jpg").exists() else None,
         "metrics": metrics,
+        # The tick each of the eval's milestones was first reached ({id: tick}); None without states
+        "milestones": milestones_of(base, states, timeline, names, quests, items),
     }
     evl = {
         "id": eval_id, "base": base, "title": eval_title(eval_id), "measure": MEASURES.get(base, "Value"),
@@ -1194,6 +1323,8 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], items: dict, o
         "attempts": attempts, "target": m.get("target"), "accounts": [a["username"] for a in m["accounts"]], "task_file": spec.task_file,
         # Where the character starts: its start save and the first tile it was recorded on
         "start": {"save": m["accounts"][0].get("save"), "tile": path[0][1:3] if path else None},
+        # What every run passes on its way to the score, in order (MILESTONES)
+        "milestones": [milestone_marks(x) for x in MILESTONES.get(base, [])],
     }
     detail = {
         **run,

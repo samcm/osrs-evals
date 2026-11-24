@@ -25,6 +25,7 @@ import { RunMap } from './RunMap';
 import { runSearch } from './search';
 import { Transcript } from './Transcript';
 import { Held } from './Held';
+import { MilestonesCard } from './Milestones';
 
 const route = getRouteApi('/runs/$runId');
 
@@ -366,6 +367,12 @@ export function RunPage(): JSX.Element {
         clock={clock}
         search={search}
         price={index.prices[run.model]}
+        lead={
+          // A run exported without its accounts' states has none
+          run.milestones != null && evalInfo?.milestones && evalInfo.milestones.length > 0 ? (
+            <MilestonesCard milestones={evalInfo.milestones} reached={run.milestones} tickMs={run.tick_ms} />
+          ) : undefined
+        }
         aside={
           <Card>
             <div className="mx-card-bleed my-card-bleed">

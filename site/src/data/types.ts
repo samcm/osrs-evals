@@ -33,6 +33,20 @@ export interface Eval {
   task_file: string;
   /** Where the character starts: its start save and the first tile it was recorded on */
   start?: { save: string | null; tile: [number, number] | null };
+  /** What every run passes on its way to the score, in order (export.py MILESTONES); empty for an eval without */
+  milestones?: Milestone[];
+}
+
+/** One of an eval's milestones, fixed ahead of time, and the mark it is drawn with */
+export interface Milestone {
+  id: string;
+  label: string;
+  /** An item's id, for its sprite, where the milestone is holding it */
+  item?: number;
+  /** A quests.json id, for its icon, where the milestone is a quest done */
+  quest?: string;
+  /** A skill, for its icon, where the milestone is a level in it */
+  skill?: string;
 }
 
 interface AttemptResult {
@@ -194,6 +208,9 @@ export interface Run {
   /** A replay viewer for the run, when exported */
   replay_url?: string | null;
   metrics: RunMetrics;
+  /** The tick each of its eval's milestones was first reached, by id (unreached ones absent); null
+   * for a run exported without the accounts' states */
+  milestones?: Record<string, number> | null;
 }
 
 export interface Price {

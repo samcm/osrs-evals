@@ -16,8 +16,8 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import clsx from 'clsx';
 import { Tip } from './bits';
-import type { Run } from '@/data/types';
-import { brandSrc, itemSrc, loadTrimmedSprite } from '@/lib/assets';
+import type { Milestone, Run } from '@/data/types';
+import { brandSrc, itemSrc, loadTrimmedSprite, questSrc, skillSrc } from '@/lib/assets';
 import { evalArt } from '@/lib/evals';
 import {
   agentInfo,
@@ -108,6 +108,21 @@ export function Sprite({
       data-failed={failed || undefined}
       className={clsx('inline-block shrink-0 align-middle', SPRITE_SIZES[size], className)}
     />
+  );
+}
+
+/**
+ * A milestone's mark and label: the item's sprite, else the quest's icon or the skill's, in a
+ * fixed slot (empty for a milestone without one) so the labels line up down a list. A block, for a
+ * table cell, so the cell centres it; the label wraps where the cell lets it.
+ */
+export function MilestoneLabel({ milestone: m, className }: { milestone: Milestone; className?: string }): JSX.Element {
+  const src = m.item != null ? itemSrc(m.item) : m.quest ? questSrc(m.quest) : m.skill ? skillSrc(m.skill) : undefined;
+  return (
+    <span className={clsx('flex min-w-0 items-center gap-2', className)}>
+      {src ? <Sprite src={src} size={16} alt="" /> : <span aria-hidden className="size-4 shrink-0" />}
+      <span className="min-w-0">{m.label}</span>
+    </span>
   );
 }
 

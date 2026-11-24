@@ -711,12 +711,15 @@ export const Lanes = memo(function Lanes({
   clock,
   search,
   price,
+  lead,
   aside,
 }: {
   run: RunDetail;
   clock: Clock;
   search: RunSearch;
   price: Price | undefined;
+  /** A card over the lanes, in their column */
+  lead?: ReactNode;
   aside?: ReactNode;
 }): JSX.Element {
   const update = useSearchUpdate(runSearch);
@@ -796,25 +799,28 @@ export const Lanes = memo(function Lanes({
         />
         <LanesMenu available={available} shown={shown} />
       </PageToolbar>
-      <div
-        className="flex min-w-0 flex-col gap-gutter select-none xl:col-span-3"
-        onClick={() => {
-          const x = pointerRef.current;
-          if (x != null) settle(measure === 'ticks' ? x : clock.toTick(x));
-        }}
-      >
-        {lanes.map(lane => (
-          <LaneChart
-            key={lane.id}
-            lane={lane}
-            run={run}
-            clock={clock}
-            measure={measure}
-            xAxis={xAxis}
-            rules={rules}
-            activeRef={activeRef}
-          />
-        ))}
+      <div className="flex min-w-0 flex-col gap-gutter xl:col-span-3">
+        {lead}
+        <div
+          className="flex min-w-0 flex-col gap-gutter select-none"
+          onClick={() => {
+            const x = pointerRef.current;
+            if (x != null) settle(measure === 'ticks' ? x : clock.toTick(x));
+          }}
+        >
+          {lanes.map(lane => (
+            <LaneChart
+              key={lane.id}
+              lane={lane}
+              run={run}
+              clock={clock}
+              measure={measure}
+              xAxis={xAxis}
+              rules={rules}
+              activeRef={activeRef}
+            />
+          ))}
+        </div>
       </div>
       {/* Beside the lanes on wide screens, under the site header and the gutter (top-header is
           3rem, the gutter 1.5rem at xl) while the lanes scroll past */}
