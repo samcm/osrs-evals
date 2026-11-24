@@ -216,6 +216,21 @@ export interface RankedVariant {
   bestResult: number | null;
 }
 
+/**
+ * A pairing's median run, the one a click on the pairing opens and the race shows by default: its
+ * runs best first (finished, then sooner; else the higher result), the middle one, the better of two.
+ */
+export function medianRun(r: Pick<RankedVariant, 'runs'>): Run | undefined {
+  const sorted = [...r.runs].sort(
+    (a, b) =>
+      Number(Boolean(b.success)) - Number(Boolean(a.success)) ||
+      (a.success && b.success ? (a.ticks ?? Infinity) - (b.ticks ?? Infinity) : 0) ||
+      (resultValue(b) ?? 0) - (resultValue(a) ?? 0) ||
+      a.epoch - b.epoch
+  );
+  return sorted[Math.ceil(sorted.length / 2) - 1];
+}
+
 /** Where a finished run finished on an x measure: ticks and seconds within its best attempt. */
 function finishOn(run: Run, x: XMeasure): number | null {
   if (!run.success) return null;

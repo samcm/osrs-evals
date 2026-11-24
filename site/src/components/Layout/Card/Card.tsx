@@ -4,37 +4,37 @@ import type { CardProps, CardVariant } from './Card.types';
 
 const variantStyles: Record<CardVariant, { container: string; header: string; main: string; footer: string }> = {
   default: {
-    container: 'bg-surface outline -outline-offset-1 outline-border',
+    container: 'bg-surface',
     header: '',
     main: '',
     footer: '',
   },
   muted: {
-    container: 'bg-surface outline -outline-offset-1 outline-border',
+    container: 'bg-surface',
     header: 'bg-panel',
     main: '',
     footer: 'bg-panel',
   },
   primary: {
-    container: 'bg-surface outline -outline-offset-1 outline-border',
+    container: 'bg-surface',
     header: 'bg-primary-wash',
     main: '',
     footer: '',
   },
   accent: {
-    container: 'bg-surface outline -outline-offset-1 outline-border',
+    container: 'bg-surface',
     header: 'bg-accent-wash',
     main: '',
     footer: 'bg-accent-wash',
   },
   elevated: {
-    container: 'bg-surface outline -outline-offset-1 outline-border',
+    container: 'bg-surface',
     header: 'bg-background',
     main: '',
     footer: '',
   },
   surface: {
-    container: 'bg-surface outline -outline-offset-1 outline-border',
+    container: 'bg-surface',
     header: 'bg-panel',
     main: 'bg-well',
     footer: 'bg-panel',
@@ -80,11 +80,13 @@ export function Card({
   return (
     <div
       className={clsx(
-        'relative divide-y divide-border',
+        // The frame is drawn over the card's parts, so a part with its own background (a table that
+        // bleeds to the edges) can't paint over it: the card has one border all the way round
+        'relative divide-y divide-border after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-inherit after:border after:border-border',
         !allowContentOverflow && 'overflow-hidden',
         rounded && 'rounded-md',
         styles.container,
-        isInteractive && 'cursor-pointer transition-colors duration-200 hover:outline-primary-40',
+        isInteractive && 'cursor-pointer transition-colors duration-200 hover:after:border-primary-40',
         className
       )}
       onClick={isInteractive ? onClick : undefined}

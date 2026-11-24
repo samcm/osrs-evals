@@ -34,7 +34,15 @@ import { median } from '@/lib/stats';
 import { roundTicks } from '@/pages/eval/chartBits';
 import { faded, useLit } from '@/pages/eval/lit';
 import { reachedAt } from '@/pages/eval/centerpiece/race';
-import { sampleGrid, totalBudgetTicks, valueAt, type Agg, type RankedVariant, type RunCurve } from '@/pages/eval/model';
+import {
+  medianRun,
+  sampleGrid,
+  totalBudgetTicks,
+  valueAt,
+  type Agg,
+  type RankedVariant,
+  type RunCurve,
+} from '@/pages/eval/model';
 
 /** Axis amounts in two figures: "570K", "1.1M" */
 const axisAmount = new Intl.NumberFormat('en-US', { notation: 'compact', maximumSignificantDigits: 2 }).format;
@@ -181,7 +189,7 @@ export function FinishChart({
   const first = ranked[0];
   const winner = first && (first.medianResult ?? 0) > 0 ? first.variant.key : undefined;
 
-  // The leaders draw last, over the rest; a run's line opens the run, a pairing's isolates it
+  // The leaders draw last, over the rest; a line opens its run, a pairing's line its median run
   const lines: ChartLine[] = [...pairings]
     .reverse()
     .flatMap(p =>
@@ -245,8 +253,8 @@ export function FinishChart({
             axisTooltip={tooltip}
             onLineClick={line => {
               const run = runOf.get(line.key!);
-              if (run) void navigate({ to: '/runs/$runId', params: { runId: run.id }, search: {} as never });
-              else if (line.series) legend.isolate(line.series.id);
+              const pick = run ?? medianRun(ranked.find(r => r.variant.key === line.series?.id) ?? { runs: [] });
+              if (pick) void navigate({ to: '/runs/$runId', params: { runId: pick.id }, search: {} as never });
             }}
             overlay={plot => marks.length > 0 && <FinishMarks marks={marks} lit={lit} plot={plot} />}
           />
@@ -265,7 +273,10 @@ export function FinishChart({
                 columns={columns}
                 getRowId={s => s.r.variant.key}
                 hoverId={s => s.r.variant.key}
-                onRowClick={s => legend.isolate(s.r.variant.key)}
+                onRowClick={s => {
+                  const run = medianRun(s.r);
+                  if (run) void navigate({ to: '/runs/$runId', params: { runId: run.id }, search: {} as never });
+                }}
               />
             </div>
           </ScrollArea>

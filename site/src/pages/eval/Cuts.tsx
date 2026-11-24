@@ -27,7 +27,7 @@ import { faded, useLit } from './lit';
 import type { LegendState } from '@/lib/legend';
 import { median, paretoFrontier } from '@/lib/stats';
 import { formatTick, formatX, labelWidth, placePointLabels, roundMax, roundTicks } from './chartBits';
-import type { CdfX, ParetoX, RankedVariant } from './model';
+import { medianRun, type CdfX, type ParetoX, type RankedVariant } from './model';
 import { useWidth } from '@/lib/useWidth';
 
 const spendOf = (run: Run, px: ParetoX): number | null => {
@@ -110,6 +110,7 @@ export function ParetoChart({
   px: ParetoX;
   legend: LegendState;
 }): JSX.Element {
+  const navigate = useNavigate();
   const lit = useLit(legend.focus);
   const target = e.target != null;
   const log = px === 'cost';
@@ -190,7 +191,10 @@ export function ParetoChart({
               ],
             };
           }}
-          onPointClick={(_, spec) => legend.isolate(spec.id)}
+          onPointClick={point => {
+            const run = medianRun((point.data as Point).r);
+            if (run) void navigate({ to: '/runs/$runId', params: { runId: run.id }, search: {} as never });
+          }}
           // The frontier always, every other point where its label fits; any point names itself on hover
           overlay={narrow ? undefined : plot => <PointLabels points={shown} plot={plot} lit={lit} />}
         />
