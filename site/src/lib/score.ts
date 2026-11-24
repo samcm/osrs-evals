@@ -61,8 +61,10 @@ export interface Pairing {
 
 /**
  * Every pairing's per-eval and blended scores, from all runs; best first, every complete pairing
- * (one that ran every eval with runs) before any partial one, so a pairing that ran one eval well
- * (a thinking-level sweep) never outranks one that ran them all.
+ * (one that ran every core eval) before any partial one, so a pairing that ran one eval well
+ * (a thinking-level sweep) never outranks one that ran them all. A core eval is one at least half
+ * the pairings ran: a new eval only a few have played (Hero's Quest) shows its cells but neither
+ * blends into the score nor makes those few "complete" above everyone else.
  */
 export function blendedScores(evals: Eval[], runs: Run[]): Pairing[] {
   const byPairing = new Map<string, Run[]>();
@@ -86,9 +88,10 @@ export function blendedScores(evals: Eval[], runs: Run[]): Pairing[] {
     return { variant: variantOf(list[0]), sample: list[0], runs: list, evals: scores, score: 0, complete: false };
   });
 
-  // How every pairing did on each eval, and over all evals
+  // How every pairing did on each core eval, and over all of them
+  const core = evals.filter(e => pairings.filter(p => p.evals.has(e.id)).length * 2 >= pairings.length);
   const evalMean = new Map<string, number>();
-  for (const e of evals) {
+  for (const e of core) {
     const m = mean(pairings.map(p => p.evals.get(e.id)?.score));
     if (m != null) evalMean.set(e.id, m);
   }
@@ -96,7 +99,9 @@ export function blendedScores(evals: Eval[], runs: Run[]): Pairing[] {
 
   for (const p of pairings) {
     p.complete = [...evalMean.keys()].every(id => p.evals.has(id));
-    const leads = [...p.evals.entries()].map(([id, s]) => s.score - (evalMean.get(id) ?? s.score));
+    const leads = [...p.evals.entries()]
+      .filter(([id]) => evalMean.has(id))
+      .map(([id, s]) => s.score - evalMean.get(id)!);
     // One more eval at the mean pulls a pairing with few evals toward the middle
     p.score = clamp01(overall + leads.reduce((a, b) => a + b, 0) / (leads.length + 1));
   }
