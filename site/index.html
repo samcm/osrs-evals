@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
-    <meta name="theme-color" content="#f0f4f7" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="icon" type="image/png" href="/assets/items/995-10000.png" />
     <title>2004scape evals</title>
     <script>
       // Initialize theme before React mounts to prevent FOUC: a shared link's ?theme=, else the
       // stored choice, else the system's.
       (function () {
-        var themeColors = { light: '#f0f4f7', dark: '#0d1218' };
+        var themeColors = { light: '#ffffff', dark: '#0a0a0a' };
         var linked = new URLSearchParams(window.location.search).get('theme');
         var theme = themeColors[linked] ? linked : localStorage.getItem('theme');
         var dark = theme === 'dark' || (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);

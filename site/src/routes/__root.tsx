@@ -27,7 +27,7 @@ import { RETAINED_PARAMS, rootSearch } from '@/lib/search';
 import { modelInfo, modelSlug } from '@/lib/series';
 
 /**
- * The mobile header: the menu button, the wordmark and the theme toggle, on the sidebar's stone
+ * The mobile header: the menu button, the wordmark and the theme toggle, on the sidebar's colour
  * so the drawer opens from it as one panel.
  */
 function MobileHeader({

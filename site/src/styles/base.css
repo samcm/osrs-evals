@@ -19,7 +19,7 @@
     font-family: var(--font-mono);
   }
 
-  /* Keyboard focus is a rune-blue outline. Only apply to keyboard navigation (focus-visible) and exclude interactive elements that have custom focus styles */
+  /* Keyboard focus is an ink outline. Only apply to keyboard navigation (focus-visible) and exclude interactive elements that have custom focus styles */
   *:focus-visible:not(button):not(a):not([role='button']):not(input):not(textarea):not(select) {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;

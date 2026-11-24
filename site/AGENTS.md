@@ -210,8 +210,8 @@ React 19, Vite 7, TypeScript, pnpm, `@tanstack/react-router` (file routes in `sr
 thin; page UI in `src/pages/`), `@tanstack/react-query` for loading the JSON (components never call
 `fetch` directly; use the query options in `src/data/`), `@tanstack/react-table` for tables,
 Tailwind 4 with the site's own tokens, Headless UI 2, Heroicons 2, ECharts 6 through
-`echarts-for-react`, IBM Plex Sans (`@fontsource-variable/ibm-plex-sans`), IBM Plex Mono
-(`@fontsource/ibm-plex-mono`, 400 and 500) and Cinzel (`@fontsource-variable/cinzel`).
+`echarts-for-react`, Inter (`@fontsource-variable/inter`) and JetBrains Mono
+(`@fontsource-variable/jetbrains-mono`).
 
 The UI stack is ethpandaops/lab's (GPL-3.0; `NOTICE` lists what came from it): its core components
 in `src/components/<Category>/<Name>/`, its chart chrome, its lint and its build. The theme (tokens,
@@ -316,7 +316,7 @@ never for one page. The only custom-drawn component is the world map.
   a render of each run's character. Sprites are drawn with `Sprite` (pixelated, integer scaling
   only). Every eval has a sprite; every quest has its icon; every skill has its icon.
 - Game art and the game's font stay out of the shell (sidebar, header, nav): those use Heroicons
-  and the site's type (Cinzel only for the wordmark). Sprites appear only in page content, where
+  and the site's type. Sprites appear only in page content, where
   they mark something in the game.
 - Tool-call categories (write and run, read, wait, …) have one name and colour each, from
   `src/lib/tools.ts`. Token kinds and SDK outcomes keep theirs everywhere too.
@@ -325,7 +325,7 @@ never for one page. The only custom-drawn component is the world map.
 
 ## Visual rules
 
-The site's own theme, "rune and stone", on lab's components. Charts are artifacts, not decoration.
+The site's own theme, "ink", on lab's components. Charts are artifacts, not decoration.
 If something looks off, fix it in the tokens or the shared component, never with a one-off style.
 
 - **Every value is a token in `src/styles/tokens.css`**, used as a Tailwind class. Tailwind's
@@ -338,12 +338,12 @@ If something looks off, fix it in the tokens or the shared component, never with
   `bg-primary-10`), colour literals and fixed inline styles; `style` carries only values computed
   at runtime. Layouts Tailwind has no class for are named utilities in `src/styles/utilities.css`.
   A token nothing reads is deleted.
-- **Palette roles.** Neutrals are cool blue-grey stone: on light a pale stone page, near-white
-  cards and the sidebar a shade darker than the page; on dark a deep blue-black in three distinct
-  steps (page, sidebar, card) and a hairline. `primary` is rune blue and marks only what is
-  interactive (links, focus, the selected segment, checked controls, primary buttons). `accent` is
-  coin gold and appears in two places only: the active nav item's 2px rule and the wordmark's
-  lozenge; never on data. Status (`success` moss, `warning` ochre, `danger` brick) is readable as
+- **Palette roles.** The chrome has no hue. Neutrals are pure greys: a white page (near-black on
+  dark), cards on the page colour drawn by their hairline, and the sidebar a shade off the page.
+  `primary` (and `accent`, the same) is ink, the text colour itself, and marks only what is
+  interactive (links, focus, the selected segment, checked controls, primary buttons, the active
+  nav item's rule). Never add a brand hue: colour on the page is data or status. Status (`success`
+  green, `warning` ochre, `danger` brick) is readable as
   text on every surface of its theme. The data hues (`data-*`) are the site's own: deeper on light,
   lighter on dark, lightness varied with hue so tool categories and token kinds stay apart in a
   stack.
@@ -353,9 +353,9 @@ If something looks off, fix it in the tokens or the shared component, never with
   for controls (buttons, inputs, segmented controls, nav items, tooltips), `rounded-md` (10px) for
   containers (cards, tables, popovers and menus, the map, code blocks), `rounded-2xs` (2px) for
   hairline marks, `rounded-full` for dots and tracks.
-- **Type:** IBM Plex Sans for text and numbers, IBM Plex Mono only for identifiers (run ids, model
-  ids, code). Numbers use `tabular-nums`. Cinzel (`font-wordmark`) sets the product's name in the
-  sidebar and the mobile header and nothing else. No uppercase-tracked headings: group labels and
+- **Type:** Inter for text and numbers, JetBrains Mono only for identifiers (run ids, model ids,
+  code). Numbers use `tabular-nums`. The product's name is Inter, semibold and tight; no display
+  face, no logo mark. No uppercase-tracked headings: group labels and
   headings are sentence case. Use the library's sizes.
 - **Colour is data.** The chrome is neutral; colour appears only for series, categories and status.
 - **Status colour carries judgement only** and always comes with a word or a mark. A plain number
@@ -420,15 +420,14 @@ named on hover; the game and the map follow one account at a time (`acct`).
 
 ## Layout
 
-- The `Sidebar` (fixed from lg on its own stone a step off the page, collapsible to an icon rail
+- The `Sidebar` (fixed from lg on a panel a shade off the page, collapsible to an icon rail
   with its state in local storage, a drawer under the fixed mobile header below lg): Home, Runs and
   Compare; then **Evals** (every eval the project runs, the most runs first, each with its own
   Heroicon; one without runs yet too: its page says so in one sentence); then **Models**, a
   collapsible item per maker with its mark, opening to its models (open when one is the page).
   Group labels are muted sentence case. Items are muted text; the page shown is full-strength with
-  a 2px gold rule at its left edge, no fill. The product's name (`Wordmark`: a gold lozenge and
-  "2004scape evals" in Cinzel; the lozenge alone on the rail) heads the sidebar and the mobile
-  header. Over the content, the sticky header bar holds the `Breadcrumb` (chevron separators),
+  a 2px ink rule at its left edge, no fill. The product's name (`Wordmark`: "2004scape evals" in
+  the text face; nothing on the rail) heads the sidebar and the mobile header. Over the content, the sticky header bar holds the `Breadcrumb` (chevron separators),
   which never loses its last crumb, and from lg the `ThemeToggle` at its right; on a phone the
   mobile header has the menu button, the wordmark and the toggle, and the run and eval-model pages
   keep the eval's crumb. The shell is `src/routes/__root.tsx`.

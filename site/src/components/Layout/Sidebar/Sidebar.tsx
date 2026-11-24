@@ -28,24 +28,14 @@ import type { SidebarProps } from './Sidebar.types';
 /** The product's name: the sidebar's header and the mobile header */
 const PRODUCT_NAME = '2004scape evals';
 
-/**
- * The product's name in Cinzel beside its mark, a small gold lozenge; collapsed, the mark alone. Only
- * the sidebar and the mobile header show it, and it always links home.
- */
-export function Wordmark({ collapsed = false }: { collapsed?: boolean }): JSX.Element {
+/** The product's name, plain and set tight. Only the sidebar and the mobile header show it, and it links home. */
+export function Wordmark(): JSX.Element {
   return (
     <Link
       to="/"
-      aria-label={collapsed ? PRODUCT_NAME : undefined}
-      className={clsx(
-        'flex min-w-0 items-center gap-2.5 text-foreground transition-colors hover:text-foreground-soft',
-        collapsed && 'justify-center p-2'
-      )}
+      className="min-w-0 truncate text-base/none font-semibold tracking-tight text-foreground transition-colors hover:text-foreground-soft"
     >
-      <span aria-hidden="true" className="size-2 shrink-0 rotate-45 rounded-px bg-accent" />
-      {!collapsed && (
-        <span className="truncate font-wordmark text-base/none font-semibold tracking-wider">{PRODUCT_NAME}</span>
-      )}
+      {PRODUCT_NAME}
     </Link>
   );
 }
@@ -79,7 +69,7 @@ interface Maker {
   models: string[];
 }
 
-/** An item is muted text; the page shown is full-strength, marked by a 2px gold rule at its left edge, no fill. */
+/** An item is muted text; the page shown is full-strength, marked by a 2px ink rule at its left edge, no fill. */
 const navItemClassName =
   'group relative flex items-center gap-x-2.5 rounded-sm text-muted transition-colors hover:text-foreground';
 const navItemActiveClassName =
@@ -300,7 +290,7 @@ function Nav({ collapsed }: { collapsed: boolean }): JSX.Element {
 }
 
 /**
- * The app's sidebar: a stone panel a step off the page, fixed on the left from lg, collapsible to an
+ * The app's sidebar: a panel a shade off the page, fixed on the left from lg, collapsible to an
  * icon rail (the caller keeps that state), and a drawer under the mobile header below lg.
  */
 export function Sidebar({ sidebarOpen, setSidebarOpen, collapsed, setCollapsed }: SidebarProps): JSX.Element {
@@ -332,10 +322,8 @@ export function Sidebar({ sidebarOpen, setSidebarOpen, collapsed, setCollapsed }
           collapsed ? 'lg:w-14' : 'lg:w-56'
         )}
       >
-        {/* The wordmark, level with the header bar beside it */}
-        <div className={clsx('flex h-12 shrink-0 items-center', collapsed ? 'justify-center' : 'px-5')}>
-          <Wordmark collapsed={collapsed} />
-        </div>
+        {/* The wordmark, level with the header bar beside it; the rail keeps the row empty */}
+        <div className="flex h-12 shrink-0 items-center px-5">{!collapsed && <Wordmark />}</div>
 
         {/* Scrollable content */}
         <div className="flex grow flex-col overflow-y-auto px-2 py-3">

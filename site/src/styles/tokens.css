@@ -1,6 +1,6 @@
-/* The design tokens, and the only stylesheet with colour literals. The site's own theme, "rune
- * and stone": cool blue-grey stone neutrals, a rune-blue primary and a coin-gold accent used only
- * as a marker in the chrome. Every colour is OKLCH. */
+/* The design tokens, and the only stylesheet with colour literals. The site's own theme, "ink":
+ * the chrome has no hue at all (neutral greys, ink for what is interactive), so colour on the page
+ * is always data or status. Every colour is OKLCH. */
 
 /* No sources here: the entry stylesheet says what Tailwind scans. */
 @import 'tailwindcss' source(none);
@@ -39,12 +39,10 @@ html.dark {
   --container-3xl: 48rem;
   --container-4xl: 56rem;
 
-  /* IBM Plex Sans for all text and numbers, IBM Plex Mono for identifiers (run ids, model ids,
-   * code). Cinzel, an inscriptional serif, sets the product's name in the sidebar and the mobile
-   * header and nothing else. */
-  --font-sans: 'IBM Plex Sans Variable', 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
-  --font-wordmark: 'Cinzel Variable', 'Cinzel', ui-serif, serif;
+  /* Inter for all text and numbers (tabular figures where numbers line up), JetBrains Mono for
+   * identifiers (run ids, model ids, code). The product's name is Inter too, set tight. */
+  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
   --default-font-family: var(--font-sans);
   --default-mono-font-family: var(--font-mono);
 
@@ -82,10 +80,10 @@ html.dark {
   --radius-sm: 0.375rem;
   --radius-md: 0.625rem;
 
-  /* Floating panels (popovers, menus, tooltips) lift off the page with one soft, cool shadow;
+  /* Floating panels (popovers, menus, tooltips) lift off the page with one soft shadow;
    * nothing else has a shadow. */
-  --shadow-sm: 0 1px 2px 0 oklch(25% 0.03 258 / 0.08);
-  --shadow-lg: 0 8px 24px -6px oklch(25% 0.03 258 / 0.18), 0 2px 6px -2px oklch(25% 0.03 258 / 0.08);
+  --shadow-sm: 0 1px 2px 0 oklch(0% 0 0 / 0.06);
+  --shadow-lg: 0 8px 24px -6px oklch(0% 0 0 / 0.16), 0 2px 6px -2px oklch(0% 0 0 / 0.06);
 
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
@@ -100,23 +98,23 @@ html.dark {
   /* Colours. A base colour is a light-dark(light, dark) pair; every other colour derives from
    * them, except the model colours, which read the same in both themes. */
 
-  /* Brand: rune blue for what is interactive (links, focus, primary buttons, checked controls),
-   * coin gold only as a marker in the chrome (the active nav item's rule, the wordmark's mark). */
-  --color-primary: light-dark(oklch(50% 0.13 255), oklch(72% 0.12 252));
-  --color-secondary: light-dark(oklch(92% 0.01 250), oklch(28% 0.016 258));
-  --color-accent: light-dark(oklch(70% 0.13 80), oklch(80% 0.12 82));
+  /* Ink: what is interactive (links, focus, primary buttons, the selected segment, checked
+   * controls, the active nav item's rule) is the text colour itself, near-black on light and
+   * near-white on dark. accent is the same ink; there is no brand hue. */
+  --color-primary: light-dark(oklch(22% 0 0), oklch(95% 0 0));
+  --color-secondary: light-dark(oklch(94% 0 0), oklch(26% 0 0));
+  --color-accent: light-dark(oklch(22% 0 0), oklch(95% 0 0));
 
-  /* Stone surfaces, back to front, and the text on them. Dark is a deep blue-black with three
-   * distinct steps so panels read without shadows: page, panel, hairline. The sidebar sits a
-   * step off the page: a shade darker on light, a shade lighter on dark. */
-  --color-background: light-dark(oklch(96.5% 0.006 250), oklch(18% 0.015 258));
-  --color-surface: light-dark(oklch(99.3% 0.002 250), oklch(22.5% 0.017 258));
-  --color-border: light-dark(oklch(89.5% 0.01 250), oklch(32% 0.019 258));
-  --color-sidebar: light-dark(oklch(92.5% 0.011 250), oklch(20.5% 0.016 258));
-  --color-foreground: light-dark(oklch(24% 0.025 258), oklch(94% 0.008 250));
-  --color-muted: light-dark(oklch(50% 0.025 255), oklch(71% 0.02 252));
+  /* Neutral surfaces, no hue. Cards sit on the page colour and are drawn by their hairline; the
+   * sidebar is a shade off the page. */
+  --color-background: light-dark(oklch(100% 0 0), oklch(14.5% 0 0));
+  --color-surface: light-dark(oklch(100% 0 0), oklch(14.5% 0 0));
+  --color-border: light-dark(oklch(91% 0 0), oklch(27% 0 0));
+  --color-sidebar: light-dark(oklch(98.2% 0 0), oklch(17% 0 0));
+  --color-foreground: light-dark(oklch(18% 0 0), oklch(96% 0 0));
+  --color-muted: light-dark(oklch(52% 0 0), oklch(68% 0 0));
 
-  /* Status: moss, ochre and brick, each readable as text on every surface of its theme. */
+  /* Status: green, ochre and brick, each readable as text on every surface of its theme. */
   --color-success: light-dark(oklch(50% 0.11 152), oklch(76% 0.11 152));
   --color-warning: light-dark(oklch(55% 0.12 62), oklch(80% 0.12 72));
   --color-danger: light-dark(oklch(52% 0.16 25), oklch(70% 0.14 22));
@@ -196,7 +194,7 @@ html.dark {
   --color-data-red-80: color-mix(in oklab, var(--color-data-red) 80%, transparent);
 
   /* Data hues: the site's own, mineral rather than candy. Each is a light-dark() pair, deeper on
-   * the pale stone and lighter on the dark, and lightness varies with hue so neighbours in a
+   * the white page and lighter on the dark, and lightness varies with hue so neighbours in a
    * stack (tool categories, src/lib/tools.ts; token kinds, src/lib/tokens.ts) stay at least
    * 0.08 apart in OKLab in both themes. */
   --color-data-red: light-dark(oklch(54% 0.15 32), oklch(68% 0.14 34));

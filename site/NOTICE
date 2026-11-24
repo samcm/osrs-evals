@@ -14,7 +14,7 @@ crumbs and radii added):
   pnpm-workspace.yaml
 
 The theme is the site's own and not from lab: the palette, data hues, type and radii in
-src/styles/tokens.css ("rune and stone": stone neutrals, rune-blue primary, coin-gold accent; IBM
-Plex Sans, IBM Plex Mono and Cinzel), and the chrome: the sidebar's look and wordmark
+src/styles/tokens.css ("ink": neutral greys, ink for what is interactive, no brand hue; Inter and
+JetBrains Mono), and the chrome: the sidebar's look and wordmark
 (src/components/Layout/Sidebar), the header bar and mobile header (src/routes/__root.tsx) and the
 two-theme toggle (src/components/Layout/ThemeToggle).

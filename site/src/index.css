@@ -1,10 +1,8 @@
 /* The app's stylesheet: fonts, the tokens, the utilities and base styles, and the files
  * Tailwind scans for classes (src only, so no class named in docs or config ships). Tokens
  * and colour literals live only in styles/tokens.css. */
-@import '@fontsource-variable/ibm-plex-sans';
-@import '@fontsource/ibm-plex-mono/400.css';
-@import '@fontsource/ibm-plex-mono/500.css';
-@import '@fontsource-variable/cinzel';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
 
 @import './styles/tokens.css';
 @plugin '@tailwindcss/forms';
