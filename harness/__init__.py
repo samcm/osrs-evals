@@ -395,8 +395,11 @@ async def save_run(sb, run_dir: str, state, states: list[dict]) -> None:
     """Copy the sample's game recording, logs, timeline and account states out of the sandbox, next
     to the log."""
     # The run folder: the harness's files, and the agent's /work (the code it wrote, its out/ folder).
-    await sb.exec(concurrency=False, cmd=["sh", "-c", f"kill $(cat /run/record.pid); sleep 1; gzip -f {OUT}/world.jsonl; tar czf {OUT}/work.tgz --exclude=node_modules --exclude=./.codex --exclude=./.claude --exclude=./.cache -C /work . ; tar czf /tmp/out.tgz -C {OUT} ."])
-    data = await sb.read_file("/tmp/out.tgz", text=False)
+    await sb.exec(concurrency=False, cmd=["sh", "-c", f"kill $(cat /run/record.pid); sleep 1; gzip -f {OUT}/world.jsonl; tar czf {OUT}/work.tgz --exclude=node_modules --exclude=./.codex --exclude=./.claude --exclude=./.cache -C /work . ; tar czf /tmp/out.tgz -C {OUT} . ; rm -f /tmp/out.part.*; split -b 64m -d -a 3 /tmp/out.tgz /tmp/out.part."])
+    # Read in 64 MB pieces: a sandbox read is capped at 100 MiB, and an 8 h game's world recording
+    # passes that, which lost a whole game (its score and run folder) at the very end
+    parts = (await check(sb.exec(concurrency=False, cmd=["sh", "-c", "ls /tmp/out.part.*"]))).stdout.split()
+    data = b"".join([await sb.read_file(part, text=False) for part in sorted(parts)])
     with tarfile.open(fileobj=io.BytesIO(data)) as tar:
         for member in tar.getmembers():
             if member.isfile():
