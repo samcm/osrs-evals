@@ -49,13 +49,6 @@ const COLUMNS_FROM = 560;
 /** "#2 of 7": a place among a field. */
 const place = (rank: number, of: number): string => `#${formatInt(rank)} of ${formatInt(of)}`;
 
-/** Each eval's best value, for scoring evals that count how much (lib/score.ts). */
-function bests(evals: Eval[], runs: Run[]): Map<string, number> {
-  return new Map(
-    evals.map(e => [e.id, Math.max(0, ...runs.filter(r => r.eval === e.id).map(r => resultValue(r) ?? 0))])
-  );
-}
-
 /**
  * A row of the per-eval table: an eval, or under an eval it ran as several pairings, one of them.
  * Both carry the runs they stand for; the eval's row its place among the models.
@@ -221,7 +214,6 @@ export function ModelPage(): JSX.Element {
   const keys = useMemo(() => new Set(pairings.map(p => p.variant.key)), [pairings]);
   const runs = useMemo(() => everyRun.filter(r => keys.has(variantKey(r))), [everyRun, keys]);
   const evals = useMemo(() => data.evals.filter(e => everyRun.some(r => r.eval === e.id)), [data, everyRun]);
-  const best = useMemo(() => bests(data.evals, data.runs), [data]);
 
   // Score and cost by thinking level, every eval's runs together
   const levels = useMemo(() => [...new Set(runs.map(r => r.thinking))].sort(compareThinking), [runs]);
@@ -232,14 +224,14 @@ export function ModelPage(): JSX.Element {
       label: 'Score',
       value: r => {
         const e = byEval.get(r.eval);
-        const s = e ? runScore(e, r, best.get(e.id) ?? 0) : null;
+        const s = e ? runScore(e, r, data.runs) : null;
         return s == null ? null : s * 100;
       },
       format: v => formatInt(v),
       max: 100,
       empty: 'No run here has a score.',
     }),
-    [byEval, best]
+    [byEval, data.runs]
   );
   const evalOf = (r: Run): string => byEval.get(r.eval)?.title ?? r.eval;
 

@@ -82,8 +82,8 @@ function Scoring({ evals }: { evals: Eval[] }): JSX.Element {
           ))}
         </ul>
         <p>
-          Each run scores 0 to 100 on its eval. A finish is worth 50 to 100, more the sooner it came; a miss up to 50 by
-          how far it got. Evals without a target score against the best run.
+          Each run scores 0 to 100 on its eval, head to head: the share of the other models' runs it beat. A finish
+          beats a miss, a faster finish beats a slower one, otherwise the further or higher result wins.
         </p>
         <p>
           A pairing's score is the average plus how far it beat or trailed everyone on each eval it ran. An eval it
