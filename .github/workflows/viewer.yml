@@ -32,10 +32,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download site-data -p site-data.tgz -R "$GITHUB_REPOSITORY"
+          gh release download site-data -p 'site-data.tgz*' -R "$GITHUB_REPOSITORY"
           rm -rf site/public/data && mkdir -p site/public
-          tar -xzf site-data.tgz -C site/public
-          rm site-data.tgz
+          # Published in parts (a release asset must be under 2 GiB); an older release has one file
+          cat $(ls site-data.tgz.part-* 2>/dev/null || echo site-data.tgz) | tar -xzf - -C site/public
+          rm -f site-data.tgz site-data.tgz.part-*
           du -sh site/public/data
 
       # rs-world is built against the game cache in the world image, so build that first (local only)

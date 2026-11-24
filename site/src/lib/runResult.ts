@@ -33,5 +33,6 @@ export function endedWord(reason: string | null | undefined): string {
   if (reason === 'done') return 'Finished';
   if (reason === 'budget' || reason.startsWith('wall clock')) return 'Out of time';
   if (reason === 'agent finished') return 'Stopped';
+  if (reason === 'model timed out') return 'Model timed out';
   return reason.charAt(0).toUpperCase() + reason.slice(1);
 }

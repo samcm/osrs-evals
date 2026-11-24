@@ -220,6 +220,16 @@ function placeAmong(run: Run, runs: Run[]): { place: number; of: number } {
   return { place: ahead + 1, of: own.length };
 }
 
+/** Model calls that failed in the run, said once in its header; nothing when every call answered. */
+function callTrouble(run: RunDetail): string | undefined {
+  const calls = (n: number) => (n === 1 ? 'One model call' : `${formatInt(n)} model calls`);
+  const parts = [
+    run.model_timeouts ? `${calls(run.model_timeouts)} got no reply within 10 minutes and timed out${run.ended_by === 'model timed out' ? '; the game ended on the last one' : ''}.` : null,
+    run.model_errors ? `${calls(run.model_errors)} failed with a provider error, and the agent carried on.` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' ') : undefined;
+}
+
 /**
  * The run's opening card: what it did in one sentence (site/summarize.py), then its result, its
  * place among the eval's runs and its cost; the run id (its facts behind it) and the epochs on the
@@ -242,6 +252,8 @@ function Header({
   return (
     <PageHero
       lead={summary}
+      // Said once, where it matters: the model, not the agent, ended this game
+      detail={callTrouble(run)}
       meta={[
         ...resultMeta(run, evalInfo),
         ...(of > 1 ? [{ term: 'Place', value: `#${formatInt(place)} of ${formatInt(of)} runs` }] : []),
