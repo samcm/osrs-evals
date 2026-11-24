@@ -142,8 +142,9 @@ export function FinishChart({
   const byMilestones = milestoneCount > 0;
   // On milestones there is no target line: a finisher can end short of every milestone
   const target = byMilestones ? null : e.target;
+  // A run whose recording was lost (no states, so no milestones) has no line here; the table still counts it
   const curves = useMemo(
-    () => (byMilestones ? stageCurves.map(milestoneCurve) : stageCurves),
+    () => (byMilestones ? stageCurves.filter(cv => cv.run.milestones != null).map(milestoneCurve) : stageCurves),
     [stageCurves, byMilestones]
   );
   const toSeconds = (tick: number): number => (tick * e.tick_ms) / 1000;
