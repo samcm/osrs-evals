@@ -17,7 +17,9 @@ attempt. Shapes are in site/src/data/types.ts.
 
 import argparse
 import bisect
+import gc
 import gzip
+import io
 import json
 import os
 import re
@@ -28,6 +30,7 @@ from datetime import datetime
 from pathlib import Path
 
 import fsspec
+from inspect_ai.log._condense import resolve_sample_attachments
 from inspect_ai.log import list_eval_logs, read_eval_log
 
 SITE = Path(__file__).resolve().parent
@@ -726,8 +729,8 @@ def world_of(raw: bytes, account: str, start_tick: int | None, end_tick: int | N
     """Our account in the world recording: where it was every tick it moved, what it did per BUCKET
     ticks, its deaths and teleports, and the NPCs it faced. Ticks count from start_tick (the tick
     the agent got the game; when the harness didn't record it, the tick the account joined)."""
-    lines = gzip.decompress(raw).decode().splitlines()
-    msgs = (json.loads(line) for line in lines)
+    # Streamed: a long team run's recording is a gigabyte once unpacked
+    msgs = (json.loads(line) for line in gzip.open(io.BytesIO(raw), "rt") if line.strip())
     slot = pos = None
     path: list[list[int]] = []  # [tick, x, z, level, jump]
     buckets: dict[int, list[int]] = {}  # tick -> [moving, running, animations, tiles]
@@ -839,7 +842,9 @@ def states_of(raw: bytes | None, end_tick: int | None) -> list[dict]:
     if not raw:
         return []
     out, now = [], {}
-    for line in gzip.decompress(raw).decode().splitlines():
+    for line in gzip.open(io.BytesIO(raw), "rt"):
+        if not line.strip():
+            continue
         r = json.loads(line)
         for name, change in r["accounts"].items():
             s = now.setdefault(name, {"xp": {}, "varps": {}, "inv": {}, "worn": {}, "bank": {}})
@@ -1373,6 +1378,15 @@ FACT_KEYS = (
 )
 
 
+
+def resolved(sample):
+    """A sample with its attachments resolved, but not its model calls' inputs: each call's input is
+    the whole conversation so far, which nothing here reads, and expanding it for a run of thousands
+    of calls (Hero's Quest) took gigabytes."""
+    if sample.events_data:
+        sample = sample.model_copy(update={"events_data": {**sample.events_data, "messages": []}})
+    return resolve_sample_attachments(sample, "core")
+
 def add_told(out: Path, runs: list[dict], evals: dict) -> None:
     """Each run's sentence and measured facts, and each eval's note, from site/summarize.py's
     files beside the data (kept across exports): runs/<id>.summary.json and .facts.json,
@@ -1401,8 +1415,12 @@ def export(log_dirs: list[str], price_source: str, out: Path):
     models = {canonical_model(h.eval.model) for h in headers}
     prices = load_prices(catalog, models)
     facts = model_facts(catalog, models)
+    log = None
     for info in infos:
-        log = read_eval_log(info.name, resolve_attachments=True)
+        # One log in memory at a time: a long run's log alone takes a gigabyte or more
+        log = None
+        gc.collect()
+        log = read_eval_log(info.name)
         # A finished eval-set, or one still playing (Sam: publish results as they come in): its finished
         # games are in the log, each scored, and a game still playing has no sample yet. A failed or
         # stopped log is held, not published.
@@ -1417,6 +1435,7 @@ def export(log_dirs: list[str], price_source: str, out: Path):
         for s in log.samples:
             if s.error or not s.scores:
                 continue
+            s = resolved(s)
             run, evl, detail, grid = export_sample(log, info, s, prices, quests, items, out, solver, solver_params, thinking)
             seen_items.update(str(i) for changes in (detail["held"] or {}).values() for c in changes for k in HELD_TABLES for i in c.get(k, {}))
             runs.append(run)
