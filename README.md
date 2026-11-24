@@ -225,7 +225,7 @@ environment where you run `inspect`.
 
 A set of runs is a file of tasks, one per variant, and Inspect's `eval-set`. `evals/matrix.py` has
 quest points, Dragon Slayer, Hero's Quest, total level, collection and team wealth, each played by
-omp, two epochs each. The models and omp's thinking level are given at run time, so the same file compares models
+omp, one epoch each (`--epochs N` for more). The models and omp's thinking level are given at run time, so the same file compares models
 (`--model a,b`) and thinking levels (one `-T thinking=<level>` per run, into the same log dir):
 
 ```sh
