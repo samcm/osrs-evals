@@ -69,7 +69,8 @@ An intro card first (`overview/Intro.tsx`, Sam's pick of five drafts): a few pla
 what the project does and how (models play 2004 RuneScape through omp, write their own scripts,
 the server's saves score them, every run replays), the counts from the data and each eval's sprite
 (opening it, its goal on hover), a credit line and the README, beside the real world map at its own
-scale with "Every run starts here" on Lumbridge and Dragon Slayer's sprite on Crandor. Then No description line (the sidebar names the product). A toolbar with the Filters button, then the
+scale with "Every run starts here" on Lumbridge and Dragon Slayer's sprite on Crandor. No other
+description line (the sidebar names the product). A toolbar with the Filters button, then the
 Leaderboard. The blended score is the hero: each row's score is a large number over a bar of its
 100 in the model's colour, so the order and the gaps read at a glance (no sentence restating the top
 row). Rank,
