@@ -348,7 +348,8 @@ Inspect's k8s sandbox package. Nothing in the evals or the harness names a host.
 | `site/` | The website (React, TanStack, ECharts), `export.py` (logs to its data), `capture.ts` (run screenshots) and `game/` (game art from the cache). |
 | `viewer/` | `serve.ts`, which serves the site, its data, rs-world built against the same map cache, the live feed relay and the replays; and the Dockerfile for all of it. |
 
-Licences: rs-sdk is MIT and rs-world is BSD-2-Clause; both are built from their repositories at
+Licences: the site (`site/`) is GPL-3.0 (`site/LICENSE`), because its UI components and tooling come
+from ethPandaOps' The Lab (`site/NOTICE`); the rest of the repo is unaffected. rs-sdk is MIT and rs-world is BSD-2-Clause; both are built from their repositories at
 pinned commits, not copied in. Nothing comes from RuneBench, which has no licence file.
 
 ## Status

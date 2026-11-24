@@ -1,4 +1,5 @@
-The site's UI components and tooling are copied from The Lab by ethPandaOps
+The site (this folder) is licensed under the GNU General Public License v3.0; see LICENSE. Its UI
+components and tooling are copied from The Lab by ethPandaOps
 (https://github.com/ethpandaops/lab), licensed under the GNU General Public License v3.0. These
 files come from it, some adapted (lab's Ethereum-specific parts removed, osrs-evals' navigation,
 crumbs and radii added):
