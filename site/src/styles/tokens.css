@@ -253,6 +253,10 @@ html.dark {
   --color-model-claude-sonnet-5: oklch(80% 0.11 297);
   --color-model-claude-sonnet-5-5: oklch(50% 0.15 304);
 
+  /* The tile under a game sprite set on the world map (the home intro's pin): the client's
+   * parchment, the same in both themes, as the map is. */
+  --color-parchment: oklch(84% 0.053 89);
+
   /* The page's gap between sections and the breadcrumb bar's height (top-header for what sticks
    * under it), and content that arrives fading in at the one motion speed. */
   --spacing-gutter: 1.5rem;

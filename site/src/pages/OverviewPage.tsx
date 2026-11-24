@@ -15,6 +15,7 @@ import { bestLevelKeys, blendedScores } from '@/lib/score';
 import { inScope, useDocumentTitle, useEffort, useScope, useScopeUpdate, useSearchUpdate } from '@/lib/search';
 import { overviewSearch } from './overview/search';
 import { Leaderboard } from './overview/Leaderboard';
+import { Intro } from './overview/Intro';
 
 const route = getRouteApi('/');
 
@@ -39,6 +40,7 @@ export function OverviewPage(): JSX.Element {
 
   return (
     <>
+      <Intro />
       <PageToolbar label="Filters">
         <PairingFilters runs={data.runs} thinking={scope.thinking} agent={scope.agent} onChange={setScope} />
       </PageToolbar>
