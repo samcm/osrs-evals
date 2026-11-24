@@ -1,7 +1,9 @@
 /**
  * The eval page's first view: who won and whether anyone finished, as a still chart and the eval's
  * ranked table beside it. Game time along x; up y, the eval's measure in even quarters of the most
- * any run reached (on an eval with a target, its stages up to the target). Each pairing is its runs'
+ * any run reached. On an eval with a target and milestones (Dragon Slayer, Hero's Quest), up y is
+ * how many of its milestones a run had reached: its quest stages alone sit at 0 for hours and then
+ * jump, so the lines were sharp steps (Sam: break it down further). Each pairing is its runs'
  * median line (or their best, or every run), with the band of its runs for the lit pairing, else
  * the winner; every run that reached the target is checked where it did. The table ranks every
  * pairing by the eval's score, its swatch keying its line; a row lights its line, a click isolates it.
@@ -40,6 +42,7 @@ import {
   totalBudgetTicks,
   valueAt,
   type Agg,
+  type CurvePoint,
   type RankedVariant,
   type RunCurve,
 } from '@/pages/eval/model';
@@ -67,6 +70,25 @@ function stepAt(points: [number, number][], x: number): number | null {
     value = py;
   }
   return value;
+}
+
+/**
+ * A run as the milestones it had reached: 0 at the start, one more at each milestone's tick, to its
+ * last point. A run exported without its accounts' states stays at 0.
+ */
+function milestoneCurve(cv: RunCurve): RunCurve {
+  const ticks = Object.values(cv.run.milestones ?? {}).sort((a, b) => a - b);
+  const start = cv.points[0];
+  const end = cv.points[cv.points.length - 1];
+  const at = (tick: number, value: number): CurvePoint => ({ ...start, tick, value });
+  return {
+    ...cv,
+    points: [
+      at(0, 0),
+      ...ticks.map((tick, i) => at(tick, i + 1)),
+      ...(end && end.tick > (ticks[ticks.length - 1] ?? 0) ? [at(end.tick, ticks.length)] : []),
+    ],
+  };
 }
 
 /** Where each run reached the target: a dot in its pairing's colour with a check, over the plot. */
@@ -100,7 +122,7 @@ function FinishMarks({
 
 export function FinishChart({
   e,
-  curves,
+  curves: stageCurves,
   ranked,
   agg,
   legend,
@@ -115,18 +137,28 @@ export function FinishChart({
 }): JSX.Element {
   const navigate = useNavigate();
   const lit = useLit(legend.focus);
-  const target = e.target;
   const budget = totalBudgetTicks(e);
+  const milestoneCount = e.target != null ? (e.milestones?.length ?? 0) : 0;
+  const byMilestones = milestoneCount > 0;
+  // On milestones there is no target line: a finisher can end short of every milestone
+  const target = byMilestones ? null : e.target;
+  const curves = useMemo(
+    () => (byMilestones ? stageCurves.map(milestoneCurve) : stageCurves),
+    [stageCurves, byMilestones]
+  );
   const toSeconds = (tick: number): number => (tick * e.tick_ms) / 1000;
   const lastValue = (cv: RunCurve): number => cv.points[cv.points.length - 1]?.value ?? 0;
 
   // The top of the axis: the target, or the most any run reached
   const top = useMemo(
-    () => target ?? Math.max(1, ...curves.map(lastValue), ...ranked.map(r => r.bestResult ?? 0)),
-    [curves, ranked, target]
+    () =>
+      byMilestones
+        ? milestoneCount
+        : (target ?? Math.max(1, ...curves.map(lastValue), ...ranked.map(r => r.bestResult ?? 0))),
+    [curves, ranked, target, byMilestones, milestoneCount]
   );
   const yTicks =
-    target != null ? roundTicks(target).filter(v => v <= target) : [0, 0.25, 0.5, 0.75, 1].map(f => f * top);
+    target != null || byMilestones ? roundTicks(top).filter(v => v <= top) : [0, 0.25, 0.5, 0.75, 1].map(f => f * top);
 
   const pairings = useMemo<Pairing[]>(() => {
     const grid = sampleGrid({ min: 0, max: budget, log: false, budget }, 320);
@@ -165,23 +197,32 @@ export function FinishChart({
     });
   }, [curves, ranked, legend, agg, budget, top]);
 
-  // Every run that reached the target, where it did
+  // Every run that reached the target, where it did (on milestones, at its count when it finished)
   const marks = useMemo(
     () =>
-      target == null
-        ? []
-        : pairings.flatMap(p =>
+      byMilestones
+        ? pairings.flatMap(p =>
             p.curves
-              .filter(cv => cv.run.success)
-              .map(cv => ({
-                key: cv.run.id,
-                spec: p.spec,
-                tick: Math.min(budget, reachedAt(cv, target)),
-                value: target,
-              }))
-              .filter(m => Number.isFinite(m.tick))
-          ),
-    [pairings, target, budget]
+              .filter(cv => cv.run.success && cv.run.ticks != null)
+              .map(cv => {
+                const tick = Math.min(budget, cv.run.ticks!);
+                return { key: cv.run.id, spec: p.spec, tick, value: valueAt(cv, 'ticks', tick) ?? 0 };
+              })
+          )
+        : target == null
+          ? []
+          : pairings.flatMap(p =>
+              p.curves
+                .filter(cv => cv.run.success)
+                .map(cv => ({
+                  key: cv.run.id,
+                  spec: p.spec,
+                  tick: Math.min(budget, reachedAt(cv, target)),
+                  value: target,
+                }))
+                .filter(m => Number.isFinite(m.tick))
+            ),
+    [pairings, target, budget, byMilestones]
   );
 
   // Ticks on round game-clock times
@@ -230,9 +271,9 @@ export function FinishChart({
     <div className="grid gap-gutter xl:grid-cols-12">
       <PageSection
         className="xl:col-span-7"
-        title={e.measure}
+        title={byMilestones ? `Milestones, of ${formatInt(milestoneCount)}` : e.measure}
         description={
-          target != null
+          e.target != null
             ? `${formatInt(ranked.reduce((n, r) => n + r.finished, 0))} of ${formatInt(ranked.reduce((n, r) => n + r.runs.length, 0))} runs finished`
             : undefined
         }
