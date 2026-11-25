@@ -30,9 +30,10 @@ BUDGET_LEVELS = {1024: "minimal", 2048: "low", 8192: "medium", 16384: "high", 32
 # context window and thinking levels. Overrides where the endpoint differs: its Qwen3.8 27B takes only
 # reasoning_effort low, medium or xhigh, and the bridge forwards reasoning_effort but not the chat
 # template's kwargs, where omp would put Qwen's effort. Its window is the endpoint's (196,608 tokens in, 65,536
-# out), not omp's reference's (262,144 and 131,072), so omp compacts before the endpoint refuses a request.
+# out), not omp's reference's (262,144 and 131,072), so omp compacts before the endpoint refuses a request,
+# and it takes no images (its deployment answers 400 "At most 0 image(s)"), so omp never sends one.
 PRIVATE_MODELS = {
-    "qwen3.8-27b": {"thinking": {"mode": "effort", "efforts": ["low", "medium", "xhigh"]}, "compat": {"thinkingFormat": "openai"}, "contextWindow": 196608, "maxTokens": 65536},
+    "qwen3.8-27b": {"thinking": {"mode": "effort", "efforts": ["low", "medium", "xhigh"]}, "compat": {"thinkingFormat": "openai"}, "contextWindow": 196608, "maxTokens": 65536, "input": ["text"]},
 }
 
 
