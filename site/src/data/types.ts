@@ -142,7 +142,7 @@ export interface Run {
   summary?: string | null;
   /** Model calls that got no reply in time; a run whose last call timed out ends by `model timed out` */
   model_timeouts?: number;
-  /** Other model calls that failed (a provider's 5xx) while the game went on */
+  /** Other model calls that failed (a provider's 5xx or a rejected request); a run whose last call failed ends by `model error` */
   model_errors?: number;
   /** What site/summarize.py measured of the run from its logs */
   facts?: RunFacts | null;

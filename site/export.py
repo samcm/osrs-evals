@@ -1299,10 +1299,14 @@ def export_sample(log, info, s, prices: dict, quests: list[dict], items: dict, o
         "tick_ms": tick_ms,
         "attempts": attempts,
         "attempt_results": md.get("attempts"),
-        # A game whose agent stopped because its last model call timed out says so, not that it chose to stop
-        "ended_by": "model timed out" if game.get("ended_by") == "agent finished" and model_events and "timed out" in (model_events[-1].error or "") else game.get("ended_by"),
+        # A game whose agent stopped because its last model call timed out or failed says so, not that it chose to stop
+        "ended_by": (
+            ("model timed out" if "timed out" in model_events[-1].error else "model error")
+            if game.get("ended_by") == "agent finished" and model_events and model_events[-1].error and "ancel" not in model_events[-1].error
+            else game.get("ended_by")
+        ),
         "model_timeouts": sum("timed out" in (e.error or "") for e in model_events),
-        # Other calls that failed while the game went on (a 5xx from the provider), not the one the game's end cancels
+        # Other calls that failed (a 5xx or a rejected request), not the one the game's end cancels
         "model_errors": sum(bool(e.error) and "timed out" not in e.error and "ancel" not in e.error for e in model_events),
         "limit": s.limit.type if s.limit else None,
         "game_ticks": end_tick,

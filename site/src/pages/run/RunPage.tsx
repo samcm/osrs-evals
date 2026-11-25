@@ -228,7 +228,9 @@ function callTrouble(run: RunDetail): string | undefined {
     run.model_timeouts
       ? `${calls(run.model_timeouts)} got no reply within 10 minutes and timed out${run.ended_by === 'model timed out' ? '; the game ended on the last one' : ''}.`
       : null,
-    run.model_errors ? `${calls(run.model_errors)} failed with a provider error, and the agent carried on.` : null,
+    run.model_errors
+      ? `${calls(run.model_errors)} failed with a provider error, ${run.ended_by === 'model error' ? 'and the game ended on the last one' : 'and the agent carried on'}.`
+      : null,
   ].filter(Boolean);
   return parts.length ? parts.join(' ') : undefined;
 }
