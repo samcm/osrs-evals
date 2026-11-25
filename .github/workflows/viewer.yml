@@ -39,9 +39,10 @@ jobs:
           rm -f site-data.tgz site-data.tgz.part-*
           du -sh site/public/data
 
-      # rs-world is built against the game cache in the world image, so build that first (local only)
+      # rs-world is built against the game cache, which is in rs-sdk's server image, so build that
+      # first (local only). The eval layer on top (omp) isn't needed here.
       - name: World image
-        run: image/build.sh
+        run: BASE_ONLY=1 image/build.sh
 
       - uses: docker/login-action@v3
         with:
@@ -52,7 +53,7 @@ jobs:
       - name: Build and push
         run: |
           short=$(git rev-parse --short HEAD)
-          docker build -f viewer/Dockerfile -t "$IMAGE:main" -t "$IMAGE:sha-$short" .
+          docker build -f viewer/Dockerfile --build-arg WORLD_IMAGE=rs-sdk:71d949d -t "$IMAGE:main" -t "$IMAGE:sha-$short" .
           docker run --rm -d --name viewer -p 7576:7576 "$IMAGE:main"
           for i in $(seq 1 30); do curl -sf localhost:7576/data/index.json -o /dev/null && break; sleep 1; done
           curl -sf localhost:7576/ -o /dev/null && curl -sf localhost:7576/world/ -o /dev/null && curl -sf localhost:7576/data/index.json -o /dev/null

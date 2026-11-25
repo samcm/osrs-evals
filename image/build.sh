@@ -14,4 +14,6 @@ git -C "$SRC" fetch -q origin
 git -C "$SRC" checkout -q "$COMMIT"
 
 DOCKER_BUILDKIT=1 docker build -f "$SRC/server/Dockerfile" -t "rs-sdk:$COMMIT" "$SRC"
+# BASE_ONLY=1: stop at rs-sdk's server image, which has the game cache (all the site needs)
+[ "${BASE_ONLY:-}" = 1 ] && exit 0
 docker build -f "$HERE/Dockerfile" --build-arg "RS_SDK_IMAGE=rs-sdk:$COMMIT" -t "rs-evals-world:$COMMIT" "$SRC/server"
