@@ -328,7 +328,14 @@ def model_facts(catalog: dict, models: set[str]) -> dict:
             # model (by their most common canonical id); the maker's own entry says what it is, else the
             # entry under that canonical id with the most common name ("Qwen3.8 27B", not "Qwen3.8-27B")
             entries = [(prov, m) for prov, p in catalog.items() for m in (p.get("models") or {}).values()]
-            ids = Counter(m["canonical_model_id"] for _, m in entries if str(m.get("id")).split("/")[-1].lower() == name.lower() and m.get("canonical_model_id"))
+            # A fine-tune served under its base model's id and a tag (glm-5.3-flash-uncensored) is that
+            # model's entry, its tag kept in the name ("GLM-5.3 Flash, uncensored")
+            tag = None
+            for look in (name, *([name.rsplit("-", 1)[0]] if "-" in name else [])):
+                ids = Counter(m["canonical_model_id"] for _, m in entries if str(m.get("id")).split("/")[-1].lower() == look.lower() and m.get("canonical_model_id"))
+                if ids:
+                    tag = None if look == name else name.rsplit("-", 1)[1]
+                    break
             if not ids:
                 continue
             canonical = ids.most_common(1)[0][0]
@@ -336,7 +343,7 @@ def model_facts(catalog: dict, models: set[str]) -> dict:
             hits = [(prov, m) for prov, m in entries if m.get("canonical_model_id") == canonical and not VARIANT.search(m.get("name") or "")]
             names = Counter(m.get("name") for _, m in hits)
             mine = min(hits, key=lambda h: (h[0] != maker, -names[h[1].get("name")]))[1]
-            served, variant = mine, None
+            served, variant = mine, (re.match(r"(.+)", tag) if tag else None)
         elif served is not None and len(parts) > 2:
             # A router's entry: the maker's own entry says what the model is
             canonical = served.get("canonical_model_id")
