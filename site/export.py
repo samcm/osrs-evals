@@ -1443,6 +1443,8 @@ def export(log_dirs: list[str], price_source: str, out: Path):
         if thinking is None:
             print(f"skipped {info.name}: its solver pinned no thinking level")
             continue
+        if thinking == "off":
+            continue  # Sam: never a run with thinking off; their logs are kept, not published
         for s in log.samples:
             if s.error or not s.scores:
                 continue

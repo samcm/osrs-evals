@@ -313,7 +313,8 @@ never for one page. The only custom-drawn component is the world map.
   and max, lowest first (`THINKING_LEVELS`), and "no thinking levels" for a model that has none
   (omp's `none`, which is not off); there is no "default". The site has only runs of the omp solver
   (`evals/omp.py@omp`), and a run's level is its solver's `thinking` param; the export skips a run
-  without one, and says so. Never infer a level or fill one in.
+  without one, and says so. Never infer a level or fill one in. No run at off is played or published
+  (Sam: never a run with thinking off); the export skips any off log.
 - Logos are trademarks of their owners, used only to name their products. Never recolour them into
   series colours, alter their shape, or use them as decoration. The harness marks' sources and
   licences are listed in `public/assets/brands/SOURCES.md`.
