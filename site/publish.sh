@@ -21,6 +21,7 @@ export PYTHONPATH=.
 
 # Orbs boot with Docker stopped and the user outside the docker group.
 docker info >/dev/null 2>&1 || { sudo systemctl start docker && sudo chmod 666 /var/run/docker.sock; }
+docker buildx version >/dev/null 2>&1 || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker-buildx-plugin >/dev/null
 docker image inspect rs-sdk:71d949d >/dev/null 2>&1 || BASE_ONLY=1 image/build.sh >/tmp/build-rs-sdk.log 2>&1
 if [ ! -f .cache/rs-world/index.html ]; then
     docker build -q -f viewer/Dockerfile --target rs-world --build-arg WORLD_IMAGE=rs-sdk:71d949d -t rs-world:build . >/dev/null
