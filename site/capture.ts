@@ -11,12 +11,15 @@ const base = process.argv.find((a) => a.startsWith('http')) ?? 'http://localhost
 const redo = process.argv.includes('--all');
 const DATA = `${import.meta.dir}/public/data`;
 const index = await Bun.file(`${DATA}/index.json`).json();
+// rs-world draws these runs' last tick mostly black with torn terrain on every try: no screenshot
+// is better than that one
+const MISDRAWN = new Set(['YcDgcDSa-mZeE6S-1-1']);
 const ab = (...args: string[]) => Bun.spawnSync(['agent-browser', '--session', 'capture', ...args], { env: { ...process.env, AGENT_BROWSER_NAMESPACE: 'capture' } });
 
 let done = 0;
 for (const run of index.runs) {
     const out = `${DATA}/runs/${run.id}.jpg`;
-    if (!run.has_replay || run.start_tick == null || (existsSync(out) && !redo)) continue;
+    if (MISDRAWN.has(run.id) || !run.has_replay || run.start_tick == null || (existsSync(out) && !redo)) continue;
     // With several tries, `ticks` counts from the start of the best try; show the game's last tick.
     const tick = run.start_tick + (run.attempts > 1 ? run.game_ticks : (run.ticks ?? run.game_ticks ?? 0));
     const feed = `${base.replace(/^http/, 'ws')}/feed/${run.id}?from=${tick}&until=${tick}`;
